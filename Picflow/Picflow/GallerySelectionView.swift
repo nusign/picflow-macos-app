@@ -1,6 +1,6 @@
 //
 //  GallerySelectionView.swift
-//  Picflow Live
+//  Picflow
 //
 //  Created by Michel Luarasi on 26.01.2025.
 //
@@ -59,12 +59,12 @@ struct GallerySelectionView: View {
         error = nil
         
         do {
-            let response: GalleriesResponse = try await Endpoint(
+            let response: GalleryResponse = try await Endpoint(
                 path: "/v1/galleries",
                 httpMethod: .get
             ).response()
             
-            galleries = response.galleries
+            galleries = response.data
         } catch {
             self.error = error
         }

@@ -22,5 +22,18 @@
     <string>1</string>
     <key>LSUIElement</key>
     <true/>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>com.picflow.macos.oauth</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>picflow</string>
+            </array>
+        </dict>
+    </array>
+    <key>ClerkClientId</key>
+    <string>r3Zcs7yzt0s7iLtA</string>
 </dict>
 </plist>

@@ -12,37 +12,37 @@
 			containerPortal = 195B9DA32D3FB40600BEBCBD /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 195B9DAA2D3FB40600BEBCBD;
-            remoteInfo = "Picflow";
+			remoteInfo = Picflow;
 		};
 		195B9DC72D3FB40800BEBCBD /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 195B9DA32D3FB40600BEBCBD /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 195B9DAA2D3FB40600BEBCBD;
-            remoteInfo = "Picflow";
+			remoteInfo = Picflow;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		195B9DAB2D3FB40600BEBCBD /* Picflow.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Picflow.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		195B9DBC2D3FB40800BEBCBD /* Picflow LiveTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Picflow LiveTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
-		195B9DC62D3FB40800BEBCBD /* Picflow LiveUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Picflow LiveUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		195B9DAB2D3FB40600BEBCBD /* Picflow.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Picflow.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		195B9DBC2D3FB40800BEBCBD /* PicflowTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PicflowTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		195B9DC62D3FB40800BEBCBD /* PicflowUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PicflowUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		195B9DAD2D3FB40600BEBCBD /* Picflow Live */ = {
+		195B9DAD2D3FB40600BEBCBD /* Picflow */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "Picflow Live";
+			path = Picflow;
 			sourceTree = "<group>";
 		};
-		195B9DBF2D3FB40800BEBCBD /* Picflow LiveTests */ = {
+		195B9DBF2D3FB40800BEBCBD /* PicflowTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "Picflow LiveTests";
+			path = PicflowTests;
 			sourceTree = "<group>";
 		};
-		195B9DC92D3FB40800BEBCBD /* Picflow LiveUITests */ = {
+		195B9DC92D3FB40800BEBCBD /* PicflowUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "Picflow LiveUITests";
+			path = PicflowUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -75,9 +75,9 @@
 		195B9DA22D3FB40600BEBCBD = {
 			isa = PBXGroup;
 			children = (
-				195B9DAD2D3FB40600BEBCBD /* Picflow Live */,
-				195B9DBF2D3FB40800BEBCBD /* Picflow LiveTests */,
-				195B9DC92D3FB40800BEBCBD /* Picflow LiveUITests */,
+				195B9DAD2D3FB40600BEBCBD /* Picflow */,
+				195B9DBF2D3FB40800BEBCBD /* PicflowTests */,
+				195B9DC92D3FB40800BEBCBD /* PicflowUITests */,
 				195B9DAC2D3FB40600BEBCBD /* Products */,
 			);
 			sourceTree = "<group>";
@@ -86,8 +86,8 @@
 			isa = PBXGroup;
 			children = (
 				195B9DAB2D3FB40600BEBCBD /* Picflow.app */,
-				195B9DBC2D3FB40800BEBCBD /* Picflow LiveTests.xctest */,
-				195B9DC62D3FB40800BEBCBD /* Picflow LiveUITests.xctest */,
+				195B9DBC2D3FB40800BEBCBD /* PicflowTests.xctest */,
+				195B9DC62D3FB40800BEBCBD /* PicflowUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -108,18 +108,18 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				195B9DAD2D3FB40600BEBCBD /* Picflow Live */,
+				195B9DAD2D3FB40600BEBCBD /* Picflow */,
 			);
-			name = "Picflow";
+			name = Picflow;
 			packageProductDependencies = (
 			);
-			productName = "Picflow";
+			productName = Picflow;
 			productReference = 195B9DAB2D3FB40600BEBCBD /* Picflow.app */;
 			productType = "com.apple.product-type.application";
 		};
-		195B9DBB2D3FB40800BEBCBD /* Picflow LiveTests */ = {
+		195B9DBB2D3FB40800BEBCBD /* PicflowTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 195B9DD32D3FB40800BEBCBD /* Build configuration list for PBXNativeTarget "Picflow LiveTests" */;
+			buildConfigurationList = 195B9DD32D3FB40800BEBCBD /* Build configuration list for PBXNativeTarget "PicflowTests" */;
 			buildPhases = (
 				195B9DB82D3FB40800BEBCBD /* Sources */,
 				195B9DB92D3FB40800BEBCBD /* Frameworks */,
@@ -131,18 +131,18 @@
 				195B9DBE2D3FB40800BEBCBD /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				195B9DBF2D3FB40800BEBCBD /* Picflow LiveTests */,
+				195B9DBF2D3FB40800BEBCBD /* PicflowTests */,
 			);
-			name = "Picflow LiveTests";
+			name = PicflowTests;
 			packageProductDependencies = (
 			);
-			productName = "Picflow LiveTests";
-			productReference = 195B9DBC2D3FB40800BEBCBD /* Picflow LiveTests.xctest */;
+			productName = PicflowTests;
+			productReference = 195B9DBC2D3FB40800BEBCBD /* PicflowTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		195B9DC52D3FB40800BEBCBD /* Picflow LiveUITests */ = {
+		195B9DC52D3FB40800BEBCBD /* PicflowUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 195B9DD62D3FB40800BEBCBD /* Build configuration list for PBXNativeTarget "Picflow LiveUITests" */;
+			buildConfigurationList = 195B9DD62D3FB40800BEBCBD /* Build configuration list for PBXNativeTarget "PicflowUITests" */;
 			buildPhases = (
 				195B9DC22D3FB40800BEBCBD /* Sources */,
 				195B9DC32D3FB40800BEBCBD /* Frameworks */,
@@ -154,13 +154,13 @@
 				195B9DC82D3FB40800BEBCBD /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				195B9DC92D3FB40800BEBCBD /* Picflow LiveUITests */,
+				195B9DC92D3FB40800BEBCBD /* PicflowUITests */,
 			);
-			name = "Picflow LiveUITests";
+			name = PicflowUITests;
 			packageProductDependencies = (
 			);
-			productName = "Picflow LiveUITests";
-			productReference = 195B9DC62D3FB40800BEBCBD /* Picflow LiveUITests.xctest */;
+			productName = PicflowUITests;
+			productReference = 195B9DC62D3FB40800BEBCBD /* PicflowUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
@@ -203,8 +203,8 @@
 			projectRoot = "";
 			targets = (
 				195B9DAA2D3FB40600BEBCBD /* Picflow */,
-				195B9DBB2D3FB40800BEBCBD /* Picflow LiveTests */,
-				195B9DC52D3FB40800BEBCBD /* Picflow LiveUITests */,
+				195B9DBB2D3FB40800BEBCBD /* PicflowTests */,
+				195B9DC52D3FB40800BEBCBD /* PicflowUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -260,12 +260,12 @@
 /* Begin PBXTargetDependency section */
 		195B9DBE2D3FB40800BEBCBD /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 195B9DAA2D3FB40600BEBCBD /* Picflow Live */;
+			target = 195B9DAA2D3FB40600BEBCBD /* Picflow */;
 			targetProxy = 195B9DBD2D3FB40800BEBCBD /* PBXContainerItemProxy */;
 		};
 		195B9DC82D3FB40800BEBCBD /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 195B9DAA2D3FB40600BEBCBD /* Picflow Live */;
+			target = 195B9DAA2D3FB40600BEBCBD /* Picflow */;
 			targetProxy = 195B9DC72D3FB40800BEBCBD /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -394,45 +394,45 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "Picflow Live/Picflow_Live.entitlements";
+				CODE_SIGN_ENTITLEMENTS = Picflow/Picflow.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"Picflow Live/Preview Content\"";
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-                PRODUCT_BUNDLE_IDENTIFIER = "Nusign.Picflow";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
-			};
-			name = Debug;
+			DEVELOPMENT_ASSET_PATHS = "\"Picflow/Preview Content\"";
+			ENABLE_PREVIEWS = YES;
+			INFOPLIST_FILE = Picflow/Info.plist;
+			INFOPLIST_KEY_NSHumanReadableCopyright = "";
+			LD_RUNPATH_SEARCH_PATHS = (
+				"$(inherited)",
+				"@executable_path/../Frameworks",
+			);
+			MARKETING_VERSION = 1.0;
+			PRODUCT_BUNDLE_IDENTIFIER = Nusign.Picflow;
+			PRODUCT_NAME = "$(TARGET_NAME)";
+			SWIFT_EMIT_LOC_STRINGS = YES;
+			SWIFT_VERSION = 5.0;
 		};
-		195B9DD22D3FB40800BEBCBD /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "Picflow Live/Picflow_Live.entitlements";
-				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"Picflow Live/Preview Content\"";
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+		name = Debug;
+	};
+	195B9DD22D3FB40800BEBCBD /* Release */ = {
+		isa = XCBuildConfiguration;
+		buildSettings = {
+			ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+			ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+			CODE_SIGN_ENTITLEMENTS = Picflow/Picflow.entitlements;
+			CODE_SIGN_STYLE = Automatic;
+			COMBINE_HIDPI_IMAGES = YES;
+			CURRENT_PROJECT_VERSION = 1;
+			DEVELOPMENT_ASSET_PATHS = "\"Picflow/Preview Content\"";
+			ENABLE_PREVIEWS = YES;
+			INFOPLIST_FILE = Picflow/Info.plist;
+			INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-                PRODUCT_BUNDLE_IDENTIFIER = "Nusign.Picflow";
+				PRODUCT_BUNDLE_IDENTIFIER = Nusign.Picflow;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -448,11 +448,11 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.1;
 				MARKETING_VERSION = 1.0;
-                PRODUCT_BUNDLE_IDENTIFIER = "Nusign.PicflowTests";
+				PRODUCT_BUNDLE_IDENTIFIER = Nusign.PicflowTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
-                TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Picflow.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Picflow";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Picflow.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Picflow";
 			};
 			name = Debug;
 		};
@@ -465,11 +465,11 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.1;
 				MARKETING_VERSION = 1.0;
-                PRODUCT_BUNDLE_IDENTIFIER = "Nusign.PicflowTests";
+				PRODUCT_BUNDLE_IDENTIFIER = Nusign.PicflowTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
-                TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Picflow.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Picflow";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Picflow.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Picflow";
 			};
 			name = Release;
 		};
@@ -480,11 +480,11 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-                PRODUCT_BUNDLE_IDENTIFIER = "Nusign.PicflowUITests";
+				PRODUCT_BUNDLE_IDENTIFIER = Nusign.PicflowUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
-                TEST_TARGET_NAME = "Picflow";
+				TEST_TARGET_NAME = Picflow;
 			};
 			name = Debug;
 		};
@@ -495,18 +495,18 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-                PRODUCT_BUNDLE_IDENTIFIER = "Nusign.PicflowUITests";
+				PRODUCT_BUNDLE_IDENTIFIER = Nusign.PicflowUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
-                TEST_TARGET_NAME = "Picflow";
+				TEST_TARGET_NAME = Picflow;
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		195B9DA62D3FB40600BEBCBD /* Build configuration list for PBXProject "Picflow Live" */ = {
+		195B9DA62D3FB40600BEBCBD /* Build configuration list for PBXProject "Picflow" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				195B9DCE2D3FB40800BEBCBD /* Debug */,
@@ -515,7 +515,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		195B9DD02D3FB40800BEBCBD /* Build configuration list for PBXNativeTarget "Picflow Live" */ = {
+		195B9DD02D3FB40800BEBCBD /* Build configuration list for PBXNativeTarget "Picflow" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				195B9DD12D3FB40800BEBCBD /* Debug */,
@@ -524,7 +524,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		195B9DD32D3FB40800BEBCBD /* Build configuration list for PBXNativeTarget "Picflow LiveTests" */ = {
+		195B9DD32D3FB40800BEBCBD /* Build configuration list for PBXNativeTarget "PicflowTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				195B9DD42D3FB40800BEBCBD /* Debug */,
@@ -533,7 +533,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		195B9DD62D3FB40800BEBCBD /* Build configuration list for PBXNativeTarget "Picflow LiveUITests" */ = {
+		195B9DD62D3FB40800BEBCBD /* Build configuration list for PBXNativeTarget "PicflowUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				195B9DD72D3FB40800BEBCBD /* Debug */,

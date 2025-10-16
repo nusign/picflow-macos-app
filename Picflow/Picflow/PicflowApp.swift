@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct PicflowLiveApp: App {
+struct PicflowApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     var body: some Scene {
@@ -9,4 +9,4 @@ struct PicflowLiveApp: App {
             EmptyView()
         }
     }
-} 
+}

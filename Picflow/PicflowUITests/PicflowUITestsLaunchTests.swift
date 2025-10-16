@@ -1,13 +1,13 @@
 //
-//  Picflow_LiveUITestsLaunchTests.swift
-//  Picflow LiveUITests
+//  PicflowUITestsLaunchTests.swift
+//  PicflowUITests
 //
 //  Created by Michel Luarasi on 21.01.2025.
 //
 
 import XCTest
 
-final class Picflow_LiveUITestsLaunchTests: XCTestCase {
+final class PicflowUITestsLaunchTests: XCTestCase {
 
     override class var runsForEachTargetApplicationUIConfiguration: Bool {
         true

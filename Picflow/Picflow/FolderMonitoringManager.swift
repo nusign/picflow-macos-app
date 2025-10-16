@@ -1,6 +1,6 @@
 //
 //  FolderMonitoringManager.swift
-//  Picflow Live
+//  Picflow
 //
 //  Created by Michel Luarasi on 26.01.2025.
 //

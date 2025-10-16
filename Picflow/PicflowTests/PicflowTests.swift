@@ -1,14 +1,14 @@
 //
-//  Picflow_LiveTests.swift
-//  Picflow LiveTests
+//  PicflowTests.swift
+//  PicflowTests
 //
 //  Created by Michel Luarasi on 21.01.2025.
 //
 
 import Testing
-@testable import Picflow_Live
+@testable import Picflow
 
-struct Picflow_LiveTests {
+struct PicflowTests {
 
     @Test func example() async throws {
         // Write your test here and use APIs like `#expect(...)` to check expected conditions.

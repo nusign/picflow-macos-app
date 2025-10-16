@@ -1,13 +1,13 @@
 //
-//  Picflow_LiveUITests.swift
-//  Picflow LiveUITests
+//  PicflowUITests.swift
+//  PicflowUITests
 //
 //  Created by Michel Luarasi on 21.01.2025.
 //
 
 import XCTest
 
-final class Picflow_LiveUITests: XCTestCase {
+final class PicflowUITests: XCTestCase {
 
     override func setUpWithError() throws {
         // Put setup code here. This method is called before the invocation of each test method in the class.
