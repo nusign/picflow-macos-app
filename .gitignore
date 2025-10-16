@@ -1,0 +1,21 @@
+# macOS/Xcode/Swift ignores
+DerivedData/
+build/
+*.xcuserdatad/
+*.xcscmblueprint
+xcuserdata/
+*.xcworkspace/xcuserdata/
+*.DS_Store
+*.xcuserstate
+*.xccheckout
+*.moved-aside
+*.swp
+*.lock
+*.pbxuser
+*.mode*v3
+*.perspectivev3
+*.playground
+Package.resolved
+**/.swiftpm/
+.cursor/
+.agent-tools/
