@@ -22,9 +22,11 @@ SwiftUI app that uploads assets to Picflow.
 
 ## Permissions
 
-- App Sandbox with user-selected read/write file access
+- ~~App Sandbox with user-selected read/write file access~~ (Currently disabled for Capture One integration)
 - Apple Events permission for host automations (Capture One)
 - Custom URL scheme `picflow://` for OAuth callback
+
+**Note:** App sandboxing is currently disabled to allow AppleScript automation with Capture One. This means the app can only be distributed outside the Mac App Store.
 
 ## Usage
 
@@ -79,6 +81,51 @@ SwiftUI app that uploads assets to Picflow.
 - **Upload States**: Published `UploadState` enum with auto-reset timers
 - **Folder Monitoring**: `FolderMonitor` with FSEvents watching for file additions
 - **Sleep Prevention**: `NSProcessInfo.processInfo.beginActivity` with `.userInitiated` option during uploads
+
+## Capture One Integration
+
+### Detection
+- **CaptureOneMonitor**: Real-time detection of Capture One app status (running/not running)
+- **NSWorkspace integration**: Monitors app launch/terminate events + 2-second polling fallback
+- **Multi-version support**: Detects Capture One versions 15, 16, 20, 21, 22, 23
+
+### AppleScript Automation Capabilities
+Capture One provides extensive AppleScript support for workflow automation. See [CAPTURE_ONE_APPLESCRIPT_CAPABILITIES.md](CAPTURE_ONE_APPLESCRIPT_CAPABILITIES.md) for full details.
+
+**Key Capabilities:**
+- ✅ **Selection reading**: Get count and properties of selected variants
+- ✅ **File access**: Read file paths, names, and metadata of selected images
+- ✅ **Metadata**: Full access to IPTC, EXIF, ratings, color tags, GPS coordinates
+- ✅ **Process/Export**: Trigger exports using Capture One recipes via `process` command
+- ✅ **Adjustments**: Copy/apply/reset adjustments between variants
+- ✅ **Image operations**: Rotate, crop, autoadjust selected images
+
+**Planned Workflow:**
+1. User selects images in Capture One
+2. Picflow monitors selection and displays count
+3. User triggers upload in Picflow
+4. AppleScript exports via "Picflow Upload" recipe to temp folder
+5. Picflow auto-uploads exported files
+6. Temp files cleaned up automatically
+
+**Example AppleScript:**
+```applescript
+tell application "Capture One 16"
+    tell front document
+        -- Get selected variants
+        set selectedVariants to (get variants whose selected is true)
+        
+        -- Process with Picflow recipe
+        repeat with v in selectedVariants
+            process v recipe "Picflow Upload"
+        end repeat
+    end tell
+end tell
+```
+
+**Resources:**
+- [Capture One Scripting Documentation](https://support.captureone.com/hc/en-us/articles/360002681418-Scripting-for-Capture-One)
+- AppleScript Dictionary: Open Capture One → Scripts → Open Scripting Dictionary
 
 ## TBD
 

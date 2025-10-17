@@ -79,7 +79,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let contentView = ContentView(uploader: uploader, authenticator: authenticator)
         
         floatingWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 440, height: 380),
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 700),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false

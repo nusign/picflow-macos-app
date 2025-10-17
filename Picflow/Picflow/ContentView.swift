@@ -42,6 +42,12 @@ struct ContentView: View {
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
                     .padding(.top, 8)
+                    
+                    Divider()
+                        .padding(.vertical, 16)
+                    
+                    // Capture One Integration PoC (visible before auth for testing)
+                    CaptureOneStatusView()
                 }
                 .padding()
             } else {
@@ -67,12 +73,18 @@ struct ContentView: View {
                     .sheet(isPresented: $showingGallerySelection) {
                         GallerySelectionView(uploader: uploader)
                     }
+                    
+                    Divider()
+                        .padding(.vertical, 8)
+                    
+                    // Capture One Integration PoC
+                    CaptureOneStatusView()
                 }
             }
         }
         .padding()
         .padding(.top, 8) // Extra padding for traffic lights
-        .frame(minWidth: 440, minHeight: 380)
+        .frame(minWidth: 480, minHeight: 700)
         .background(Color.clear) // Transparent to show visual effect view
     }
 }

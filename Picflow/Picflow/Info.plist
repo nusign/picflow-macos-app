@@ -35,5 +35,7 @@
     </array>
     <key>ClerkClientId</key>
     <string>r3Zcs7yzt0s7iLtA</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Picflow needs permission to read your Capture One selection to automatically upload exported images.</string>
 </dict>
 </plist>
