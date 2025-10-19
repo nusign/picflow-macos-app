@@ -84,21 +84,35 @@ SwiftUI app that uploads assets to Picflow.
 
 ## Capture One Integration
 
-### Detection
-- **CaptureOneMonitor**: Real-time detection of Capture One app status (running/not running)
-- **NSWorkspace integration**: Monitors app launch/terminate events + 2-second polling fallback
-- **Multi-version support**: Detects Capture One versions 15, 16, 20, 21, 22, 23
+Seamless integration with Capture One for automated photo uploads. **Phase 1 complete!** ✅
 
-### AppleScript Automation Capabilities
-Capture One provides extensive AppleScript support for workflow automation. See [CAPTURE_ONE_APPLESCRIPT_CAPABILITIES.md](CAPTURE_ONE_APPLESCRIPT_CAPABILITIES.md) for full details.
+### Current Features
+- **Real-time Detection**: Monitors Capture One running status (green/red indicator)
+- **Selection Reading**: Displays count of selected assets
+- **Permission Handling**: User-friendly automation permission prompts
+- **Automatic Recipe Creation**: One-click setup of export recipe
+- **Multi-version Support**: Works with Capture One 15, 16, 20, 21, 22, 23
 
-**Key Capabilities:**
-- ✅ **Selection reading**: Get count and properties of selected variants
-- ✅ **File access**: Read file paths, names, and metadata of selected images
-- ✅ **Metadata**: Full access to IPTC, EXIF, ratings, color tags, GPS coordinates
-- ✅ **Process/Export**: Trigger exports using Capture One recipes via `process` command
-- ✅ **Adjustments**: Copy/apply/reset adjustments between variants
-- ✅ **Image operations**: Rotate, crop, autoadjust selected images
+### Upload Options
+1. **Export & Upload** (Recommended)
+   - Includes all Capture One edits (color grading, adjustments, crops)
+   - Auto-creates "Picflow Upload" recipe
+   - JPEG format, web-ready
+   - Automatic cleanup after upload
+
+2. **Upload Original Files**
+   - Direct RAW file upload
+   - No export needed
+   - For backup workflows
+
+### Documentation
+- 📖 [**CAPTURE_ONE_INTEGRATION.md**](CAPTURE_ONE_INTEGRATION.md) - Complete integration guide
+- 📚 [**CAPTURE_ONE_API_REFERENCE.md**](CAPTURE_ONE_API_REFERENCE.md) - Full AppleScript API documentation
+
+### Technical Notes
+- Requires app sandbox to be disabled (direct distribution only, no Mac App Store)
+- Uses `osascript` subprocess for reliable AppleScript execution
+- Exports to isolated temp folder: `~/Library/Application Support/Picflow/Exports/`
 
 **Planned Workflow:**
 1. User selects images in Capture One
