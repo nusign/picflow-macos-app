@@ -12,33 +12,42 @@ struct UploaderView: View {
     @ObservedObject var authenticator: Authenticator
     let onBack: () -> Void
     @State private var isDragging = false
+    @State private var isLiveModeEnabled = false
     
     var body: some View {
         VStack(spacing: 0) {
-            // Back Button
-            HStack {
-                Button(action: onBack) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 14, weight: .semibold))
-                        Text("Galleries")
-                            .font(.system(size: 14, weight: .medium))
-                    }
-                    .foregroundColor(.accentColor)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color.accentColor.opacity(0.1))
-                    .cornerRadius(8)
+            // Header
+            VStack(spacing: 12) {
+                // Gallery Title (centered)
+                HStack {
+                    Spacer()
+                    Text(uploader.selectedGallery?.displayName ?? "Gallery")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundColor(.primary)
+                    Spacer()
                 }
-                .buttonStyle(.plain)
-                Spacer()
+                
+                // Back Button and Live Toggle
+                HStack {
+                    BackButton(action: onBack)
+                    
+                    Spacer()
+                    
+                    // Live Mode Toggle
+                    Toggle("Live", isOn: $isLiveModeEnabled)
+                        .toggleStyle(.switch)
+                }
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
+            .padding()
             
-            // Dropzone (fills available vertical space)
-            DropzoneView(isDragging: $isDragging, onFilesSelected: handleFilesSelected)
-                .frame(maxHeight: .infinity)
+            // Main Content Area (fills available vertical space)
+            if isLiveModeEnabled {
+                LiveFolderView(onFolderSelected: handleFolderSelected)
+                    .frame(maxHeight: .infinity)
+            } else {
+                DropzoneView(isDragging: $isDragging, onFilesSelected: handleFilesSelected)
+                    .frame(maxHeight: .infinity)
+            }
             
             // Bottom components
             VStack(spacing: 16) {
@@ -61,6 +70,14 @@ struct UploaderView: View {
     private func handleFilesSelected(_ urls: [URL]) {
         print("📁 Files selected: \(urls.count)")
         uploader.queueFiles(urls)
+    }
+    
+    // MARK: - Folder Handling
+    
+    private func handleFolderSelected(_ url: URL) {
+        print("📂 Folder selected for live monitoring: \(url.path)")
+        // TODO: Implement folder monitoring logic
+        // This will start watching the folder and upload new files automatically
     }
 }
 
@@ -277,6 +294,35 @@ struct GenericUploadProgressView: View {
             return .red
         default:
             return .accentColor
+        }
+    }
+}
+
+// MARK: - Back Button
+
+struct BackButton: View {
+    let action: () -> Void
+    @State private var isHovered = false
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 14, weight: .semibold))
+                Text("Galleries")
+                    .font(.system(size: 14, weight: .medium))
+            }
+            .foregroundColor(.primary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(isHovered ? Color.primary.opacity(0.1) : Color.clear)
+            )
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            isHovered = hovering
         }
     }
 }

@@ -11,6 +11,7 @@ import SwiftUI
 struct GallerySelectionView: View {
     @ObservedObject var uploader: Uploader
     @EnvironmentObject var authenticator: Authenticator
+    @Environment(\.showDebugBorders) var showDebugBorders
     let onGallerySelected: () -> Void
     @State private var galleries: [GalleryDetails] = []
     @State private var isLoading = false
@@ -19,14 +20,29 @@ struct GallerySelectionView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Header
-            HStack {
-                Spacer()
-                Text("Choose Gallery")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundColor(.primary)
-                Spacer()
+            VStack(spacing: 8) {
+                // Workspace Indicator
+                HStack(spacing: 6) {
+                    Image(systemName: "square.grid.2x2")
+                        .font(.system(size: 16))
+                        .foregroundColor(.secondary)
+                    Text("Current Workspace")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                }
+                
+                // Title
+                HStack {
+                    Spacer()
+                    Text("Choose Gallery")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundColor(.primary)
+                        .border(showDebugBorders ? Color.orange : Color.clear, width: 1) // DEBUG: Title
+                    Spacer()
+                }
             }
             .padding()
+            .border(showDebugBorders ? Color.yellow : Color.clear, width: 2) // DEBUG: Header HStack
             
             // Content
             if isLoading {
@@ -56,14 +72,21 @@ struct GallerySelectionView: View {
                                 onGallerySelected()
                             } label: {
                                 GalleryCardView(gallery: gallery)
+                                    .border(showDebugBorders ? Color.cyan : Color.clear, width: 1) // DEBUG: Gallery Card
                             }
                             .buttonStyle(.plain)
                         }
                     }
+                    .frame(maxWidth: 640)
                     .padding()
+                    .border(showDebugBorders ? Color.purple : Color.clear, width: 2) // DEBUG: LazyVStack
+                    .frame(maxWidth: .infinity) // Center the container
                 }
+                .scrollIndicators(.automatic) // Show scrollbar when scrolling
+                .border(showDebugBorders ? Color.blue : Color.clear, width: 2) // DEBUG: ScrollView
             }
         }
+        .border(showDebugBorders ? Color.red : Color.clear, width: 3) // DEBUG: Outer VStack
         .task {
             await loadGalleries()
         }
@@ -90,4 +113,4 @@ struct GallerySelectionView: View {
         
         isLoading = false
     }
-} 
+}

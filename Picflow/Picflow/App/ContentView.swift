@@ -29,6 +29,6 @@ struct ContentView: View {
             }
         }
         .animation(.easeInOut(duration: 0.4), value: authenticator.isAuthenticated)
+        .ignoresSafeArea() // Extend content into title bar area
     }
 }
-

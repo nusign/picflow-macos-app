@@ -53,16 +53,10 @@ struct LoginView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .padding(.top, 8)
-            
-            Divider()
-                .padding(.vertical, 8)
-            
+                        
             // Development Testing Section
             VStack(spacing: 8) {
-                Text("Development Testing")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
+               
                 Button("Use Test Token") {
                     authenticator.authenticate(token: Constants.hardcodedToken)
                     Endpoint.currentTenantId = Constants.tenantId
@@ -73,6 +67,6 @@ struct LoginView: View {
             }
         }
         .padding()
+        .frame(width: 440, height: 320)
     }
 }
-
