@@ -65,7 +65,7 @@ class CaptureOneScriptBridge {
         """
         
         // MORE COMPLEX VERSION WITH DATA (disabled for now)
-        let complexScript = """
+        let _ = """
         tell application "\(appInfo.appName)"
             try
                 set selectedVariants to (get variants whose selected is true)

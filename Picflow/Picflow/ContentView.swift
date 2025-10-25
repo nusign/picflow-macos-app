@@ -12,7 +12,8 @@ import AppKit
 struct ContentView: View {
     @ObservedObject var uploader: Uploader
     @ObservedObject var authenticator: Authenticator
-    @State private var showingGallerySelection = false
+    @State private var isTestMode = false
+    @State private var showingUploader = false
     
     var body: some View {
         VStack(spacing: 20) {
@@ -30,12 +31,28 @@ struct ContentView: View {
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                     
+                    // Test Mode Badge
+                    if isTestMode {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                            Text("Test Mode")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                        }
+                        .padding(6)
+                        .background(Color.orange.opacity(0.1))
+                        .cornerRadius(6)
+                    }
+                    
+                    // OAuth Login Button
                     Button {
                         authenticator.startLogin()
+                        isTestMode = false
                     } label: {
                         HStack {
                             Image(systemName: "lock.shield")
-                            Text("Log in to Picflow")
+                            Text("Log in with Clerk")
                         }
                         .frame(maxWidth: .infinity)
                     }
@@ -44,41 +61,44 @@ struct ContentView: View {
                     .padding(.top, 8)
                     
                     Divider()
-                        .padding(.vertical, 16)
+                        .padding(.vertical, 8)
                     
-                    // Capture One Integration PoC (visible before auth for testing)
-                    CaptureOneStatusView()
+                    // Development Testing Section
+                    VStack(spacing: 8) {
+                    Text("Development Testing")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Button("Use Test Token") {
+                        authenticator.authenticate(token: Constants.hardcodedToken)
+                        Endpoint.currentTenantId = Constants.tenantId
+                        isTestMode = true
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.regular)
+                }
                 }
                 .padding()
             } else {
-                VStack(spacing: 16) {
-                    if let selectedGallery = uploader.selectedGallery {
-                        VStack(spacing: 8) {
-                            Text("Selected Gallery")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Text(selectedGallery.displayName)
-                                .font(.headline)
+                // Show gallery selection or uploader view based on state
+                if uploader.selectedGallery == nil || !showingUploader {
+                    // Gallery Selection View
+                    GallerySelectionView(
+                        uploader: uploader,
+                        onGallerySelected: {
+                            showingUploader = true
                         }
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(Color.accentColor.opacity(0.1))
-                        .cornerRadius(8)
-                    }
-                    
-                    Button("Select Gallery") {
-                        showingGallerySelection = true
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .sheet(isPresented: $showingGallerySelection) {
-                        GallerySelectionView(uploader: uploader)
-                    }
-                    
-                    Divider()
-                        .padding(.vertical, 8)
-                    
-                    // Capture One Integration PoC
-                    CaptureOneStatusView()
+                    )
+                    .environmentObject(authenticator)
+                } else {
+                    // Uploader View
+                    UploaderView(
+                        uploader: uploader,
+                        authenticator: authenticator,
+                        onBack: {
+                            showingUploader = false
+                        }
+                    )
                 }
             }
         }

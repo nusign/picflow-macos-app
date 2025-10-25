@@ -10,16 +10,40 @@ import SwiftUI
 
 struct GallerySelectionView: View {
     @ObservedObject var uploader: Uploader
+    @EnvironmentObject var authenticator: Authenticator
+    let onGallerySelected: () -> Void
     @State private var galleries: [GalleryDetails] = []
     @State private var isLoading = false
     @State private var error: Error?
-    @Environment(\.dismiss) private var dismiss
     
     var body: some View {
-        VStack {
+        VStack(spacing: 0) {
+            // Header with title and avatar
+            ZStack {
+                // Centered Title
+                Text("Choose Gallery")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundColor(.primary)
+                
+                // Avatar Top Right
+                HStack {
+                    Spacer()
+                    
+                    if case .authorized(_, let profile) = authenticator.state {
+                        UserProfileView(profile: profile, authenticator: authenticator)
+                    }
+                }
+            }
+            .padding()
+            .padding(.top, 8)
+            
+            // Content
             if isLoading {
+                Spacer()
                 ProgressView("Loading galleries...")
+                Spacer()
             } else if let error = error {
+                Spacer()
                 VStack {
                     Text("Error loading galleries")
                         .foregroundColor(.red)
@@ -31,13 +55,14 @@ struct GallerySelectionView: View {
                         }
                     }
                 }
+                Spacer()
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 10) {
                         ForEach(galleries, id: \.id) { gallery in
                             Button {
                                 uploader.selectGallery(gallery)
-                                dismiss()
+                                onGallerySelected()
                             } label: {
                                 SelectedGalleryView(gallery: gallery)
                             }
@@ -48,7 +73,6 @@ struct GallerySelectionView: View {
                 }
             }
         }
-        .frame(width: 400, height: 600)
         .task {
             await loadGalleries()
         }
@@ -61,7 +85,11 @@ struct GallerySelectionView: View {
         do {
             let response: GalleryResponse = try await Endpoint(
                 path: "/v1/galleries",
-                httpMethod: .get
+                httpMethod: .get,
+                queryItems: [
+                    "limit": "24",
+                    "sort[]": "-last_changed_at"
+                ]
             ).response()
             
             galleries = response.data

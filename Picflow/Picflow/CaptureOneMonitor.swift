@@ -8,6 +8,8 @@
 import Foundation
 import AppKit
 import Combine
+// TODO: Uncomment after adding Sentry SDK
+// import Sentry
 
 /// Monitors whether Capture One is currently running and reads selection data
 class CaptureOneMonitor: ObservableObject {
@@ -148,6 +150,14 @@ class CaptureOneMonitor: ObservableObject {
                 self.selection = CaptureOneSelection(count: 0, variants: [])
                 self.selectionError = nil
                 self.needsPermission = true
+                
+                // TODO: Uncomment after adding Sentry SDK
+                /*
+                SentrySDK.capture(message: "Capture One permission denied") { scope in
+                    scope.setLevel(.warning)
+                    scope.setTag(value: "capture_one", key: "integration")
+                }
+                */
             } catch CaptureOneScriptBridge.CaptureOneError.notRunning {
                 self.selection = CaptureOneSelection(count: 0, variants: [])
                 self.selectionError = nil
@@ -155,6 +165,18 @@ class CaptureOneMonitor: ObservableObject {
             } catch {
                 self.selectionError = "Script error: \(error.localizedDescription)"
                 self.needsPermission = false
+                
+                // Report unexpected Capture One errors to Sentry
+                // TODO: Uncomment after adding Sentry SDK
+                /*
+                SentrySDK.capture(error: error) { scope in
+                    scope.setContext(value: [
+                        "is_running": isRunning,
+                        "error_message": error.localizedDescription
+                    ], key: "capture_one")
+                    scope.setTag(value: "capture_one", key: "integration")
+                }
+                */
             }
             
             isLoadingSelection = false

@@ -14,8 +14,14 @@ import CryptoKit
 
 // MARK: - Profile
 struct Profile: Codable {
-    let firstName, lastName: String
+    let firstName: String
+    let lastName: String
     let email: String
+    let avatarUrl: String?
+    
+    var fullName: String {
+        "\(firstName) \(lastName)"
+    }
 }
 
 // MARK: - Authentication Request
@@ -278,6 +284,7 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
         }
         
         print("Making request to /v1/profile/current_tenant")
+        
         let response: TenantResponse = try await Endpoint(
             path: "/v1/profile/current_tenant",
             httpMethod: .get

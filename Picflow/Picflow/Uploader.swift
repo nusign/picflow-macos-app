@@ -7,6 +7,8 @@
 
 import Foundation
 import SwiftUI
+// TODO: Uncomment after adding Sentry SDK
+// import Sentry
 
 enum UploadState {
 	case idle
@@ -61,6 +63,23 @@ class Uploader: ObservableObject {
 		}
 		
 		do {
+			// Sentry breadcrumb: Upload started
+			// TODO: Uncomment after adding Sentry SDK
+			/*
+			SentrySDK.addBreadcrumb(crumb: Breadcrumb(
+				level: .info,
+				category: "upload"
+			).apply {
+				$0.message = "Upload started"
+				$0.data = [
+					"file_name": fileURL.lastPathComponent,
+					"file_size": fileData.count,
+					"gallery_id": gallery.id,
+					"section": section
+				]
+			})
+			*/
+			
 			// Step 1: Create asset and get presigned URL
 			let createAssetRequest = CreateAssetRequest(
 				gallery: gallery.id,
@@ -79,6 +98,21 @@ class Uploader: ObservableObject {
 			
 			uploadProgress = 0.3
 			
+			// Sentry breadcrumb: Asset created
+			// TODO: Uncomment after adding Sentry SDK
+			/*
+			SentrySDK.addBreadcrumb(crumb: Breadcrumb(
+				level: .info,
+				category: "upload"
+			).apply {
+				$0.message = "Asset created, starting S3 upload"
+				$0.data = [
+					"asset_id": createResponse.id,
+					"version_id": createResponse.version
+				]
+			})
+			*/
+			
 			// Step 2: Upload file to S3 using presigned URL
 			try await uploadToS3(
 				fileData: fileData,
@@ -91,6 +125,17 @@ class Uploader: ObservableObject {
 			
 			print("✅ Upload completed successfully for: \(fileURL.lastPathComponent)")
 			
+			// Sentry breadcrumb: Upload completed
+			// TODO: Uncomment after adding Sentry SDK
+			/*
+			SentrySDK.addBreadcrumb(crumb: Breadcrumb(
+				level: .info,
+				category: "upload"
+			).apply {
+				$0.message = "Upload completed successfully"
+			})
+			*/
+			
 			// Reset to idle after showing success
 			Task { @MainActor in
 				try? await Task.sleep(nanoseconds: 3_000_000_000)
@@ -98,6 +143,25 @@ class Uploader: ObservableObject {
 			}
 		} catch {
 			uploadState = .failed
+			
+			print("❌ Upload failed for: \(fileURL.lastPathComponent) - Error: \(error)")
+			
+			// Report to Sentry with context
+			// TODO: Uncomment after adding Sentry SDK
+			/*
+			SentrySDK.capture(error: error) { scope in
+				scope.setContext(value: [
+					"file_name": fileURL.lastPathComponent,
+					"file_size": fileData.count,
+					"gallery_id": gallery.id,
+					"section": section,
+					"upload_type": "post"
+				], key: "upload")
+				
+				scope.setTag(value: "upload", key: "operation")
+				scope.setTag(value: gallery.id, key: "gallery_id")
+			}
+			*/
 			
 			// Reset to idle after showing error
 			Task { @MainActor in
@@ -112,6 +176,13 @@ class Uploader: ObservableObject {
 	/// Upload file data to S3 using presigned URL with multipart form data
 	private func uploadToS3(fileData: Data, uploadURL: String, fields: [String: String]) async throws {
 		guard let url = URL(string: uploadURL) else {
+			// TODO: Uncomment after adding Sentry SDK
+			/*
+			SentrySDK.capture(message: "Invalid S3 upload URL") { scope in
+				scope.setLevel(.error)
+				scope.setContext(value: ["upload_url": uploadURL], key: "upload")
+			}
+			*/
 			throw UploadError.invalidUploadURL
 		}
 		
@@ -144,6 +215,17 @@ class Uploader: ObservableObject {
 		
 		guard let httpResponse = response as? HTTPURLResponse,
 		      200...299 ~= httpResponse.statusCode else {
+			// S3 upload failed - report to Sentry
+			// TODO: Uncomment after adding Sentry SDK
+			/*
+			SentrySDK.capture(message: "S3 upload failed") { scope in
+				scope.setLevel(.error)
+				scope.setContext(value: [
+					"status_code": (response as? HTTPURLResponse)?.statusCode ?? 0,
+					"file_size": fileData.count
+				], key: "s3_upload")
+			}
+			*/
 			throw UploadError.s3UploadFailed
 		}
 	}

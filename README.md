@@ -141,8 +141,27 @@ end tell
 - [Capture One Scripting Documentation](https://support.captureone.com/hc/en-us/articles/360002681418-Scripting-for-Capture-One)
 - AppleScript Dictionary: Open Capture One → Scripts → Open Scripting Dictionary
 
+## Development & Testing
+
+### Test Authentication
+For faster development iteration, a **"Use Test Token"** button is available in the login screen:
+- Bypasses OAuth flow
+- Uses hardcoded JWT token from `Constants.swift`
+- Shows "Test Mode" badge
+- Production OAuth flow remains available
+
+### Error Reporting (Sentry)
+Comprehensive error reporting is integrated throughout the app:
+- Upload failures with file context
+- Authentication errors
+- Folder monitoring issues
+- Capture One integration errors
+
+See [SENTRY_SETUP_GUIDE.md](SENTRY_SETUP_GUIDE.md) for complete setup instructions.
+
 ## TBD
 
 - Distribution: Mac App Store vs direct distribution with [Sparkle](https://sparkle-project.org) (Apple approval concerns)
-- Authentication: Clerk OAuth with consent page vs JWT token-based flow
+- ~~Authentication: Clerk OAuth with consent page vs JWT token-based flow~~ ✅ OAuth implemented + test token for development
 - Feedback sync: Sync favorites and color labels back to photography software (Lightroom, Capture One, Photo Mechanic)
+- Multipart uploads: For large files (>20MB), investigate backend multipart upload support
