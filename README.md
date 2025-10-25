@@ -112,7 +112,8 @@ Seamless integration with Capture One for automated photo uploads. **Phase 1 com
 ### Technical Notes
 - Requires app sandbox to be disabled (direct distribution only, no Mac App Store)
 - Uses `osascript` subprocess for reliable AppleScript execution
-- Exports to isolated temp folder: `~/Library/Application Support/Picflow/Exports/`
+- Exports to isolated temp folder: `~/Library/Application Support/Picflow/CaptureOneExports/`
+- **Recipe Configuration**: Use `root folder type` and `root folder location` properties (NOT `output location`)
 
 **Planned Workflow:**
 1. User selects images in Capture One
@@ -124,12 +125,19 @@ Seamless integration with Capture One for automated photo uploads. **Phase 1 com
 
 **Example AppleScript:**
 ```applescript
-tell application "Capture One 16"
-    tell front document
-        -- Get selected variants
-        set selectedVariants to (get variants whose selected is true)
+-- Create/configure export recipe
+tell application "Capture One"
+    tell document 1
+        set newRecipe to make new recipe with properties {name:"Picflow Upload"}
+        tell newRecipe
+            set root folder type to custom location
+            set root folder location to "/path/to/export/folder"
+        end tell
+        set format of newRecipe to JPEG
+        set quality of newRecipe to 90
         
-        -- Process with Picflow recipe
+        -- Process selected variants
+        set selectedVariants to (get variants whose selected is true)
         repeat with v in selectedVariants
             process v recipe "Picflow Upload"
         end repeat

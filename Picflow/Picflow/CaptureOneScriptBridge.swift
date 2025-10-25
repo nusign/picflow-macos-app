@@ -11,12 +11,27 @@ import AppKit
 /// Bridge to communicate with Capture One via AppleScript
 class CaptureOneScriptBridge {
     
-    enum CaptureOneError: Error {
+    enum CaptureOneError: Error, LocalizedError {
         case notRunning
         case scriptExecutionFailed(String)
         case noDocument
         case parseError
         case permissionDenied
+        
+        var errorDescription: String? {
+            switch self {
+            case .notRunning:
+                return "Capture One is not running"
+            case .scriptExecutionFailed(let message):
+                return message
+            case .noDocument:
+                return "No document is open in Capture One"
+            case .parseError:
+                return "Failed to parse response from Capture One"
+            case .permissionDenied:
+                return "Permission required: Please grant Picflow access to control Capture One in System Settings → Privacy & Security → Automation"
+            }
+        }
     }
     
     // Cache the detected app info
@@ -25,8 +40,18 @@ class CaptureOneScriptBridge {
     
     /// Detect the running Capture One app bundle identifier and name
     private func detectCaptureOneApp() -> (bundleId: String, appName: String)? {
+        // If we have a cached ID, verify it's still running
         if let cachedId = detectedBundleId, let cachedName = detectedAppName {
-            return (cachedId, cachedName)
+            let stillRunning = NSWorkspace.shared.runningApplications.contains { app in
+                app.bundleIdentifier == cachedId
+            }
+            if stillRunning {
+                return (cachedId, cachedName)
+            } else {
+                // App quit, clear cache
+                detectedBundleId = nil
+                detectedAppName = nil
+            }
         }
         
         let runningApps = NSWorkspace.shared.runningApplications
@@ -53,6 +78,20 @@ class CaptureOneScriptBridge {
     func getSelection() async throws -> CaptureOneSelection {
         // Detect which Capture One is running
         guard let appInfo = detectCaptureOneApp() else {
+            throw CaptureOneError.notRunning
+        }
+        
+        // CRITICAL: Double-check the app is actually running before executing AppleScript
+        // AppleScript's "tell application" will LAUNCH the app if it's not running!
+        let isStillRunning = NSWorkspace.shared.runningApplications.contains { app in
+            guard let bundleId = app.bundleIdentifier else { return false }
+            return bundleId == appInfo.bundleId
+        }
+        
+        guard isStillRunning else {
+            // App quit between detection and this check
+            detectedBundleId = nil  // Clear cache
+            detectedAppName = nil
             throw CaptureOneError.notRunning
         }
         
@@ -235,12 +274,17 @@ class CaptureOneScriptBridge {
                     if process.terminationStatus != 0 {
                         let errorMessage = String(data: errorData, encoding: .utf8) ?? "Unknown error"
                         
+                        print("🔍 AppleScript error output: \(errorMessage)")
+                        print("🔍 Termination status: \(process.terminationStatus)")
+                        
                         // Check for permission errors (-600, -1743, -1728)
                         if errorMessage.contains("(-600)") || errorMessage.contains("(-1743)") || 
                            errorMessage.contains("(-1728)") || errorMessage.contains("not allowed") || 
                            errorMessage.contains("permission") {
+                            print("🚫 Detected as permission error")
                             continuation.resume(throwing: CaptureOneError.permissionDenied)
                         } else {
+                            print("❌ Detected as script execution error")
                             continuation.resume(throwing: CaptureOneError.scriptExecutionFailed(errorMessage))
                         }
                         return
@@ -297,6 +341,282 @@ class CaptureOneScriptBridge {
         }
         
         return variants
+    }
+    
+    /// Force delete and recreate a recipe with the correct output location
+    /// Use this when you know the recipe has the wrong settings
+    /// - Parameters:
+    ///   - recipeName: Name of the recipe
+    ///   - outputFolder: Desired output folder
+    /// - Throws: CaptureOneError if creation fails
+    func forceRecreateRecipe(recipeName: String, outputFolder: URL) async throws {
+        guard let appInfo = detectCaptureOneApp() else {
+            throw CaptureOneError.notRunning
+        }
+        
+        print("🔄 Force recreating recipe '\(recipeName)'...")
+        
+        // Delete existing recipe
+        let deleteScript = """
+        tell application "\(appInfo.appName)"
+            try
+                tell document 1
+                    if (exists recipe "\(recipeName)") then
+                        delete recipe "\(recipeName)"
+                        return "DELETED"
+                    else
+                        return "NOT_EXISTS"
+                    end if
+                end tell
+            on error errMsg number errNum
+                return "ERROR:" & errMsg & " (code: " & errNum & ")"
+            end try
+        end tell
+        """
+        
+        let deleteResult = try await executeAppleScript(deleteScript)
+        
+        if deleteResult == "DELETED" {
+            print("🗑️  Deleted existing recipe '\(recipeName)'")
+        } else if deleteResult == "NOT_EXISTS" {
+            print("ℹ️  Recipe '\(recipeName)' didn't exist")
+        } else if deleteResult.hasPrefix("ERROR:") {
+            print("⚠️  Could not delete recipe: \(deleteResult)")
+            // Continue anyway - try to create it
+        }
+        
+        // Create new recipe with correct settings
+        let createScript = """
+        tell application "\(appInfo.appName)"
+            try
+                tell document 1
+                    -- Create new recipe
+                    set newRecipe to make new recipe with properties {name:"\(recipeName)"}
+                    
+                    -- Convert path to alias (required for custom location to work)
+                    set exportPath to POSIX file "\(outputFolder.path)" as alias
+                    
+                    -- CRITICAL: Set location BEFORE type, and use alias not string
+                    tell newRecipe
+                        set root folder location to exportPath
+                        set root folder type to custom location
+                    end tell
+                    
+                    -- Set basic format defaults (users can customize later)
+                    set output format of newRecipe to JPEG
+                    set JPEG quality of newRecipe to 90
+                    
+                    return "SUCCESS"
+                end tell
+            on error errMsg number errNum
+                return "ERROR:" & errMsg & " (code: " & errNum & ")"
+            end try
+        end tell
+        """
+        
+        let createResult = try await executeAppleScript(createScript)
+        
+        if createResult.hasPrefix("ERROR:") {
+            let errorMsg = String(createResult.dropFirst(6))
+            throw CaptureOneError.scriptExecutionFailed("Failed to create recipe: \(errorMsg)")
+        } else if createResult == "SUCCESS" {
+            print("✅ Created recipe '\(recipeName)' with output: \(outputFolder.path)")
+            print("ℹ️  You can customize quality, watermarks, and metadata in Capture One")
+        }
+    }
+    
+    /// Ensures recipe exists - only creates if missing (respects user customization)
+    /// We cannot read or update existing recipe settings due to AppleScript limitations
+    /// - Parameters:
+    ///   - recipeName: Name of the recipe
+    ///   - outputFolder: Desired output folder
+    /// - Throws: CaptureOneError if creation fails
+    private func createOrRecreateRecipe(recipeName: String, outputFolder: URL) async throws {
+        guard let appInfo = detectCaptureOneApp() else {
+            throw CaptureOneError.notRunning
+        }
+        
+        // Check if recipe already exists
+        let checkScript = """
+        tell application "\(appInfo.appName)"
+            try
+                tell document 1
+                    if (exists recipe "\(recipeName)") then
+                        return "EXISTS"
+                    else
+                        return "NOT_EXISTS"
+                    end if
+                end tell
+            on error errMsg number errNum
+                return "ERROR:" & errMsg & " (code: " & errNum & ")"
+            end try
+        end tell
+        """
+        
+        let checkResult = try await executeAppleScript(checkScript)
+        
+        if checkResult == "EXISTS" {
+            print("✅ Recipe '\(recipeName)' already exists (using existing settings)")
+            print("ℹ️  If export fails, please check the recipe's output location in Capture One:")
+            print("    Expected: \(outputFolder.path)")
+            return // Don't recreate - respect user's custom settings
+        } else if checkResult == "NOT_EXISTS" {
+            print("ℹ️  Recipe '\(recipeName)' doesn't exist, creating...")
+        } else if checkResult.hasPrefix("ERROR:") {
+            print("⚠️  Could not check recipe: \(checkResult)")
+            // Continue anyway - try to create it
+        }
+        
+        // Create new recipe with default settings
+        let createScript = """
+        tell application "\(appInfo.appName)"
+            try
+                tell document 1
+                    -- Create new recipe
+                    set newRecipe to make new recipe with properties {name:"\(recipeName)"}
+                    
+                    -- Convert path to alias (required for custom location to work)
+                    set exportPath to POSIX file "\(outputFolder.path)" as alias
+                    
+                    -- CRITICAL: Set location BEFORE type, and use alias not string
+                    tell newRecipe
+                        set root folder location to exportPath
+                        set root folder type to custom location
+                    end tell
+                    
+                    -- Set basic format defaults (users can customize later)
+                    set output format of newRecipe to JPEG
+                    set JPEG quality of newRecipe to 90
+                    
+                    return "SUCCESS"
+                end tell
+            on error errMsg number errNum
+                return "ERROR:" & errMsg & " (code: " & errNum & ")"
+            end try
+        end tell
+        """
+        
+        let createResult = try await executeAppleScript(createScript)
+        
+        if createResult.hasPrefix("ERROR:") {
+            let errorMsg = String(createResult.dropFirst(6))
+            throw CaptureOneError.scriptExecutionFailed("Failed to create recipe: \(errorMsg)")
+        } else if createResult == "SUCCESS" {
+            print("✅ Created recipe '\(recipeName)' with output: \(outputFolder.path)")
+            print("ℹ️  You can customize quality, watermarks, and metadata in Capture One")
+        }
+    }
+    
+    /// Export selected variants using the "Picflow Upload" recipe to a temporary folder
+    /// Returns the export folder path
+    func exportSelectedVariants(recipeName: String = "Picflow Upload", outputFolder: URL) async throws -> URL {
+        // Detect which Capture One is running
+        guard let appInfo = detectCaptureOneApp() else {
+            throw CaptureOneError.notRunning
+        }
+        
+        // Double-check app is running
+        let isStillRunning = NSWorkspace.shared.runningApplications.contains { app in
+            guard let bundleId = app.bundleIdentifier else { return false }
+            return bundleId == appInfo.bundleId
+        }
+        
+        guard isStillRunning else {
+            detectedBundleId = nil
+            detectedAppName = nil
+            throw CaptureOneError.notRunning
+        }
+        
+        // Ensure output folder exists
+        try FileManager.default.createDirectory(at: outputFolder, withIntermediateDirectories: true)
+        
+        // Try to create/recreate the recipe with correct settings
+        // Note: We can't read or update existing recipes due to AppleScript limitations
+        print("📋 Setting up recipe '\(recipeName)'...")
+        do {
+            try await createOrRecreateRecipe(recipeName: recipeName, outputFolder: outputFolder)
+            print("✅ Recipe is ready with output: \(outputFolder.path)")
+        } catch {
+            print("⚠️ Could not setup recipe automatically: \(error)")
+            print("⚠️ Please manually check the '\(recipeName)' recipe in Capture One")
+            print("⚠️ Make sure its output location is set to: \(outputFolder.path)")
+            // Continue anyway - maybe the recipe is already correct
+        }
+        
+        // AppleScript to process (export) selected variants using the recipe
+        let script = """
+        tell application "\(appInfo.appName)"
+            try
+                tell document 1
+                    set selectedVariants to (variants whose selected is true)
+                    set variantCount to count of selectedVariants
+                    
+                    if variantCount is 0 then
+                        return "ERROR:No variants selected"
+                    end if
+                    
+                    -- Process using recipe (Capture One's standard export command)
+                    repeat with v in selectedVariants
+                        process v recipe "\(recipeName)"
+                    end repeat
+                    
+                    return "SUCCESS:" & variantCount
+                end tell
+            on error errMsg number errNum
+                return "ERROR:" & errMsg & " (code: " & errNum & ")"
+            end try
+        end tell
+        """
+        
+        print("🎬 Exporting using '\(recipeName)' recipe to: \(outputFolder.path)")
+        
+        do {
+            let result = try await executeAppleScript(script)
+            print("📋 Export result: \(result)")
+            
+            if result.hasPrefix("ERROR:") {
+                let errorMessage = String(result.dropFirst(6))
+                print("❌ Export script error: \(errorMessage)")
+                throw CaptureOneError.scriptExecutionFailed(errorMessage)
+            } else if result.hasPrefix("SUCCESS:") {
+                let countString = String(result.dropFirst(8))
+                let exportedCount = Int(countString) ?? 0
+                print("✅ Export command completed successfully - exported \(exportedCount) variants")
+                return outputFolder
+            } else if result == "SUCCESS" {
+                // Backwards compatibility
+                print("✅ Export command completed successfully")
+                return outputFolder
+            } else {
+                print("⚠️ Unexpected export response: \(result)")
+                throw CaptureOneError.scriptExecutionFailed("Unexpected response: \(result)")
+            }
+        } catch let error as CaptureOneError {
+            print("❌ CaptureOne error during export: \(error)")
+            throw error
+        } catch {
+            print("❌ Unexpected error during export: \(error)")
+            print("❌ Error details: \(error.localizedDescription)")
+            throw CaptureOneError.scriptExecutionFailed("Export failed: \(error.localizedDescription)")
+        }
+    }
+    
+    /// Get the temporary export folder for Picflow
+    static func getExportFolder() throws -> URL {
+        // Use Application Support folder (hidden from user but accessible)
+        let fileManager = FileManager.default
+        guard let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            throw CaptureOneError.scriptExecutionFailed("Could not access Application Support directory")
+        }
+        
+        // Create Picflow subfolder
+        let picflowFolder = appSupport.appendingPathComponent("Picflow", isDirectory: true)
+        let exportsFolder = picflowFolder.appendingPathComponent("CaptureOneExports", isDirectory: true)
+        
+        // Create if doesn't exist
+        try fileManager.createDirectory(at: exportsFolder, withIntermediateDirectories: true)
+        
+        return exportsFolder
     }
 }
 

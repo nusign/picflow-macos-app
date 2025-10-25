@@ -17,15 +17,24 @@ struct UploaderView: View {
         ZStack(alignment: .topLeading) {
             ZStack(alignment: .topTrailing) {
                 // Main Content
-                VStack(spacing: 16) {
-                    // Dropzone
+                VStack(spacing: 0) {
+                    // Dropzone (fills available vertical space)
                     DropzoneView(isDragging: $isDragging, onFilesSelected: handleFilesSelected)
+                        .frame(maxHeight: .infinity)
                     
-                    Divider()
-                        .padding(.vertical, 8)
-                    
-                    // Capture One Integration
-                    CaptureOneStatusView()
+                    // Bottom components
+                    VStack(spacing: 16) {
+                        // Upload Progress (when uploading or just completed)
+                        if (uploader.isUploading && !uploader.uploadQueue.isEmpty) || uploader.uploadState == .completed {
+                            UploadProgressView(uploader: uploader)
+                        }
+                        
+                        // Capture One Integration
+                        CaptureOneStatusView(uploader: uploader)
+                    }
+                    .padding(.top, 16)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 24)
                 }
                 .padding(.top, 48) // Space for back button and avatar
                 
@@ -61,18 +70,7 @@ struct UploaderView: View {
     
     private func handleFilesSelected(_ urls: [URL]) {
         print("📁 Files selected: \(urls.count)")
-        for url in urls {
-            print("  - \(url.lastPathComponent)")
-            // TODO: Upload file
-            Task {
-                do {
-                    try await uploader.upload(fileURL: url)
-                    print("✅ Uploaded: \(url.lastPathComponent)")
-                } catch {
-                    print("❌ Upload failed: \(error.localizedDescription)")
-                }
-            }
-        }
+        uploader.queueFiles(urls)
     }
 }
 
@@ -83,44 +81,50 @@ struct DropzoneView: View {
     let onFilesSelected: ([URL]) -> Void
     
     var body: some View {
-        VStack(spacing: 20) {
-            // Upload Icon (96px placeholder)
-            ZStack {
-                Circle()
-                    .fill(Color.accentColor.opacity(0.1))
-                    .frame(width: 96, height: 96)
+        VStack {
+            Spacer()
+            
+            VStack(spacing: 20) {
+                // Upload Icon (96px placeholder)
+                ZStack {
+                    Circle()
+                        .fill(Color.accentColor.opacity(0.1))
+                        .frame(width: 96, height: 96)
+                    
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.system(size: 48))
+                        .foregroundColor(.accentColor)
+                }
                 
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 48))
-                    .foregroundColor(.accentColor)
+                // Title
+                Text("Upload")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundColor(.primary)
+                
+                // Description
+                Text("Drag and drop or choose files to upload to Picflow.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                
+                // Choose Files Button
+                Button("Choose Files") {
+                    selectFiles()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
             }
             
-            // Title
-            Text("Upload")
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundColor(.primary)
-            
-            // Description
-            Text("Drag and drop or choose files to upload to Picflow.")
-                .font(.system(size: 11))
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-            
-            // Choose Files Button
-            Button("Choose Files") {
-                selectFiles()
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.large)
+            Spacer()
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 60)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(24)
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .strokeBorder(
-                    style: StrokeStyle(lineWidth: 2, dash: [8, 6])
+                    style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [0.5, 8])
                 )
-                .foregroundColor(Color.black.opacity(isDragging ? 0.5 : 0.2))
+                .foregroundColor(Color.primary.opacity(isDragging ? 0.5 : 0.2))
         )
         .onDrop(of: [.fileURL], isTargeted: $isDragging) { providers in
             handleDrop(providers: providers)
@@ -141,15 +145,139 @@ struct DropzoneView: View {
     }
     
     private func handleDrop(providers: [NSItemProvider]) {
+        let group = DispatchGroup()
+        var collectedURLs: [URL] = []
+        let lock = NSLock()
+        
         for provider in providers {
+            group.enter()
             provider.loadItem(forTypeIdentifier: "public.file-url", options: nil) { (item, error) in
                 if let data = item as? Data,
                    let url = URL(dataRepresentation: data, relativeTo: nil) {
-                    DispatchQueue.main.async {
-                        onFilesSelected([url])
-                    }
+                    lock.lock()
+                    collectedURLs.append(url)
+                    lock.unlock()
+                }
+                group.leave()
+            }
+        }
+        
+        // Wait for all files to be collected, then call handler once
+        group.notify(queue: .main) {
+            if !collectedURLs.isEmpty {
+                onFilesSelected(collectedURLs)
+            }
+        }
+    }
+}
+
+// MARK: - Upload Progress View
+
+struct UploadProgressView: View {
+    @ObservedObject var uploader: Uploader
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // Left side: Icon
+            ZStack {
+                Circle()
+                    .fill(statusColor.opacity(0.1))
+                    .frame(width: 32, height: 32)
+                
+                Image(systemName: statusIcon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(statusColor)
+            }
+            
+            // Middle: Title and Status
+            VStack(alignment: .leading, spacing: 2) {
+                Text(statusTitle)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.primary)
+                
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(statusColor)
+                        .frame(width: 8, height: 8)
+                    
+                    Text(statusDescription)
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
                 }
             }
+            
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(NSColor.controlBackgroundColor))
+        )
+    }
+    
+    private var statusTitle: String {
+        switch uploader.uploadState {
+        case .completed:
+            return "Completed"
+        default:
+            return "Uploading"
+        }
+    }
+    
+    private var statusIcon: String {
+        switch uploader.uploadState {
+        case .completed:
+            return "checkmark.circle.fill"
+        case .failed:
+            return "exclamationmark.triangle.fill"
+        default:
+            return "arrow.up.circle.fill"
+        }
+    }
+    
+    private var statusColor: Color {
+        switch uploader.uploadState {
+        case .completed:
+            return .green
+        case .failed:
+            return .red
+        default:
+            return .accentColor
+        }
+    }
+    
+    private var statusDescription: String {
+        let totalFiles = uploader.uploadQueue.count
+        let currentIndex = uploader.currentFileIndex + 1
+        
+        // Format speed in Mbps
+        let speedMbps = (uploader.uploadSpeed * 8) / 1_000_000 // Convert bytes/s to Mbps
+        let speedText = String(format: "%.1f Mbit/s", speedMbps)
+        
+        // Format remaining time
+        let timeRemaining = Int(uploader.estimatedTimeRemaining)
+        let timeText = timeRemaining > 0 ? "\(timeRemaining)s remaining" : ""
+        
+        if uploader.uploadState == .completed {
+            return "All files uploaded successfully"
+        } else if totalFiles > 1 {
+            // Show progress for multiple files
+            var parts: [String] = []
+            parts.append("\(currentIndex) of \(totalFiles)")
+            if !timeText.isEmpty {
+                parts.append(timeText)
+            }
+            if speedMbps > 0 {
+                parts.append(speedText)
+            }
+            return parts.joined(separator: ", ")
+        } else {
+            // Single file upload
+            if speedMbps > 0 {
+                return speedText
+            }
+            return "Uploading..."
         }
     }
 }

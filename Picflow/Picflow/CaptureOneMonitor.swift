@@ -58,7 +58,7 @@ class CaptureOneMonitor: ObservableObject {
             self?.checkCaptureOneStatus()
         }
         
-        // Poll every 2 seconds for status and selection
+        // Poll every 2 seconds for status and selection (with logging to debug updates)
         timer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
             self?.checkCaptureOneStatus()
             self?.updateSelection()
@@ -101,10 +101,24 @@ class CaptureOneMonitor: ObservableObject {
         }
     }
     
-    /// Force a manual check
-    func refresh() {
+    /// Force a manual check (async for immediate update)
+    func refresh() async {
         checkCaptureOneStatus()
-        updateSelection()
+        
+        // Force immediate selection update (bypass loading check)
+        guard isRunning else { return }
+        
+        do {
+            let newSelection = try await scriptBridge.getSelection()
+            await MainActor.run {
+                self.selection = newSelection
+                self.selectionError = nil
+                self.needsPermission = false
+                print("🔄 Selection refreshed: \(newSelection.count) variants")
+            }
+        } catch {
+            print("⚠️ Refresh failed: \(error)")
+        }
     }
     
     /// Request automation permission (triggers the permission prompt)
@@ -121,7 +135,15 @@ class CaptureOneMonitor: ObservableObject {
     
     /// Update selection data from Capture One
     private func updateSelection() {
-        guard isRunning else {
+        // Double-check if running right before making the call
+        // This prevents a race condition where the app quits between timer ticks
+        let runningApps = NSWorkspace.shared.runningApplications
+        let isCaptureOneActuallyRunning = runningApps.contains { app in
+            guard let bundleId = app.bundleIdentifier else { return false }
+            return captureOneBundleIdentifiers.contains(bundleId)
+        }
+        
+        guard isCaptureOneActuallyRunning && isRunning else {
             // Clear selection if not running
             DispatchQueue.main.async {
                 self.selection = CaptureOneSelection(count: 0, variants: [])
@@ -131,7 +153,10 @@ class CaptureOneMonitor: ObservableObject {
         }
         
         // Skip if already loading
-        guard !isLoadingSelection else { return }
+        guard !isLoadingSelection else {
+            print("⏸️ Skipping selection update - already loading")
+            return
+        }
         
         Task { @MainActor in
             isLoadingSelection = true
@@ -139,44 +164,36 @@ class CaptureOneMonitor: ObservableObject {
             
             do {
                 let newSelection = try await scriptBridge.getSelection()
+                
+                // Only update if count changed to avoid unnecessary UI updates
+                if newSelection.count != self.selection.count {
+                    print("🔄 Selection changed: \(self.selection.count) → \(newSelection.count) variants")
+                }
+                
                 self.selection = newSelection
                 self.selectionError = nil
                 self.needsPermission = false
             } catch CaptureOneScriptBridge.CaptureOneError.noDocument {
+                print("⚠️ No document open in Capture One")
                 self.selection = CaptureOneSelection(count: 0, variants: [])
                 self.selectionError = "No document open"
                 self.needsPermission = false
             } catch CaptureOneScriptBridge.CaptureOneError.permissionDenied {
+                print("⚠️ Permission denied for Capture One")
                 self.selection = CaptureOneSelection(count: 0, variants: [])
                 self.selectionError = nil
                 self.needsPermission = true
-                
-                // TODO: Uncomment after adding Sentry SDK
-                /*
-                SentrySDK.capture(message: "Capture One permission denied") { scope in
-                    scope.setLevel(.warning)
-                    scope.setTag(value: "capture_one", key: "integration")
-                }
-                */
             } catch CaptureOneScriptBridge.CaptureOneError.notRunning {
+                print("⚠️ Capture One is not running")
                 self.selection = CaptureOneSelection(count: 0, variants: [])
                 self.selectionError = nil
                 self.needsPermission = false
+                // Clear the running state since app is not actually running
+                self.isRunning = false
             } catch {
+                print("❌ Selection update error: \(error.localizedDescription)")
                 self.selectionError = "Script error: \(error.localizedDescription)"
                 self.needsPermission = false
-                
-                // Report unexpected Capture One errors to Sentry
-                // TODO: Uncomment after adding Sentry SDK
-                /*
-                SentrySDK.capture(error: error) { scope in
-                    scope.setContext(value: [
-                        "is_running": isRunning,
-                        "error_message": error.localizedDescription
-                    ], key: "capture_one")
-                    scope.setTag(value: "capture_one", key: "integration")
-                }
-                */
             }
             
             isLoadingSelection = false

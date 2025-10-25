@@ -204,50 +204,50 @@ We can **automatically create the "Picflow Upload" recipe** for users without ma
 ### Working AppleScript
 
 ```applescript
--- Ensure export folder exists
-tell application "Finder"
-    set picflowFolder to (folder "Application Support" of (path to library folder from user domain))
-    
-    if not (exists folder "Picflow" of picflowFolder) then
-        make new folder at picflowFolder with properties {name:"Picflow"}
-    end if
-    
-    set picflowAppFolder to folder "Picflow" of picflowFolder
-    
-    if not (exists folder "Exports" of picflowAppFolder) then
-        make new folder at picflowAppFolder with properties {name:"Exports"}
-    end if
-    
-    set exportFolder to (folder "Exports" of picflowAppFolder) as alias
-end tell
-
 -- Create recipe in Capture One
 tell application "Capture One"
     tell document 1
-        -- Check if recipe exists
+        -- Delete existing recipe if present
         set recipeNames to name of every recipe
         if recipeNames contains "Picflow Upload" then
             delete recipe "Picflow Upload"
         end if
         
         -- Create new recipe
-        make new recipe with properties {¬
-            name:"Picflow Upload", ¬
-            output format:JPEG, ¬
-            JPEG quality:95, ¬
-            color profile:"sRGB Color Space Profile", ¬
-            upscale:false}
+        set newRecipe to make new recipe with properties {name:"Picflow Upload"}
         
-        -- Set destination
-        tell recipe "Picflow Upload"
-            set root folder location to exportFolder
-            set output sub folder to ""
-            set output name format to "[Image Name]"
-            set existing files to add suffix
+        -- CRITICAL: Set output location using root folder properties
+        -- (NOT "output location" - that causes error -1723)
+        tell newRecipe
+            set root folder type to custom location
+            set root folder location to "/Users/username/Library/Application Support/Picflow/CaptureOneExports"
         end tell
+        
+        -- Set format and quality
+        set format of newRecipe to JPEG
+        set quality of newRecipe to 90
     end tell
 end tell
 ```
+
+### ⚠️ Critical: Recipe Output Location Properties
+
+**IMPORTANT**: Use `root folder type` and `root folder location`, NOT `output location`:
+
+✅ **CORRECT**:
+```applescript
+tell newRecipe
+    set root folder type to custom location
+    set root folder location to "/path/to/folder"
+end tell
+```
+
+❌ **WRONG** (causes error -1723):
+```applescript
+set output location of newRecipe to POSIX file "/path/to/folder"
+```
+
+This syntax issue was discovered through testing and is documented in [CAPTURE_ONE_API_REFERENCE.md](CAPTURE_ONE_API_REFERENCE.md).
 
 ### Recipe Configuration
 
@@ -256,13 +256,11 @@ The auto-created recipe uses optimal settings for gallery uploads:
 ```
 Name: "Picflow Upload"
 Format: JPEG
-Quality: 95% (high quality, reasonable file size)
-Color Profile: sRGB (web standard)
-Destination: ~/Library/Application Support/Picflow/Exports/
-Naming: [Image Name] (preserves original names)
-Upscaling: Disabled (don't enlarge small images)
-File Conflicts: Add suffix (don't overwrite)
+Quality: 90% (high quality, reasonable file size)
+Destination: ~/Library/Application Support/Picflow/CaptureOneExports/
 ```
+
+Users can customize additional settings (color profile, naming, watermarks, etc.) directly in Capture One after the recipe is created. The app preserves these customizations and only manages the name and output location.
 
 ### User Experience
 

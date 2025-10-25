@@ -22,9 +22,82 @@ class Uploader: ObservableObject {
 	@Published var isUploading: Bool = false
 	@Published var uploadState: UploadState = .idle
 	
+	// Upload statistics
+	@Published var uploadQueue: [URL] = []
+	@Published var currentFileIndex: Int = 0
+	@Published var uploadSpeed: Double = 0.0  // bytes per second
+	@Published var estimatedTimeRemaining: TimeInterval = 0
+	
+	private var uploadStartTime: Date?
+	private var totalBytesTransferred: Int64 = 0
+	
 	func selectGallery(_ gallery: GalleryDetails) {
 		selectedGallery = gallery
 		print("🎨 Gallery selected: \(gallery.displayName)")
+	}
+	
+	/// Queue multiple files for upload
+	func queueFiles(_ urls: [URL]) {
+		// Filter out duplicates
+		let newFiles = urls.filter { url in
+			!uploadQueue.contains(where: { $0.path == url.path })
+		}
+		
+		guard !newFiles.isEmpty else {
+			print("⚠️ No new files to upload (duplicates ignored)")
+			return
+		}
+		
+		uploadQueue.append(contentsOf: newFiles)
+		print("📋 Queued \(newFiles.count) files for upload")
+		
+		// Start processing if not already running
+		if !isUploading {
+			Task {
+				await processQueue()
+			}
+		}
+	}
+	
+	/// Process upload queue
+	private func processQueue() async {
+		guard !uploadQueue.isEmpty, !isUploading else { return }
+		
+		isUploading = true
+		uploadState = .uploading
+		uploadStartTime = Date()
+		totalBytesTransferred = 0
+		currentFileIndex = 0
+		
+		print("🚀 Starting upload of \(uploadQueue.count) files")
+		
+		for (index, fileURL) in uploadQueue.enumerated() {
+			currentFileIndex = index
+			do {
+				try await upload(fileURL: fileURL)
+			} catch {
+				print("❌ Failed to upload \(fileURL.lastPathComponent): \(error)")
+				// Continue with next file even if one fails
+			}
+		}
+		
+		print("✅ Upload queue completed")
+		
+		// Show completed state briefly, then reset
+		uploadState = .completed
+		
+		// Wait before clearing
+		try? await Task.sleep(nanoseconds: 2_000_000_000)
+		
+		// Clear queue and reset state
+		uploadQueue.removeAll()
+		isUploading = false
+		uploadState = .idle
+		uploadStartTime = nil
+		currentFileIndex = 0
+		totalBytesTransferred = 0
+		uploadSpeed = 0
+		estimatedTimeRemaining = 0
 	}
 	
 	/// Upload a file to the selected gallery
@@ -47,16 +120,7 @@ class Uploader: ObservableObject {
 			throw UploadError.fileReadError(error)
 		}
 		
-		isUploading = true
 		uploadProgress = 0.0
-		uploadState = .uploading
-		
-		defer {
-			Task { @MainActor in
-				isUploading = false
-				uploadProgress = 0.0
-			}
-		}
 		
 		do {
 			// Step 1: Create asset and get presigned URL
@@ -83,27 +147,38 @@ class Uploader: ObservableObject {
 				fields: createResponse.versionData.amzFields
 			)
 			
+			// Update statistics
+			totalBytesTransferred += Int64(fileData.count)
+			updateUploadStatistics()
+			
 			uploadProgress = 1.0
-			uploadState = .completed
 			
 			print("✅ Upload completed successfully for: \(fileURL.lastPathComponent)")
-			
-			// Reset to idle after showing success
-			Task { @MainActor in
-				try? await Task.sleep(nanoseconds: 3_000_000_000)
-				uploadState = .idle
-			}
 		} catch {
-			uploadState = .failed
 			print("❌ Upload failed for: \(fileURL.lastPathComponent) - Error: \(error)")
-			
-			// Reset to idle after showing error
-			Task { @MainActor in
-				try? await Task.sleep(nanoseconds: 5_000_000_000)
-				uploadState = .idle
-			}
-			
 			throw error
+		}
+	}
+	
+	/// Update upload statistics (speed and time remaining)
+	private func updateUploadStatistics() {
+		guard let startTime = uploadStartTime else { return }
+		
+		let elapsedTime = Date().timeIntervalSince(startTime)
+		guard elapsedTime > 0 else { return }
+		
+		// Calculate speed (bytes per second)
+		uploadSpeed = Double(totalBytesTransferred) / elapsedTime
+		
+		// Estimate remaining time based on remaining files
+		let remainingFiles = uploadQueue.count - currentFileIndex - 1
+		if remainingFiles > 0, uploadSpeed > 0 {
+			// Rough estimate: assume similar file sizes
+			let avgBytesPerFile = Double(totalBytesTransferred) / Double(currentFileIndex + 1)
+			let remainingBytes = avgBytesPerFile * Double(remainingFiles)
+			estimatedTimeRemaining = remainingBytes / uploadSpeed
+		} else {
+			estimatedTimeRemaining = 0
 		}
 	}
 	

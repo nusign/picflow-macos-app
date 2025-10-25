@@ -23,6 +23,49 @@ Capture One has extensive AppleScript support defined in `CaptureOne.sdef`. This
 - ✅ Correct: `tell application "Capture One" to tell document 1 to variants`
 - Error -2753 ("variable not defined") indicates incorrect access pattern
 
+### Recipe Output Location Properties
+**CRITICAL: Use `root folder` properties, NOT `output location`**:
+
+The correct properties for setting a recipe's export location are:
+- `root folder type` - Must be set to `custom location` (enum value)
+- `root folder location` - String path to output folder
+
+❌ **WRONG** (causes error -1723 "Access not allowed"):
+```applescript
+set output location of newRecipe to POSIX file "/path/to/folder"
+```
+
+✅ **CORRECT**:
+```applescript
+tell application "Capture One"
+    tell document 1
+        -- Create recipe
+        set newRecipe to make new recipe with properties {name:"My Recipe"}
+        
+        -- CRITICAL: Convert path to alias first
+        set exportPath to POSIX file "/Users/username/exports" as alias
+        
+        -- Set output location (ORDER MATTERS!)
+        tell newRecipe
+            set root folder location to exportPath  -- Set location FIRST
+            set root folder type to custom location  -- Then set type
+        end tell
+        
+        -- Optional: Set format (note: "output format" not "format")
+        set output format of newRecipe to JPEG
+        set JPEG quality of newRecipe to 90
+    end tell
+end tell
+```
+
+**Critical Points**:
+1. **Convert to alias**: Path MUST be converted with `POSIX file "/path" as alias`
+2. **Order matters**: Set `root folder location` BEFORE `root folder type`
+3. **Property names**: Use `output format` and `JPEG quality`, not `format` and `quality`
+4. **The property is called `root folder location`, not `output location`**
+5. Error -1723 indicates you're using the wrong property name or wrong order
+6. Setting type before location causes it to revert to "Session Default"
+
 ---
 
 ## ✅ Getting Selected Assets
@@ -292,10 +335,10 @@ end tell
 
 ### ⚠️ LIMITED
 1. **Real-time selection monitoring** - Must poll, no event notifications
-2. **Export destination** - Must use existing recipe settings (can't override path in AppleScript)
+2. **Recipe reading** - Can't read recipe properties like `output location` (error -1723), but CAN write them using `root folder location`
 
 ### ❌ NO - Not Available
-1. **Direct file export with custom path** - Must use recipes
+1. **Direct file export with custom path** - Must use recipes (but can programmatically create/configure recipes)
 2. **Event-based triggers** - No "on selection changed" events
 3. **Undo/Redo control** - Not exposed via AppleScript
 
