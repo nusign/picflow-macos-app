@@ -14,8 +14,17 @@ struct CaptureOneStatusView: View {
     @ObservedObject var uploader: Uploader
     
     var body: some View {
-        Group {
-            if monitor.isRunning {
+        VStack(spacing: 12) {
+            // Upload Progress (when exporting/uploading)
+            if uploadManager.isExporting {
+                GenericUploadProgressView(
+                    state: uploadManager.uploadState,
+                    description: uploadManager.statusDescription
+                )
+            }
+            
+            // Integration Status (when not uploading)
+            if monitor.isRunning && !uploadManager.isExporting {
                 statusContent
             }
         }

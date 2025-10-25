@@ -177,6 +177,49 @@ struct UploadProgressView: View {
     @ObservedObject var uploader: Uploader
     
     var body: some View {
+        let totalFiles = uploader.uploadQueue.count
+        let currentIndex = uploader.currentFileIndex + 1
+        
+        // Format speed in Mbps
+        let speedMbps = (uploader.uploadSpeed * 8) / 1_000_000
+        let speedText = String(format: "%.1f Mbit/s", speedMbps)
+        
+        // Format remaining time
+        let timeRemaining = Int(uploader.estimatedTimeRemaining)
+        let timeText = timeRemaining > 0 ? "\(timeRemaining)s remaining" : ""
+        
+        // Build description
+        let description: String
+        if uploader.uploadState == .completed {
+            description = "All files uploaded successfully"
+        } else if totalFiles > 1 {
+            var parts: [String] = []
+            parts.append("\(currentIndex) of \(totalFiles)")
+            if !timeText.isEmpty {
+                parts.append(timeText)
+            }
+            if speedMbps > 0 {
+                parts.append(speedText)
+            }
+            description = parts.joined(separator: ", ")
+        } else {
+            description = speedMbps > 0 ? speedText : "Uploading..."
+        }
+        
+        return GenericUploadProgressView(
+            state: uploader.uploadState,
+            description: description
+        )
+    }
+}
+
+// MARK: - Generic Upload Progress View
+
+struct GenericUploadProgressView: View {
+    let state: UploadState
+    let description: String
+    
+    var body: some View {
         HStack(spacing: 12) {
             // Left side: Icon
             ZStack {
@@ -200,7 +243,7 @@ struct UploadProgressView: View {
                         .fill(statusColor)
                         .frame(width: 8, height: 8)
                     
-                    Text(statusDescription)
+                    Text(description)
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
                 }
@@ -217,7 +260,7 @@ struct UploadProgressView: View {
     }
     
     private var statusTitle: String {
-        switch uploader.uploadState {
+        switch state {
         case .completed:
             return "Completed"
         default:
@@ -226,7 +269,7 @@ struct UploadProgressView: View {
     }
     
     private var statusIcon: String {
-        switch uploader.uploadState {
+        switch state {
         case .completed:
             return "checkmark.circle.fill"
         case .failed:
@@ -237,47 +280,13 @@ struct UploadProgressView: View {
     }
     
     private var statusColor: Color {
-        switch uploader.uploadState {
+        switch state {
         case .completed:
             return .green
         case .failed:
             return .red
         default:
             return .accentColor
-        }
-    }
-    
-    private var statusDescription: String {
-        let totalFiles = uploader.uploadQueue.count
-        let currentIndex = uploader.currentFileIndex + 1
-        
-        // Format speed in Mbps
-        let speedMbps = (uploader.uploadSpeed * 8) / 1_000_000 // Convert bytes/s to Mbps
-        let speedText = String(format: "%.1f Mbit/s", speedMbps)
-        
-        // Format remaining time
-        let timeRemaining = Int(uploader.estimatedTimeRemaining)
-        let timeText = timeRemaining > 0 ? "\(timeRemaining)s remaining" : ""
-        
-        if uploader.uploadState == .completed {
-            return "All files uploaded successfully"
-        } else if totalFiles > 1 {
-            // Show progress for multiple files
-            var parts: [String] = []
-            parts.append("\(currentIndex) of \(totalFiles)")
-            if !timeText.isEmpty {
-                parts.append(timeText)
-            }
-            if speedMbps > 0 {
-                parts.append(speedText)
-            }
-            return parts.joined(separator: ", ")
-        } else {
-            // Single file upload
-            if speedMbps > 0 {
-                return speedText
-            }
-            return "Uploading..."
         }
     }
 }
