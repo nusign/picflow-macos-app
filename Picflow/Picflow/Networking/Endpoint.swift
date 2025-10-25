@@ -82,7 +82,15 @@ class Endpoint {
         }
         
         if let requestBody = requestBody {
-            request.httpBody = try JSONEncoder().encode(requestBody)
+            let encoder = JSONEncoder()
+            encoder.keyEncodingStrategy = .convertToSnakeCase
+            let jsonData = try encoder.encode(requestBody)
+            request.httpBody = jsonData
+            
+            // Debug: Print request body
+            if let jsonString = String(data: jsonData, encoding: .utf8) {
+                print("Request body:", jsonString)
+            }
         }
         
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -93,7 +101,7 @@ class Endpoint {
             
             // Print response data as string to see what we're getting
             if let responseString = String(data: data, encoding: .utf8) {
-                print("Response body:", responseString.prefix(500))
+                print("Response body:", responseString.prefix(2000))
             }
             
             guard 200...299 ~= httpResponse.statusCode else {
