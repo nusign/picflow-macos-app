@@ -20,6 +20,8 @@ class CaptureOneUploadManager: ObservableObject {
     private var exportMonitor: FolderMonitor?
     private var processedFiles: Set<String> = []
     private var expectedExportFolder: URL?
+    private var lastFileSeenTime: Date = Date()
+    private var completionCheckTask: Task<Void, Never>?
     
     /// Start the export and upload process
     func exportAndUpload(uploader: Uploader) async {
@@ -32,6 +34,9 @@ class CaptureOneUploadManager: ObservableObject {
         exportProgress = "Preparing export..."
         error = nil
         showRecipePathError = false
+        processedFiles.removeAll()
+        lastFileSeenTime = Date()
+        completionCheckTask?.cancel()
         
         do {
             // Get export folder
@@ -58,22 +63,20 @@ class CaptureOneUploadManager: ObservableObject {
             }
             
             exportProgress = "Waiting for files..."
-            print("✅ Export command completed, waiting for files to appear...")
+            print("✅ Export command completed, monitoring for files...")
             
-            // Give Capture One a moment to start exporting
-            try await Task.sleep(nanoseconds: 2_000_000_000)
+            // Start auto-completion checker
+            startCompletionChecker()
             
-            // The monitor will detect new files and upload them automatically
-            print("✅ Monitoring for exported files...")
-            
-            // Check after 10 seconds if any files appeared
+            // Wait a bit to see if files appear
             try await Task.sleep(nanoseconds: 10_000_000_000)
             
             if processedFiles.isEmpty {
-                print("⚠️ No files appeared in expected folder")
+                print("⚠️ No files appeared in expected folder after 10 seconds")
                 isExporting = false
-                showRecipePathError = true // Show recreate recipe prompt
-                return // Don't throw - let the UI handle it
+                showRecipePathError = true
+                completionCheckTask?.cancel()
+                return
             }
             
         } catch {
@@ -110,17 +113,18 @@ class CaptureOneUploadManager: ObservableObject {
         }
     }
     
-    /// Clean the export folder of any old files
+    /// Clean the export folder of any old files (including .tmp files from failed exports)
     private func cleanExportFolder(_ folder: URL) throws {
         let fileManager = FileManager.default
         let contents = try fileManager.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)
         
         for file in contents {
+            // Skip hidden files
+            guard !file.lastPathComponent.hasPrefix(".") else { continue }
+            
             try fileManager.removeItem(at: file)
             print("🗑️ Cleaned old file: \(file.lastPathComponent)")
         }
-        
-        processedFiles.removeAll()
     }
     
     /// Start monitoring the export folder for new files
@@ -144,9 +148,13 @@ class CaptureOneUploadManager: ObservableObject {
         
         let fileName = path.lastPathComponent
         
-        // Skip hidden files and duplicates
+        // Skip hidden files, duplicates, and temp files
         guard !fileName.hasPrefix("."),
-              !processedFiles.contains(fileName) else {
+              !processedFiles.contains(fileName),
+              !fileName.hasSuffix(".tmp") else { // Ignore .tmp files - Capture One uses these during export
+            if fileName.hasSuffix(".tmp") {
+                print("⏭️ Skipping temp file (still being written): \(fileName)")
+            }
             return
         }
         
@@ -157,13 +165,13 @@ class CaptureOneUploadManager: ObservableObject {
             return
         }
         
+        print("📸 Complete file detected: \(fileName)")
+        
+        // No need to wait for stability - if it doesn't have .tmp extension, Capture One already finished writing it!
         processedFiles.insert(fileName)
+        lastFileSeenTime = Date() // Update last seen time
         
-        print("📸 New export detected: \(fileName)")
-        exportProgress = "Uploading \(fileName)..."
-        
-        // Wait a bit to ensure file is fully written
-        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+        exportProgress = "Uploading \(processedFiles.count) files..."
         
         // Upload the file
         do {
@@ -178,9 +186,6 @@ class CaptureOneUploadManager: ObservableObject {
             self.error = "Upload failed for \(fileName): \(error.localizedDescription)"
             print("❌ Upload failed: \(fileName) - \(error)")
         }
-        
-        // Check if we're done with all files
-        await checkIfExportComplete()
     }
     
     /// Recreate the recipe with the correct output location (deletes old one first)
@@ -210,30 +215,39 @@ class CaptureOneUploadManager: ObservableObject {
         }
     }
     
-    /// Check if export and upload process is complete
-    private func checkIfExportComplete() async {
-        // Wait a bit to see if more files are coming
-        try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+    /// Start background task that checks for completion
+    /// Marks export complete when no new files appear for 5 seconds
+    private func startCompletionChecker() {
+        completionCheckTask?.cancel()
         
-        // Check export folder
-        if let exportFolder = try? CaptureOneScriptBridge.getExportFolder() {
-            let fileManager = FileManager.default
-            if let contents = try? fileManager.contentsOfDirectory(at: exportFolder, includingPropertiesForKeys: nil),
-               contents.filter({ !$0.lastPathComponent.hasPrefix(".") }).isEmpty {
-                // All files processed
-                isExporting = false
-                exportProgress = "Upload complete!"
-                print("✅ All exports uploaded and cleaned up")
+        completionCheckTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 1_000_000_000) // Check every 1 second
                 
-                // Clear progress message after a delay
-                Task {
-                    try? await Task.sleep(nanoseconds: 3_000_000_000)
-                    exportProgress = ""
+                // If no new files for 5 seconds, we're done
+                let timeSinceLastFile = Date().timeIntervalSince(lastFileSeenTime)
+                
+                if timeSinceLastFile >= 5.0 && !processedFiles.isEmpty {
+                    print("✅ No new files for 5 seconds - export complete")
+                    print("📊 Total files processed: \(processedFiles.count)")
+                    
+                    isExporting = false
+                    exportProgress = "Upload complete!"
+                    
+                    // Clear progress message after a delay
+                    Task {
+                        try? await Task.sleep(nanoseconds: 3_000_000_000)
+                        if !isExporting { // Only clear if still not exporting
+                            exportProgress = ""
+                        }
+                    }
+                    
+                    // Stop monitoring
+                    exportMonitor?.stopMonitoring()
+                    exportMonitor = nil
+                    
+                    break // Exit the loop
                 }
-                
-                // Stop monitoring
-                exportMonitor?.stopMonitoring()
-                exportMonitor = nil
             }
         }
     }

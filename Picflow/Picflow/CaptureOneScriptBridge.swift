@@ -508,8 +508,8 @@ class CaptureOneScriptBridge {
     }
     
     /// Export selected variants using the "Picflow Upload" recipe to a temporary folder
-    /// Returns the export folder path
-    func exportSelectedVariants(recipeName: String = "Picflow Upload", outputFolder: URL) async throws -> URL {
+    /// Returns the export folder path and the count of variants being exported
+    func exportSelectedVariants(recipeName: String = "Picflow Upload", outputFolder: URL) async throws -> (folder: URL, count: Int) {
         // Detect which Capture One is running
         guard let appInfo = detectCaptureOneApp() else {
             throw CaptureOneError.notRunning
@@ -582,11 +582,11 @@ class CaptureOneScriptBridge {
                 let countString = String(result.dropFirst(8))
                 let exportedCount = Int(countString) ?? 0
                 print("✅ Export command completed successfully - exported \(exportedCount) variants")
-                return outputFolder
+                return (folder: outputFolder, count: exportedCount)
             } else if result == "SUCCESS" {
-                // Backwards compatibility
+                // Backwards compatibility - assume 1 variant if no count provided
                 print("✅ Export command completed successfully")
-                return outputFolder
+                return (folder: outputFolder, count: 1)
             } else {
                 print("⚠️ Unexpected export response: \(result)")
                 throw CaptureOneError.scriptExecutionFailed("Unexpected response: \(result)")
