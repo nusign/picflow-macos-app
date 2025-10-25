@@ -55,7 +55,67 @@ class CaptureOneUploadManager: ObservableObject {
         return "Processing..."
     }
     
-    // MARK: - Export and Upload
+    // MARK: - Upload Workflows
+    
+    /// Upload original RAW files without export
+    func uploadOriginalFiles(uploader: Uploader) async {
+        guard !isExporting else {
+            print("⚠️ Upload already in progress")
+            return
+        }
+        
+        isExporting = true
+        exportProgress = "Getting file paths..."
+        error = nil
+        showRecipePathError = false
+        
+        do {
+            // Get file paths of selected variants
+            let filePaths = try await scriptBridge.getSelectedVariantPaths()
+            
+            guard !filePaths.isEmpty else {
+                error = "No files found for selected variants"
+                isExporting = false
+                return
+            }
+            
+            print("📸 Uploading \(filePaths.count) original files")
+            exportProgress = "Uploading \(filePaths.count) original files..."
+            
+            // Queue files for upload using the standard uploader
+            uploader.queueFiles(filePaths)
+            
+            // Wait for uploads to complete
+            while uploader.isUploading {
+                try await Task.sleep(nanoseconds: 500_000_000) // Check every 0.5s
+            }
+            
+            // Check final state
+            if uploader.uploadState == .completed {
+                exportProgress = "Upload complete!"
+                print("✅ All original files uploaded successfully")
+            } else if uploader.uploadState == .failed {
+                error = "Some uploads failed"
+                print("❌ Some original file uploads failed")
+            }
+            
+            isExporting = false
+            
+            // Clear progress message after delay
+            Task {
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                if !isExporting {
+                    exportProgress = ""
+                }
+            }
+            
+        } catch {
+            let errorMessage = error.localizedDescription
+            self.error = "Failed to get file paths: \(errorMessage)"
+            print("❌ Get file paths error: \(errorMessage)")
+            isExporting = false
+        }
+    }
     
     /// Start the export and upload process
     func exportAndUpload(uploader: Uploader) async {
@@ -80,6 +140,8 @@ class CaptureOneUploadManager: ObservableObject {
             print("📁 Export folder: \(exportFolder.path)")
             
             // Clear any old files in the export folder
+            // Note: This intentionally deletes files from manual exports or previous failed uploads
+            // The export folder is app-controlled and should only contain files from current export
             try cleanExportFolder(exportFolder)
             
             // Start monitoring the export folder

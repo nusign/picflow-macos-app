@@ -4,8 +4,8 @@ struct GalleryResponse: Decodable {
     let data: [GalleryDetails]
 }
 
-struct GalleryDetails: Codable {
-    struct Teaser: Codable {
+struct GalleryDetails: Codable, Equatable {
+    struct Teaser: Codable, Equatable {
         let uuid: String?
         let position: String?
         let width: Int?
@@ -14,7 +14,7 @@ struct GalleryDetails: Codable {
         let ext: String?
     }
     
-    struct Cover: Codable {
+    struct Cover: Codable, Equatable {
         let size: String?
         let uuid: String
         let position: String?

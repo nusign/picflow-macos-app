@@ -18,6 +18,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var cancellables = Set<AnyCancellable>()
     private var windowMonitor: Any?
     private var isAnimating: Bool = false
+    private var toolbar: NSToolbar?
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Initialize authenticator and uploader on the main actor
@@ -35,7 +36,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
             .store(in: &cancellables)
             
-            // When authenticated, load tenant details and set tenant header
+            // When authenticated, load tenant details
             authenticator.$state
                 .receive(on: RunLoop.main)
                 .sink { [weak self] state in
@@ -75,6 +76,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
     
+    @MainActor
     private func setupFloatingWindow() {
         let contentView = ContentView(uploader: uploader, authenticator: authenticator)
         
@@ -85,22 +87,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             defer: false
         )
         
-        // Modern menu bar accessory style
+        // Modern macOS window styling
         floatingWindow.title = ""
         floatingWindow.titlebarAppearsTransparent = true
         floatingWindow.titleVisibility = .hidden
         
-        // macOS Tahoe style rounded corners (more pronounced like Finder)
-        if #available(macOS 13.0, *) {
-            floatingWindow.styleMask.insert(.fullSizeContentView)
-            floatingWindow.contentView?.wantsLayer = true
-            floatingWindow.contentView?.layer?.cornerRadius = 16.0
-            floatingWindow.contentView?.layer?.masksToBounds = true
-        }
-        
-        // Create visual effect view for native background
+        // Create visual effect view with modern material
         let visualEffectView = NSVisualEffectView()
-        visualEffectView.material = .popover
+        // Modern materials for macOS 15 - better glass effect
+        if #available(macOS 14.0, *) {
+            visualEffectView.material = .hudWindow  // Modern frosted glass effect
+        } else {
+            visualEffectView.material = .popover
+        }
         visualEffectView.blendingMode = .behindWindow
         visualEffectView.state = .active
         
@@ -118,12 +117,25 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         
         floatingWindow.contentView = visualEffectView
         floatingWindow.isReleasedWhenClosed = false
-        floatingWindow.level = .floating
+        floatingWindow.level = .normal
         floatingWindow.isMovableByWindowBackground = true
         floatingWindow.delegate = self
         
+        // Add toolbar for proper rounded corners
+        setupToolbar()
+        
         // Hide initially
         floatingWindow.orderOut(nil)
+    }
+    
+    @MainActor
+    private func setupToolbar() {
+        // Create empty toolbar just for rounded corners
+        toolbar = NSToolbar(identifier: "MainToolbar")
+        toolbar?.displayMode = .iconOnly
+        
+        floatingWindow.toolbar = toolbar
+        floatingWindow.toolbarStyle = .unified
     }
     
     @MainActor
@@ -178,13 +190,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     
     @objc private func toggleWindow() {
-        if floatingWindow.isVisible {
-            floatingWindow.orderOut(nil)
-        } else {
-            showWindow(attached: isAttached)
+        Task { @MainActor in
+            if floatingWindow.isVisible {
+                floatingWindow.orderOut(nil)
+            } else {
+                showWindow(attached: isAttached)
+            }
         }
     }
     
+    @MainActor
     private func showWindow(attached: Bool) {
         guard let button = statusItem.button else { return }
         
@@ -211,6 +226,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
     
+    @MainActor
     private func showTrafficLights(_ show: Bool) {
         floatingWindow.standardWindowButton(.closeButton)?.isHidden = !show
         floatingWindow.standardWindowButton(.miniaturizeButton)?.isHidden = !show

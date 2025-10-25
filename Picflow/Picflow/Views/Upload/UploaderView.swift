@@ -14,55 +14,45 @@ struct UploaderView: View {
     @State private var isDragging = false
     
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            ZStack(alignment: .topTrailing) {
-                // Main Content
-                VStack(spacing: 0) {
-                    // Dropzone (fills available vertical space)
-                    DropzoneView(isDragging: $isDragging, onFilesSelected: handleFilesSelected)
-                        .frame(maxHeight: .infinity)
-                    
-                    // Bottom components
-                    VStack(spacing: 16) {
-                        // Upload Progress (when uploading or just completed)
-                        if (uploader.isUploading && !uploader.uploadQueue.isEmpty) || uploader.uploadState == .completed {
-                            UploadProgressView(uploader: uploader)
-                        }
-                        
-                        // Capture One Integration
-                        CaptureOneStatusView(uploader: uploader)
+        VStack(spacing: 0) {
+            // Back Button
+            HStack {
+                Button(action: onBack) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("Galleries")
+                            .font(.system(size: 14, weight: .medium))
                     }
-                    .padding(.top, 16)
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 24)
+                    .foregroundColor(.accentColor)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.accentColor.opacity(0.1))
+                    .cornerRadius(8)
                 }
-                .padding(.top, 48) // Space for back button and avatar
-                
-                // User Profile Avatar (Fixed Top Right)
-                if case .authorized(_, let profile) = authenticator.state {
-                    UserProfileView(profile: profile, authenticator: authenticator)
-                        .padding(.top, 8)
-                        .padding(.trailing, 16)
-                }
+                .buttonStyle(.plain)
+                Spacer()
             }
-            
-            // Back Button (Fixed Top Left)
-            Button(action: onBack) {
-                HStack(spacing: 4) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 14, weight: .semibold))
-                    Text("Galleries")
-                        .font(.system(size: 14, weight: .medium))
-                }
-                .foregroundColor(.accentColor)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(Color.accentColor.opacity(0.1))
-                .cornerRadius(8)
-            }
-            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
             .padding(.top, 8)
-            .padding(.leading, 16)
+            
+            // Dropzone (fills available vertical space)
+            DropzoneView(isDragging: $isDragging, onFilesSelected: handleFilesSelected)
+                .frame(maxHeight: .infinity)
+            
+            // Bottom components
+            VStack(spacing: 16) {
+                // Upload Progress (when uploading or just completed)
+                if (uploader.isUploading && !uploader.uploadQueue.isEmpty) || uploader.uploadState == .completed {
+                    UploadProgressView(uploader: uploader)
+                }
+                
+                // Capture One Integration
+                CaptureOneStatusView(uploader: uploader)
+            }
+            .padding(.top, 16)
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
         }
     }
     

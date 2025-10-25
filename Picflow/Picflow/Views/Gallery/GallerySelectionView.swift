@@ -18,24 +18,15 @@ struct GallerySelectionView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Header with title and avatar
-            ZStack {
-                // Centered Title
+            // Header
+            HStack {
+                Spacer()
                 Text("Choose Gallery")
                     .font(.system(size: 22, weight: .semibold))
                     .foregroundColor(.primary)
-                
-                // Avatar Top Right
-                HStack {
-                    Spacer()
-                    
-                    if case .authorized(_, let profile) = authenticator.state {
-                        UserProfileView(profile: profile, authenticator: authenticator)
-                    }
-                }
+                Spacer()
             }
             .padding()
-            .padding(.top, 8)
             
             // Content
             if isLoading {
@@ -64,7 +55,7 @@ struct GallerySelectionView: View {
                                 uploader.selectGallery(gallery)
                                 onGallerySelected()
                             } label: {
-                                SelectedGalleryView(gallery: gallery)
+                                GalleryCardView(gallery: gallery)
                             }
                             .buttonStyle(.plain)
                         }

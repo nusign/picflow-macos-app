@@ -508,6 +508,84 @@ class CaptureOneScriptBridge {
     }
     
     /// Export selected variants using the "Picflow Upload" recipe to a temporary folder
+    /// Get file paths of selected variants (original files)
+    func getSelectedVariantPaths() async throws -> [URL] {
+        // Detect which Capture One is running
+        guard let appInfo = detectCaptureOneApp() else {
+            throw CaptureOneError.notRunning
+        }
+        
+        // Double-check app is running
+        let isStillRunning = NSWorkspace.shared.runningApplications.contains { app in
+            guard let bundleId = app.bundleIdentifier else { return false }
+            return bundleId == appInfo.bundleId
+        }
+        
+        guard isStillRunning else {
+            detectedBundleId = nil
+            detectedAppName = nil
+            throw CaptureOneError.notRunning
+        }
+        
+        // AppleScript to get file paths of selected variants
+        let script = """
+        tell application "\(appInfo.appName)"
+            try
+                tell document 1
+                    set selectedVariants to (variants whose selected is true)
+                    set variantCount to count of selectedVariants
+                    
+                    if variantCount is 0 then
+                        return ""
+                    end if
+                    
+                    set filePaths to {}
+                    
+                    repeat with v in selectedVariants
+                        try
+                            set parentImg to parent image of v
+                            set imgFile to file of parentImg
+                            set end of filePaths to POSIX path of imgFile
+                        on error
+                            -- Skip variants without files
+                        end try
+                    end repeat
+                    
+                    -- Join paths with newline
+                    set AppleScript's text item delimiters to linefeed
+                    set pathString to filePaths as string
+                    set AppleScript's text item delimiters to ""
+                    
+                    return pathString
+                end tell
+            on error errMsg number errNum
+                return "ERROR:" & errMsg & " (code: " & errNum & ")"
+            end try
+        end tell
+        """
+        
+        print("📂 Getting file paths of selected variants...")
+        
+        let result = try await executeAppleScript(script)
+        
+        // Check for errors
+        if result.hasPrefix("ERROR:") {
+            let errorMsg = result.replacingOccurrences(of: "ERROR:", with: "")
+            throw CaptureOneError.scriptExecutionFailed(errorMsg)
+        }
+        
+        // Parse paths
+        let paths = result
+            .split(separator: "\n")
+            .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .map { URL(fileURLWithPath: $0) }
+        
+        print("✅ Found \(paths.count) file paths")
+        
+        return paths
+    }
+    
     /// Returns the export folder path and the count of variants being exported
     func exportSelectedVariants(recipeName: String = "Picflow Upload", outputFolder: URL) async throws -> (folder: URL, count: Int) {
         // Detect which Capture One is running

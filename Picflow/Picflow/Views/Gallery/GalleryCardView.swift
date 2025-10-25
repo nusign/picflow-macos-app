@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct SelectedGalleryView: View {
+struct GalleryCardView: View {
     let gallery: GalleryDetails
     
     var body: some View {
@@ -45,4 +45,5 @@ struct SelectedGalleryView: View {
         .background(Color.gray.opacity(0.1))
         .cornerRadius(8)
     }
-} 
+}
+
