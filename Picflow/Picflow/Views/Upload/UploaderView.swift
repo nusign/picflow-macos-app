@@ -91,29 +91,27 @@ struct DropzoneView: View {
         VStack {
             Spacer()
             
-            VStack(spacing: 20) {
-                // Upload Icon (96px placeholder)
-                ZStack {
-                    Circle()
-                        .fill(Color.accentColor.opacity(0.1))
-                        .frame(width: 96, height: 96)
+            VStack(spacing: 0) {
+                // Icon
+                Image("Image-Stack-Upload")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 96, height: 96)
+                
+                VStack(spacing: 8) {
+                    // Title
+                    Text("Upload")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundColor(.primary)
                     
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 48))
-                        .foregroundColor(.accentColor)
+                    // Description
+                    Text("Drag and drop or choose files to upload to Picflow.")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
                 }
-                
-                // Title
-                Text("Upload")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundColor(.primary)
-                
-                // Description
-                Text("Drag and drop or choose files to upload to Picflow.")
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                
+                .frame(maxWidth: 180)
+                .padding(.bottom, 8)
                 // Choose Files Button
                 Button("Choose Files") {
                     selectFiles()

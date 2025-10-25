@@ -12,15 +12,20 @@ struct DropAreaView: View {
                 .stroke(style: StrokeStyle(lineWidth: 2, dash: [5]))
                 .foregroundColor(isEnabled ? (isTargeted ? .blue : .gray) : .gray.opacity(0.5))
             
-            VStack {
-                Image(systemName: "arrow.down.circle")
-                    .font(.system(size: 30))
-                Text(isEnabled ? "Drop images here" : "Select a gallery first")
-                    .font(.headline)
+            VStack(spacing: 20) {
+                Image("Image-Stack-Upload")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 96, height: 96)
+                
+                VStack(spacing: 8) {
+                    Text(isEnabled ? "Drop images here" : "Select a gallery first")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundColor(isEnabled ? (isTargeted ? .blue : .primary) : .gray.opacity(0.5))
+                }
             }
-            .foregroundColor(isEnabled ? (isTargeted ? .blue : .gray) : .gray.opacity(0.5))
         }
-        .frame(height: 120)
+        .frame(height: 200)
         .padding()
         .onDrop(of: [UTType.image], isTargeted: $isTargeted) { providers in
             guard isEnabled else { return false }

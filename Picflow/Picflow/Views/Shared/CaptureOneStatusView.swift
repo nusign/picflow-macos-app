@@ -64,15 +64,12 @@ struct CaptureOneStatusView: View {
     @ViewBuilder
     private var statusContent: some View {
         HStack(spacing: 12) {
-            // App Icon (32px placeholder)
-            Circle()
-                .fill(Color.gray.opacity(0.2))
+            // App Icon
+            Image("Capture-One-Logo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
                 .frame(width: 32, height: 32)
-                .overlay(
-                    Text("C1")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.secondary)
-                )
+                .clipShape(RoundedRectangle(cornerRadius: 8))
             
             // Title and Status (crossfades between "Running" and selection count)
             VStack(alignment: .leading, spacing: 4) {

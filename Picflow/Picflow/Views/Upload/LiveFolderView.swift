@@ -16,16 +16,11 @@ struct LiveFolderView: View {
             Spacer()
             
             VStack(spacing: 20) {
-                // Folder Icon (96px placeholder)
-                ZStack {
-                    Circle()
-                        .fill(Color.accentColor.opacity(0.1))
-                        .frame(width: 96, height: 96)
-                    
-                    Image(systemName: "folder")
-                        .font(.system(size: 48))
-                        .foregroundColor(.accentColor)
-                }
+                // Folder Sync Icon
+                Image("Folder-Sync-Connect")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 96, height: 96)
                 
                 // Title
                 Text("Picflow Live")
