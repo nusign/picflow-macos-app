@@ -9,7 +9,6 @@ import SwiftUI
 import UserNotifications
 import AppKit
 
-@available(macOS 26.0, *)
 struct ContentView: View {
     @ObservedObject var uploader: Uploader
     @ObservedObject var authenticator: Authenticator

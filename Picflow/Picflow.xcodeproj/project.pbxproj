@@ -29,12 +29,25 @@
 		195B9DC62D3FB40800BEBCBD /* PicflowUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PicflowUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+	195B9E002D3FB50000BEBCBD /* Exceptions for "Picflow" folder in "Picflow" target */ = {
+		isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+		membershipExceptions = (
+			Info.plist,
+		);
+		target = 195B9DAA2D3FB40600BEBCBD /* Picflow */;
+	};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		195B9DAD2D3FB40600BEBCBD /* Picflow */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Picflow;
-			sourceTree = "<group>";
-		};
+	195B9DAD2D3FB40600BEBCBD /* Picflow */ = {
+		isa = PBXFileSystemSynchronizedRootGroup;
+		exceptions = (
+			195B9E002D3FB50000BEBCBD /* Exceptions for "Picflow" folder in "Picflow" target */,
+		);
+		path = Picflow;
+		sourceTree = "<group>";
+	};
 		195B9DBF2D3FB40800BEBCBD /* PicflowTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = PicflowTests;

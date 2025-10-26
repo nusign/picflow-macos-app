@@ -36,18 +36,14 @@ struct CaptureOneStatusView: View {
     private func showRunningStatusTemporarily() {
         statusSwitchTask?.cancel()
         
-        withAnimation(.easeInOut(duration: 0.3)) {
-            showRunningStatus = true
-        }
+        showRunningStatus = true
         
         statusSwitchTask = Task {
             try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
             
             guard !Task.isCancelled else { return }
             
-            withAnimation(.easeInOut(duration: 0.3)) {
-                showRunningStatus = false
-            }
+            showRunningStatus = false
         }
     }
     
@@ -77,58 +73,54 @@ struct CaptureOneStatusView: View {
                         Text("Running")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
-                            .transition(.opacity)
                     } else {
                         if monitor.selection.count > 0 {
                             Text("\(monitor.selection.count) variant\(monitor.selection.count == 1 ? "" : "s") selected")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
-                                .transition(.opacity)
                         } else {
                             Text("No variants selected")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
-                                .transition(.opacity)
                         }
                     }
                 }
+                .animation(.easeInOut(duration: 0.3), value: showRunningStatus)
             }
             
             Spacer()
             
-            // Right side: Upload button
+            // Right side: Upload button (independent of text transition)
             if monitor.needsPermission {
                 Button("Allow Access") {
                     monitor.requestPermission()
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-            } else {
-                // Upload button with menu (only when variants are selected)
-                if monitor.selection.count > 0 {
-                    Menu {
-                        Button("Picflow Recipe") {
-                            Task {
-                                await handleExportAndUpload()
-                            }
-                        }
-                        
-                        Button("Original Files") {
-                            Task {
-                                await handleUploadOriginals()
-                            }
-                        }
-                    } label: {
-                        Text(uploadManager.isExporting ? "Exporting..." : "Upload")
-                    } primaryAction: {
+            } else if monitor.selection.count > 0 {
+                // Upload button with menu (appears when variants selected, independent of "Running" text)
+                Menu {
+                    Button("Picflow Recipe") {
                         Task {
                             await handleExportAndUpload()
                         }
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .disabled(uploadManager.isExporting)
+                    
+                    Button("Original Files") {
+                        Task {
+                            await handleUploadOriginals()
+                        }
+                    }
+                } label: {
+                    Text(uploadManager.isExporting ? "Exporting..." : "Upload")
+                } primaryAction: {
+                    Task {
+                        await handleExportAndUpload()
+                    }
                 }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(uploadManager.isExporting)
             }
         }
         

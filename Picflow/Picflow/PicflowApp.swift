@@ -4,7 +4,6 @@ import SwiftUI
 // import Sentry
 
 @main
-@available(macOS 26.0, *)
 struct PicflowApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
@@ -37,8 +36,6 @@ struct PicflowApp: App {
                 uploader: appDelegate.uploader,
                 authenticator: appDelegate.authenticator
             )
-            .containerBackground(.ultraThickMaterial, for: .window)
-            .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 480, height: 400)

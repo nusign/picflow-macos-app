@@ -66,6 +66,7 @@ class SettingsManager: ObservableObject {
     // MARK: - Launch at Login
     
     private func setLaunchAtLogin(_ enabled: Bool) {
+        // Requires macOS 13.0+
         if #available(macOS 13.0, *) {
             do {
                 if enabled {
@@ -77,33 +78,7 @@ class SettingsManager: ObservableObject {
                 print("Failed to \(enabled ? "enable" : "disable") launch at login: \(error)")
             }
         } else {
-            // Fallback for older macOS versions
-            setLaunchAtLoginLegacy(enabled)
-        }
-    }
-    
-    private func setLaunchAtLoginLegacy(_ enabled: Bool) {
-        let appPath = Bundle.main.bundlePath
-        let url = URL(fileURLWithPath: appPath)
-        
-        if enabled {
-            // Add to login items
-            if let loginItems = LSSharedFileListCreate(nil, kLSSharedFileListSessionLoginItems.takeRetainedValue(), nil)?.takeRetainedValue() {
-                LSSharedFileListInsertItemURL(loginItems, kLSSharedFileListItemBeforeFirst.takeRetainedValue(), nil, nil, url as CFURL, nil, nil)
-            }
-        } else {
-            // Remove from login items
-            if let loginItems = LSSharedFileListCreate(nil, kLSSharedFileListSessionLoginItems.takeRetainedValue(), nil)?.takeRetainedValue() {
-                if let items = LSSharedFileListCopySnapshot(loginItems, nil)?.takeRetainedValue() as? [LSSharedFileListItem] {
-                    for item in items {
-                        if let itemURL = LSSharedFileListItemCopyResolvedURL(item, 0, nil)?.takeRetainedValue() as URL? {
-                            if itemURL.path == url.path {
-                                LSSharedFileListItemRemove(loginItems, item)
-                            }
-                        }
-                    }
-                }
-            }
+            print("Launch at login requires macOS 13.0 or later")
         }
     }
     
