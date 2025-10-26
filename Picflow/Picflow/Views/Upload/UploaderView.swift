@@ -21,6 +21,20 @@ struct UploaderView: View {
     @StateObject private var captureOneMonitor = CaptureOneMonitor()
     @StateObject private var captureOneUploadManager = CaptureOneUploadManager()
     
+    // Live folder monitoring
+    @StateObject private var folderMonitoringManager: FolderMonitoringManager
+    
+    // MARK: - Initialization
+    
+    init(uploader: Uploader, authenticator: Authenticator, onBack: @escaping () -> Void) {
+        self.uploader = uploader
+        self.authenticator = authenticator
+        self.onBack = onBack
+        
+        // Initialize folder monitoring manager
+        _folderMonitoringManager = StateObject(wrappedValue: FolderMonitoringManager(uploader: uploader))
+    }
+    
     var body: some View {
         VStack(spacing: 0) {
             // Top bar with avatar
@@ -53,12 +67,15 @@ struct UploaderView: View {
                     // Live Mode Toggle
                     Toggle("Live", isOn: $isLiveModeEnabled)
                         .toggleStyle(.switch)
+                        .onChange(of: isLiveModeEnabled) { _, newValue in
+                            handleLiveModeToggle(newValue)
+                        }
                 }
                 .border(showDebugBorders ? Color.green : Color.clear, width: 1) // DEBUG: Controls HStack
                 
                 // Main Content Area (fills available vertical space)
                 if isLiveModeEnabled {
-                    LiveFolderView(onFolderSelected: handleFolderSelected)
+                    LiveFolderView(folderManager: folderMonitoringManager)
                         .frame(maxHeight: .infinity)
                         .border(showDebugBorders ? Color.purple : Color.clear, width: 2) // DEBUG: LiveFolderView
                 } else {
@@ -72,6 +89,12 @@ struct UploaderView: View {
             // Status Components (Upload progress or Capture One Integration)
             if shouldShowStatusArea {
                 VStack(spacing: 0) {
+                    // Live Folder Status (always show when folder is selected in live mode)
+                    if shouldShowLiveFolder {
+                        LiveFolderUploadStatus(manager: folderMonitoringManager)
+                            .border(showDebugBorders ? Color.purple : Color.clear, width: 1) // DEBUG: Live Folder Status
+                    }
+                    
                     // Upload Status
                     if isAnyUploadActive {
                         uploadStatusView
@@ -88,21 +111,34 @@ struct UploaderView: View {
                 }
                 .padding(.top, 16)
                 .padding(.horizontal, 8)
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
 
         }
         .padding(24)
         .border(showDebugBorders ? Color.red : Color.clear, width: 3) // DEBUG: Outer VStack
         .animation(.easeInOut(duration: 0.3), value: shouldShowStatusArea)
+        .liveModeAnimation(isActive: isLiveModeActive)
+    }
+    
+    // MARK: - Live Mode State
+    
+    /// Check if live mode is actively monitoring a folder
+    private var isLiveModeActive: Bool {
+        isLiveModeEnabled && folderMonitoringManager.isWatching
     }
     
     // MARK: - Status Visibility Logic
     
     /// Determines if the entire status area should be visible
     private var shouldShowStatusArea: Bool {
-        // Show if uploading OR Capture One is running (in normal mode)
-        isAnyUploadActive || shouldShowCaptureOne
+        // Show if uploading OR Capture One is running (in normal mode) OR live folder is watching
+        isAnyUploadActive || shouldShowCaptureOne || shouldShowLiveFolder
+    }
+    
+    /// Determines if live folder status should be shown
+    private var shouldShowLiveFolder: Bool {
+        // Show when live mode is enabled AND folder is selected
+        isLiveModeEnabled && folderMonitoringManager.selectedFolder != nil
     }
     
     /// Determines if Capture One status should be shown
@@ -124,10 +160,10 @@ struct UploaderView: View {
                                captureOneUploadManager.uploadState == .uploading ||
                                captureOneUploadManager.uploadState == .completed
         
-        // TODO: Add live folder monitoring check when implemented
-        // let liveFolderActive = liveFolderManager.isUploading
+        // Live folder upload active
+        let liveFolderActive = folderMonitoringManager.isUploading
         
-        return manualActive || captureOneActive
+        return manualActive || captureOneActive || liveFolderActive
     }
     
     /// Unified upload status view that adapts based on upload source
@@ -144,7 +180,6 @@ struct UploaderView: View {
         else if uploader.isUploading || uploader.uploadState == .completed {
             ManualUploadStatus(uploader: uploader)
         }
-        // TODO: Add live folder upload status when implemented
     }
     
     // MARK: - File Handling
@@ -154,12 +189,82 @@ struct UploaderView: View {
         uploader.queueFiles(urls)
     }
     
-    // MARK: - Folder Handling
+    // MARK: - Live Mode Handling
     
-    private func handleFolderSelected(_ url: URL) {
-        print("📂 Folder selected for live monitoring: \(url.path)")
-        // TODO: Implement folder monitoring logic
-        // This will start watching the folder and upload new files automatically
+    private func handleLiveModeToggle(_ enabled: Bool) {
+        if !enabled {
+            // Stop watching and reset everything
+            folderMonitoringManager.stopMonitoring()
+        }
+    }
+}
+
+// MARK: - Live Folder Upload Status
+
+/// Wrapper for live folder uploads using the existing UploadStatusView
+struct LiveFolderUploadStatus: View {
+    @ObservedObject var manager: FolderMonitoringManager
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // Left side: Folder icon and status
+            ZStack {
+                Circle()
+                    .fill(statusColor.opacity(0.1))
+                    .frame(width: 32, height: 32)
+                
+                Image(systemName: "folder.badge.plus")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(statusColor)
+            }
+            
+            // Middle: Folder name and status
+            VStack(alignment: .leading, spacing: 2) {
+                if let folderName = manager.folderName {
+                    Text(folderName)
+                        .font(.callout)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                }
+                
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(statusColor)
+                        .frame(width: 8, height: 8)
+                    
+                    Text(manager.statusDescription)
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            Spacer()
+            
+            // Right side: Upload count
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("\(manager.totalUploaded)")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.primary)
+                
+                Text("uploaded")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+    
+    private var statusColor: Color {
+        switch manager.uploadState {
+        case .completed:
+            return .green
+        case .failed:
+            return .red
+        case .uploading:
+            return .blue
+        default:
+            return .green
+        }
     }
 }
 

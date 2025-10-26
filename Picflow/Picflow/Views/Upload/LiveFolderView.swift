@@ -9,7 +9,7 @@ import SwiftUI
 
 /// View for selecting a folder to monitor for live file streaming
 struct LiveFolderView: View {
-    let onFolderSelected: (URL) -> Void
+    @ObservedObject var folderManager: FolderMonitoringManager
     
     var body: some View {
         VStack {
@@ -33,12 +33,12 @@ struct LiveFolderView: View {
                     Text("Connect a folder and stream new files to Picflow.")
                         .font(.body)
                         .multilineTextAlignment(.center)
-                        }
+                }
                 .frame(maxWidth: 180)
                 .padding(.bottom, 16)
 
-                // Choose Folder Button
-                Button("Choose Folder") {
+                // Choose/Change Folder Button
+                Button(buttonTitle) {
                     selectFolder()
                 }
                 .buttonStyle(.bordered)
@@ -58,16 +58,23 @@ struct LiveFolderView: View {
         )
     }
     
+    private var buttonTitle: String {
+        if let displayPath = folderManager.folderDisplayPath {
+            return displayPath
+        } else {
+            return "Choose Folder"
+        }
+    }
+    
     private func selectFolder() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
         panel.prompt = "Start Streaming"
-        // panel.message = "Select a folder to monitor for new files"
         
         if panel.runModal() == .OK, let url = panel.url {
-            onFolderSelected(url)
+            folderManager.selectFolder(url)
         }
     }
 }
