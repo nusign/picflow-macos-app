@@ -4,14 +4,16 @@ SwiftUI app that uploads assets to Picflow.
 
 ## Features
 
-- **Detachable popover**: Click the menu bar icon to show a popover; drag it away to convert to a floating window with standard controls
+- **Modern macOS App**: Regular dock app with menu bar icon for quick access
 - **Visual upload status**: Menu bar icon changes to show upload states (idle, uploading, success, failed)
-- **Gallery selection**: Select from available galleries; currently selected gallery is displayed in the popover
-- **Folder watch mode**: Enable/disable watching, pick a folder (auto-reselects last), stop watching anytime; new files auto-upload
+- **Gallery selection**: Select from available galleries; currently selected gallery is displayed in the upload view
+- **Live Folder Monitoring**: Watch a local folder and automatically upload new images to your selected gallery
+- **Drag & Drop Upload**: Simple drag-and-drop interface for quick file uploads
 - **Uploads**: Presigned S3 multipart uploads with progress tracking and error handling
 - **Storage management**: Account storage limits displayed based on tenant data; no per-file size limits
 - **Sleep prevention**: Automatically prevents system sleep during active uploads to ensure reliability
 - **Auth**: Clerk (OIDC + PKCE) browser-based login; logout supported; tokens stored securely in Keychain
+- **Profile Management**: User avatar dropdown in toolbar with quick access to account settings and workspace switching
 - **Automation bridges**: Capture One selection read + export via AppleScript/JXA
 
 ## Auth (Clerk)
@@ -31,55 +33,65 @@ SwiftUI app that uploads assets to Picflow.
 ## Usage
 
 ### First Launch
-1. **Launch app** - The app appears in the menu bar
-2. **Click menu bar icon** - A popover appears below the icon
-3. **Authenticate** - Click Login to authenticate with Clerk via browser
-4. **Select gallery** - Choose a gallery from your workspace
+1. **Launch app** - The app appears in both the dock and menu bar
+2. **Authenticate** - Click Login to authenticate with Clerk via browser
+3. **Select gallery** - Choose a gallery from your workspace
 
 ### Daily Use
 
-**Popover Mode**
-- Click the menu bar icon to show the popover
-- Click outside to dismiss
+**Main Window**
+- Click the dock icon or menu bar icon to open the main window
+- Window size: 440x320px (login), 380px height (after login), max 960x720px
+- Window features rounded corners with modern macOS styling
+- Profile dropdown in toolbar provides quick access to settings
 
-**Detached Window Mode**
-- Click and drag the popover away from the menu bar
-- The popover transforms into a floating window with close/minimize/resize controls
-- Position the window anywhere on your screen
-- Close the window when done; next click shows the popover again
-- Reattaching to popover mode when dragging back to menu bar icon
+**Upload Modes**
+1. **Drag & Drop**: Drag files directly onto the upload area
+2. **Choose Files**: Click "Choose Files" button to select files manually
+3. **Live Mode**: Toggle "Live" to enable folder monitoring
+   - Select a folder to watch
+   - New files added to the folder automatically upload to your selected gallery
+   - Perfect for automatic workflow integration
 
 **Upload Status**
-- Menu bar icon should show current state (uploading, completed, errors) while uploading
-- Display current count of files being uploaded with progress indication
-- Show checkmark when each file completes, then auto-dismiss after brief delay
+- Menu bar icon shows current state (uploading, completed, errors) while uploading
+- Displays current count of files being uploaded with progress indication
+- Shows checkmark when each file completes
 
-**Folder Monitoring**
-- Enable folder watch in the app
-- New files added to the watched folder auto-upload to the selected gallery
-- Monitor upload progress via the menu bar icon
+**Profile Management**
+- Click profile icon in toolbar to access:
+  - Open Picflow (web app)
+  - Account Settings
+  - Switch Workspace
+  - Logout
 
 ## Architecture
 
 ### App Structure
-- **SwiftUI + AppKit**: Menu bar status item, detachable popover, folder monitoring
+- **SwiftUI + AppKit**: Menu bar status item, main window, folder monitoring, toolbar integration
 - **Authenticator**: Clerk OIDC + PKCE authentication flow with Keychain storage
 - **Uploader**: S3 multipart upload with state tracking (idle/uploading/completed/failed)
 - **Networking**: API client with JWT bearer tokens and tenant headers
 - **Models**: Gallery, Asset, Tenant response structures
 
 ### UI Components
-- **AppDelegate**: Menu bar management, popover/window lifecycle, upload state icon updates
-- **ContentView**: Main UI showing login prompt or gallery selection
-- **GallerySelectionView**: Gallery picker with async loading
-- **SelectedGalleryView**: Gallery preview with thumbnail
-- **DropAreaView**: Drag & drop zone for file uploads
+- **AppDelegate**: Menu bar management, window lifecycle, toolbar setup, upload state icon updates
+- **AppView**: Main authenticated container with navigation state management
+- **LoginView**: Modern login screen with Picflow branding
+- **GallerySelectionView**: Gallery picker with async loading, workspace indicator, optimized card layout
+- **UploaderView**: Upload interface with Live mode toggle and drag & drop
+- **LiveFolderView**: Folder selection interface for automated monitoring
+- **DropAreaView**: Drag & drop zone for manual file uploads
+- **AvatarToolbarButton**: Profile dropdown with workspace/account management
+- **CaptureOneStatusView**: Capture One integration status and controls
 
 ### Key Features Implementation
-- **Detachable Popover**: Custom `NSWindow` with drag-based attach/detach behavior and animated snapping
-- **Menu Bar Only**: `.accessory` activation policy (no Dock icon)
+- **Dock & Menu Bar App**: Standard macOS app with `.regular` activation policy
+- **Modern Window**: Fixed sizing (440x320 login, 380 height after login), rounded corners via unified toolbar style
+- **Profile Dropdown**: NSToolbar integration with SwiftUI popover
 - **Upload States**: Published `UploadState` enum with auto-reset timers
 - **Folder Monitoring**: `FolderMonitor` with FSEvents watching for file additions
+- **Live Mode Toggle**: Switch between manual and automated upload workflows
 - **Sleep Prevention**: `NSProcessInfo.processInfo.beginActivity` with `.userInitiated` option during uploads
 
 ## Capture One Integration
@@ -151,12 +163,55 @@ end tell
 
 ## Development & Testing
 
-### Test Authentication
-For faster development iteration, a **"Use Test Token"** button is available in the login screen:
-- Bypasses OAuth flow
-- Uses hardcoded JWT token from `Constants.swift`
-- Shows "Test Mode" badge
-- Production OAuth flow remains available
+### Project Structure
+The app follows a clean SwiftUI architecture with organized folders:
+
+```
+Picflow/Picflow/
+├── App/
+│   ├── AppDelegate.swift           # Main app lifecycle & window management
+│   └── PicflowApp.swift            # SwiftUI app entry point
+├── Views/
+│   ├── AppView.swift               # Main authenticated container
+│   ├── LoginView.swift             # Login screen
+│   ├── Gallery/
+│   │   ├── GallerySelectionView.swift
+│   │   └── GalleryCardView.swift
+│   ├── Upload/
+│   │   ├── UploaderView.swift      # Main upload interface
+│   │   ├── DropAreaView.swift      # Drag & drop UI
+│   │   └── LiveFolderView.swift    # Folder monitoring UI
+│   ├── Shared/
+│   │   ├── AvatarToolbarButton.swift
+│   │   └── CaptureOneStatusView.swift
+│   └── Workspace/
+│       └── WorkspaceSelectionView.swift
+├── Models/
+│   ├── Gallery.swift
+│   ├── CreateAssetRequest.swift
+│   ├── CreateAssetResponse.swift
+│   └── FileEventType.swift
+├── Networking/
+│   ├── Endpoint.swift
+│   └── EndpointError.swift
+├── Authenticator.swift
+├── Uploader.swift
+├── FolderMonitor.swift
+├── FolderMonitoringManager.swift
+└── CaptureOne/
+    ├── CaptureOneMonitor.swift
+    ├── CaptureOneScriptBridge.swift
+    └── CaptureOneUploadManager.swift
+```
+
+### Icon Assets
+The app uses custom icon assets from Figma, exported as PDFs with preserve vector data:
+- `Picflow-Logo`: App branding (login screen)
+- `Capture-One-Logo`: Capture One integration indicator
+- `Folder-Sync-Connect`: Live folder monitoring icon
+- `Image-Stack-Upload`: Drag & drop upload icon
+
+Icons support light/dark mode variants automatically via Xcode asset catalog.
 
 ### Error Reporting (Sentry)
 Comprehensive error reporting is integrated throughout the app:
@@ -165,11 +220,32 @@ Comprehensive error reporting is integrated throughout the app:
 - Folder monitoring issues
 - Capture One integration errors
 
-See [SENTRY_SETUP_GUIDE.md](SENTRY_SETUP_GUIDE.md) for complete setup instructions.
+See [SENTRY_SETUP_GUIDE.md](SENTRY_SETUP_GUIDE.md) for complete setup instructions (if available).
 
 ## TBD
 
-- Distribution: Mac App Store vs direct distribution with [Sparkle](https://sparkle-project.org) (Apple approval concerns)
-- ~~Authentication: Clerk OAuth with consent page vs JWT token-based flow~~ ✅ OAuth implemented + test token for development
+- Distribution: Mac App Store vs direct distribution with [Sparkle](https://sparkle-project.org) (Apple approval concerns - sandboxing required for App Store)
+- ~~Authentication: Clerk OAuth with consent page vs JWT token-based flow~~ ✅ OAuth implemented
 - Feedback sync: Sync favorites and color labels back to photography software (Lightroom, Capture One, Photo Mechanic)
 - Multipart uploads: For large files (>20MB), investigate backend multipart upload support
+
+## Recent Major Updates
+
+### UI/UX Improvements (October 2025)
+- ✅ Converted from menu bar-only app to regular dock app with menu bar icon for quick access
+- ✅ Added profile dropdown in toolbar with workspace/account management
+- ✅ Implemented workspace selection flow via notification-based navigation
+- ✅ Redesigned window sizing: 440x320px (login), 380px+ (after login), max 960x720px
+- ✅ Added rounded corners via unified toolbar style (no manual traffic light positioning)
+- ✅ Optimized gallery card layout with 4:3 preview images, centered 640px max width
+- ✅ Fixed gallery asset count display (removed CodingKeys conflict with snake_case decoder)
+- ✅ Added Live mode toggle for folder monitoring workflow
+- ✅ Integrated custom Picflow icons (PDFs with light/dark variants)
+- ✅ Disabled autofocus on launch and in popovers for cleaner UX
+- ✅ Added "Current Workspace" indicator in gallery selection view
+
+### Architecture Improvements
+- ✅ Removed complex window attach/detach logic in favor of standard window behavior
+- ✅ Simplified AppDelegate with better MainActor isolation
+- ✅ Created reusable `GenericUploadProgressView` component (eliminated code duplication)
+- ✅ Organized views into logical folders: App/, Views/Gallery/, Views/Upload/, Views/Shared/, Views/Workspace/

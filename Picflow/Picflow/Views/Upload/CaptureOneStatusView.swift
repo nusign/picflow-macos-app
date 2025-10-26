@@ -9,37 +9,27 @@ import SwiftUI
 
 /// Displays the current status of Capture One with a colored indicator
 struct CaptureOneStatusView: View {
-    @StateObject private var monitor = CaptureOneMonitor()
-    @StateObject private var uploadManager = CaptureOneUploadManager()
+    @EnvironmentObject var monitor: CaptureOneMonitor
+    @EnvironmentObject var uploadManager: CaptureOneUploadManager
     @ObservedObject var uploader: Uploader
     
     @State private var showRunningStatus = true
     @State private var statusSwitchTask: Task<Void, Never>?
     
     var body: some View {
-        VStack(spacing: 12) {
-            // Upload Progress (when exporting/uploading)
-            if uploadManager.isExporting {
-                GenericUploadProgressView(
-                    state: uploadManager.uploadState,
-                    description: uploadManager.statusDescription
-                )
-            }
-            
-            // Integration Status (when not uploading)
-            if monitor.isRunning && !uploadManager.isExporting {
-                statusContent
-                    .onAppear {
-                        // Show "Running" for 2 seconds when view appears
+        // Only show integration status when idle (upload status is handled by UploaderView)
+        if monitor.isRunning {
+            statusContent
+                .onAppear {
+                    // Show "Running" for 2 seconds when view appears
+                    showRunningStatusTemporarily()
+                }
+                .onChange(of: monitor.isRunning) { _, isRunning in
+                    if isRunning {
+                        // Show "Running" for 2 seconds when C1 starts
                         showRunningStatusTemporarily()
                     }
-                    .onChange(of: monitor.isRunning) { _, isRunning in
-                        if isRunning {
-                            // Show "Running" for 2 seconds when C1 starts
-                            showRunningStatusTemporarily()
-                        }
-                    }
-            }
+                }
         }
     }
     
@@ -142,10 +132,6 @@ struct CaptureOneStatusView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(NSColor.controlBackgroundColor))
-        )
         
         // Show recipe path error prompt (separate from main status)
         if uploadManager.showRecipePathError {
@@ -178,14 +164,6 @@ struct CaptureOneStatusView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.orange.opacity(0.1))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.orange.opacity(0.3), lineWidth: 1)
-        )
     }
     
     // MARK: - Upload Actions

@@ -17,15 +17,18 @@ struct LoginView: View {
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 64, height: 64)
             
-            Text("Welcome to Picflow")
-                .font(.title2)
-                .fontWeight(.semibold)
-            
-            Text("Click the button below to log in using your browser.")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-            
+                    VStack(spacing: 8) {
+                        
+                    Text("Log in to Picflow")
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
+                        .multilineTextAlignment(.center)
+                        
+                    Text("Click the button below to log in using your browser.")
+                        .font(.body)
+                        .multilineTextAlignment(.center)
+                    }
+
             // OAuth Login Button
             Button {
                 authenticator.startLogin()
@@ -37,17 +40,24 @@ struct LoginView: View {
             .controlSize(.large)
             .padding(.top, 8)
             
-            // Development Testing Section
+            // Development Testing
             VStack(spacing: 8) {
                 Button("Use Test Token") {
                     authenticator.authenticate(token: Constants.hardcodedToken)
                     Endpoint.currentTenantId = Constants.tenantId
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.regular)
+                .buttonStyle(.plain)
+                .font(.system(size: 11))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule()
+                        .fill(Color.orange.opacity(0.2))
+                )
+                .foregroundColor(.orange)
             }
         }
-        .frame(maxWidth: 180)
+        .frame(maxWidth: 220)
         .padding()
         .frame(width: 440, height: 320)
     }

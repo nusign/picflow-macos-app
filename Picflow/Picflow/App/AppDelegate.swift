@@ -150,13 +150,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSToolbarD
         floatingWindow.titleVisibility = .hidden
         
         // Create visual effect view for frosted glass background
+        // Key: Use .withinWindow for proper glass effect (blurs the window's own content)
         let visualEffectView = NSVisualEffectView()
-        if #available(macOS 14.0, *) {
-            visualEffectView.material = .hudWindow  // Modern frosted glass effect
-        } else {
-            visualEffectView.material = .popover     // Fallback for older macOS
-        }
-        visualEffectView.blendingMode = .behindWindow  // Blur content behind window
+        visualEffectView.material = .hudWindow  // Frosted glass material
+        visualEffectView.blendingMode = .withinWindow  // Creates proper glass effect
         visualEffectView.state = .active
         
         // Embed SwiftUI content inside the visual effect view

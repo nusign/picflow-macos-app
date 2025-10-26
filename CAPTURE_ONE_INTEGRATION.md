@@ -29,6 +29,9 @@ This integration enables photographers to upload images directly from Capture On
 - **Permission Handling** - User-friendly permission grant flow
 - **Recipe Creation** - Automatic setup of export recipe
 - **Two Upload Modes** - Export with edits OR upload original RAW files
+- **Visual Integration** - Custom Capture One logo with light/dark mode support
+- **Concurrent Uploads** - 3 simultaneous uploads for optimal performance
+- **Progress Tracking** - Real-time status: detecting → exporting → uploading → complete
 
 ### Key Features
 - Automatic recipe creation (no manual configuration)
@@ -46,17 +49,21 @@ This integration enables photographers to upload images directly from Capture On
 - Selection count reading via AppleScript
 - Permission handling with UI prompt
 - Automatic recipe creation capability
+- Custom Capture One logo integration
 
-### 🔄 Phase 2: In Progress
+### ✅ Phase 2: Complete
 - Export monitoring (filesystem watcher)
-- Upload pipeline integration
+- Upload pipeline integration with concurrent queue (3 simultaneous uploads)
 - Progress UI (exporting → uploading → complete)
+- Automatic cleanup of exported files
+- Fixed critical race condition bug (detection vs upload completion)
+- Reusable GenericUploadProgressView component
 
 ### 📋 Phase 3: Planned
-- Batch upload optimization
-- Error recovery and retry logic
-- User preferences (quality, format)
-- Advanced metadata extraction
+- User preferences (quality, format customization)
+- Advanced metadata extraction (EXIF, IPTC, GPS)
+- Smart collection filtering
+- Batch rename integration
 
 ---
 
@@ -110,9 +117,10 @@ This integration enables photographers to upload images directly from Capture On
 ### Created Files
 
 1. **CaptureOneMonitor.swift** - Monitors Capture One status and selection
-2. **CaptureOneStatusView.swift** - SwiftUI view displaying status and selection
+2. **CaptureOneStatusView.swift** - SwiftUI view displaying status, selection, and upload controls
 3. **CaptureOneScriptBridge.swift** - AppleScript bridge for Capture One communication
-4. **Models/CaptureOneVariant.swift** - Data models for variants and selection
+4. **CaptureOneUploadManager.swift** - Manages export and upload pipeline with concurrent queue
+5. **Models/CaptureOneVariant.swift** - Data models for variants and selection
 
 ---
 
@@ -746,7 +754,9 @@ GenericUploadProgressView(
 
 ### Timeline
 - **Created**: October 19, 2025
-- **Status**: Phase 1 Complete ✅
+- **Phase 1 Complete**: October 20, 2025
+- **Phase 2 Complete**: October 25, 2025
+- **UI Improvements**: October 26, 2025
 
 ### Major Challenges Overcome
 1. **App Sandbox Blocking** - Disabled sandbox for automation
@@ -754,8 +764,9 @@ GenericUploadProgressView(
 3. **Document Access Pattern** - Fixed with `tell document 1`
 4. **Permission Prompts** - Added explicit permission request
 5. **Recipe Creation** - Discovered and implemented automatic creation
-6. **Race Condition Bug** - Fixed critical completion logic that abandoned 95% of files in large batches
+6. **Race Condition Bug** - Fixed critical completion logic that abandoned 95% of files in large batches (October 2025)
 7. **Component Duplication** - Refactored to generic reusable upload progress component
+8. **Visual Integration** - Added custom Capture One logo with 8px corner radius, light/dark mode support
 
 ### Tested With
 - **Capture One**: Version 16.6.6.9
@@ -777,23 +788,23 @@ GenericUploadProgressView(
 
 ## Next Steps
 
-### Immediate (Phase 2)
-- [ ] Implement filesystem watcher for export folder
-- [ ] Build upload pipeline for exported files
-- [ ] Add progress UI showing export → upload → complete
-- [ ] Test with real Capture One workflows
+### Immediate (Phase 3)
+- [ ] Add user preferences UI for export quality and format
+- [ ] Implement advanced metadata extraction (EXIF, IPTC, GPS coordinates)
+- [ ] Build smart collection filtering
+- [ ] Add batch rename integration
 
-### Near-Term (Phase 3)
-- [ ] Add batch upload optimization
-- [ ] Implement error recovery and retry logic
-- [ ] Add user preferences (quality, format options)
-- [ ] Build recipe validation on startup
+### Near-Term (Phase 4)
+- [ ] Error recovery improvements and manual retry options
+- [ ] Export history and status logging
+- [ ] Recipe customization UI within Picflow
+- [ ] Multi-workspace support for Capture One catalogs
 
 ### Future Enhancements
-- [ ] Advanced metadata extraction (EXIF, IPTC)
-- [ ] Custom export presets
-- [ ] Batch rename integration
-- [ ] Smart collection filtering
+- [ ] Custom export presets beyond default recipe
+- [ ] Automatic variant naming based on Capture One metadata
+- [ ] Integration with Capture One's color labels and ratings
+- [ ] Support for session folders and catalog-based workflows
 
 ---
 
@@ -805,13 +816,30 @@ For detailed AppleScript API documentation, see [CAPTURE_ONE_API_REFERENCE.md](.
 
 ## Summary
 
-The Capture One integration is **fully functional** for detection and selection reading. The next phase focuses on export monitoring and upload pipeline integration.
+The Capture One integration is **fully functional** for Phases 1 and 2. Users can now:
+1. ✅ Detect Capture One running status
+2. ✅ View selection count in real-time
+3. ✅ Choose between "Export & Upload" (with edits) or "Upload Original Files" (RAW)
+4. ✅ Automatic recipe creation with zero configuration
+5. ✅ Watch exports complete and upload automatically
+6. ✅ Upload 100+ files reliably with concurrent queue (3 at a time)
+7. ✅ Track progress with real-time status updates
+8. ✅ Automatic cleanup of temporary export files
 
 **Key Design Decisions:**
 1. ✅ Two upload options (Export & Upload / Upload Original)
 2. ✅ Automatic recipe creation (zero manual configuration)
 3. ✅ Isolated temp folder with auto-cleanup
-4. ❌ No "Choose Any Recipe" (recipes have fixed destinations)
+4. ✅ Concurrent uploads for performance (3 simultaneous)
+5. ✅ Reusable UI components (GenericUploadProgressView)
+6. ❌ No "Choose Any Recipe" (recipes have fixed destinations)
+
+**Critical Bug Fixes:**
+- Fixed race condition where completion was marked after file detection stopped, not after uploads completed
+- Separated "detected files" tracking from "uploaded files" tracking
+- Implemented concurrent upload queue instead of sequential processing
 
 This provides a simple, reliable, and user-friendly integration that covers 99% of use cases without unnecessary complexity.
+
+**Next Phase:** User preferences and advanced metadata extraction.
 

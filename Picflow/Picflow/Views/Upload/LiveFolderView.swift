@@ -15,24 +15,28 @@ struct LiveFolderView: View {
         VStack {
             Spacer()
             
-            VStack(spacing: 20) {
-                // Folder Sync Icon
+            VStack(spacing: 0) {
+                // Icon
                 Image("Folder-Sync-Connect")
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 96, height: 96)
                 
-                // Title
-                Text("Picflow Live")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundColor(.primary)
-                
-                // Description
-                Text("Connect a folder and stream new files to Picflow.")
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                
+                VStack(spacing: 8) {
+                    // Title
+                    Text("Picflow Live")
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .multilineTextAlignment(.center)
+    
+                    // Description
+                    Text("Connect a folder and stream new files to Picflow.")
+                        .font(.body)
+                        .multilineTextAlignment(.center)
+                        }
+                .frame(maxWidth: 180)
+                .padding(.bottom, 16)
+
                 // Choose Folder Button
                 Button("Choose Folder") {
                     selectFolder()
@@ -59,12 +63,11 @@ struct LiveFolderView: View {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
-        panel.prompt = "Choose Folder"
-        panel.message = "Select a folder to monitor for new files"
+        panel.prompt = "Start Streaming"
+        // panel.message = "Select a folder to monitor for new files"
         
         if panel.runModal() == .OK, let url = panel.url {
             onFolderSelected(url)
         }
     }
 }
-

@@ -18,8 +18,9 @@ struct WorkspaceSelectionView: View {
             HStack {
                 Spacer()
                 Text("Choose Workspace")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundColor(.primary)
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                    .multilineTextAlignment(.center)
                 Spacer()
             }
             .padding()

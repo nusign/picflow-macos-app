@@ -35,8 +35,9 @@ struct GallerySelectionView: View {
                 HStack {
                     Spacer()
                     Text("Choose Gallery")
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundColor(.primary)
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
+                        .multilineTextAlignment(.center)
                         .border(showDebugBorders ? Color.orange : Color.clear, width: 1) // DEBUG: Title
                     Spacer()
                 }
