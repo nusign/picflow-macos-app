@@ -6,16 +6,10 @@
 //
 //  This class manages the macOS app's lifecycle, window behavior,
 //  and user interactions. It handles:
-//  - Menu bar status item (shows upload status and provides quick window toggle)
 //  - Main application window with modern macOS styling
-//  - Reactive updates for upload state and authentication
+//  - Reactive updates for authentication
 //
 //  The app shows both in the dock and menu bar, providing flexible access.
-//
-//  TODO: Consider refactoring into separate managers:
-//  - MenuBarManager (status item, icon updates)
-//  - WindowManager (window setup and visibility)
-//  - This would reduce complexity and improve testability
 //
 
 import SwiftUI
@@ -26,8 +20,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSToolbarD
     
     // MARK: - Properties
     
-    /// The menu bar icon that shows upload status and provides quick window access
-    private var statusItem: NSStatusItem!
+    /// Manages the menu bar status item
+    private var menuBarManager = MenuBarManager()
     
     /// The main application window that contains the SwiftUI content
     private var floatingWindow: NSWindow!
@@ -41,17 +35,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSToolbarD
     /// Combine subscriptions for reactive updates
     private var cancellables = Set<AnyCancellable>()
     
-    /// Task for resetting menu bar icon after upload completes
-    private var iconResetTask: DispatchWorkItem?
-    
-    // MARK: - Constants
-    
-    /// Configuration for menu bar icon state changes
-    private enum IconResetDelay {
-        /// How long to show "completed" icon before reverting to idle
-        static let completed: TimeInterval = 3.0
-    }
-    
     // MARK: - Application Lifecycle
     
     /// Called when the application finishes launching
@@ -64,39 +47,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSToolbarD
             
             // Setup window and status item after dependencies are initialized
             setupFloatingWindow()
-            setupStatusItem()
-            
-            // Observe uploader state changes to update menu bar icon
-            // (shows different icons for idle/uploading/completed/failed states)
-            uploader.objectWillChange.sink { [weak self] _ in
-                self?.updateMenuBarIcon()
-            }
-            .store(in: &cancellables)
+            menuBarManager.setup(action: #selector(toggleWindow), target: self)
+            menuBarManager.observeUploader(uploader)
             
             // When user authenticates, automatically load their tenant details
-            // (workspace, galleries, etc.) and resize window
+            // (workspace, galleries, etc.)
             authenticator.$state
                 .receive(on: RunLoop.main)
                 .sink { [weak self] state in
                     guard let self = self else { return }
                     if case .authorized = state {
                         Task { @MainActor in
-                            // Resize window for authenticated view and enable resizing
-                            self.resizeWindow(toHeight: 380)
-                            self.floatingWindow.styleMask.insert(.resizable)
-                            
                             do {
                                 try await self.authenticator.loadTenantDetails()
                                 print("✅ Tenant details loaded successfully")
                             } catch {
                                 print("❌ Failed to load tenant details:", error)
                             }
-                        }
-                    } else {
-                        // Back to login - resize to login size and disable resizing
-                        Task { @MainActor in
-                            self.resizeWindow(toHeight: 320)
-                            self.floatingWindow.styleMask.remove(.resizable)
                         }
                     }
                 }
@@ -112,34 +79,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSToolbarD
     
     // MARK: - Setup Methods
     
-    /// Creates the menu bar status item for upload status indication and quick access
-    private func setupStatusItem() {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        
-        if let button = statusItem.button {
-            // Try to use custom icon from Assets, fallback to SF Symbol if not found
-            if let customIcon = NSImage(named: "MenuBarIcon") {
-                button.image = customIcon
-            } else {
-                button.image = NSImage(systemSymbolName: "photo.on.rectangle", accessibilityDescription: "Picflow")
-            }
-            
-            // When clicked, show/hide the window (convenient quick access)
-            button.action = #selector(toggleWindow)
-            button.target = self
-        }
-    }
-    
     /// Creates and configures the main floating window with modern macOS styling
     @MainActor
     private func setupFloatingWindow() {
         let contentView = ContentView(uploader: uploader, authenticator: authenticator)
         
         // Create window with full-size content view (content extends into title bar)
-        // Start with login size (440x320), non-resizable until authenticated
+        // Start with minimum size, fully resizable
         floatingWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 440, height: 320),
-            styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 400),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
@@ -149,41 +98,25 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSToolbarD
         floatingWindow.titlebarAppearsTransparent = true
         floatingWindow.titleVisibility = .hidden
         
-        // Create visual effect view for frosted glass background
-        // Key: Use .withinWindow for proper glass effect (blurs the window's own content)
-        let visualEffectView = NSVisualEffectView()
-        visualEffectView.material = .hudWindow  // Frosted glass material
-        visualEffectView.blendingMode = .withinWindow  // Creates proper glass effect
-        visualEffectView.state = .active
-        
-        // Embed SwiftUI content inside the visual effect view
+        // Set SwiftUI content as window content directly
         let hostingView = NSHostingView(rootView: contentView)
-        hostingView.translatesAutoresizingMaskIntoConstraints = false
-        visualEffectView.addSubview(hostingView)
-        
-        // Make SwiftUI content fill the entire visual effect view
-        NSLayoutConstraint.activate([
-            hostingView.topAnchor.constraint(equalTo: visualEffectView.topAnchor),
-            hostingView.leadingAnchor.constraint(equalTo: visualEffectView.leadingAnchor),
-            hostingView.trailingAnchor.constraint(equalTo: visualEffectView.trailingAnchor),
-            hostingView.bottomAnchor.constraint(equalTo: visualEffectView.bottomAnchor)
-        ])
-        
-        floatingWindow.contentView = visualEffectView
+        floatingWindow.contentView = hostingView
         floatingWindow.isReleasedWhenClosed = false  // Keep window in memory when closed
-        floatingWindow.level = .normal               // Standard window level
         floatingWindow.delegate = self
         
-        // Set window size constraints
-        floatingWindow.minSize = NSSize(width: 440, height: 320)
-        floatingWindow.maxSize = NSSize(width: 960, height: 720)
-        
-        // Disable autofocus behavior
+        // Disable auto-focus on first button
         floatingWindow.autorecalculatesKeyViewLoop = false
         floatingWindow.initialFirstResponder = nil
         
+        // Set window size constraints
+        floatingWindow.minSize = NSSize(width: 480, height: 400)
+        floatingWindow.maxSize = NSSize(width: 720, height: 640)
+        
         // Setup toolbar for modern styling
         setupWindowToolbar()
+        
+        // Center window on screen
+        floatingWindow.center()
         
         // Start hidden - will be shown after initialization completes
         floatingWindow.orderOut(nil)
@@ -236,88 +169,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSToolbarD
         return [.flexibleSpace, ToolbarIdentifier.avatarItem]
     }
     
-    // MARK: - Menu Bar Icon Management
-    
-    /// Updates the menu bar icon based on current upload state
-    /// Called automatically when uploader.uploadState changes
-    @MainActor
-    private func updateMenuBarIcon() {
-        guard let button = statusItem.button else { return }
-        
-        // Cancel any scheduled icon reset from previous state
-        iconResetTask?.cancel()
-        iconResetTask = nil
-        
-        switch uploader.uploadState {
-        case .idle:
-            setMenuBarIcon(
-                button: button,
-                customName: "MenuBarIcon",
-                fallbackSymbol: "photo.on.rectangle",
-                description: "Picflow"
-            )
-            
-        case .uploading:
-            setMenuBarIcon(
-                button: button,
-                customName: "MenuBarIcon-Uploading",
-                fallbackSymbol: "arrow.up.circle",
-                description: "Uploading"
-            )
-            
-        case .completed:
-            setMenuBarIcon(
-                button: button,
-                customName: "MenuBarIcon-Success",
-                fallbackSymbol: "checkmark.circle.fill",
-                description: "Upload Complete"
-            )
-            
-            // Schedule automatic reset to idle icon after delay
-            // Using DispatchWorkItem allows cancellation if state changes again
-            let resetTask = DispatchWorkItem { [weak self] in
-                guard let self = self else { return }
-                Task { @MainActor in
-                    guard let button = self.statusItem.button else { return }
-                    self.setMenuBarIcon(
-                        button: button,
-                        customName: "MenuBarIcon",
-                        fallbackSymbol: "photo.on.rectangle",
-                        description: "Picflow"
-                    )
-                }
-            }
-            iconResetTask = resetTask
-            DispatchQueue.main.asyncAfter(
-                deadline: .now() + IconResetDelay.completed,
-                execute: resetTask
-            )
-            
-        case .failed:
-            setMenuBarIcon(
-                button: button,
-                customName: "MenuBarIcon-Failed",
-                fallbackSymbol: "xmark.circle.fill",
-                description: "Upload Failed"
-            )
-        }
-    }
-    
-    /// Helper method to set menu bar icon, preferring custom assets over SF Symbols
-    /// - Parameters:
-    ///   - button: The menu bar button to update
-    ///   - customName: Name of custom icon in Assets.xcassets
-    ///   - fallbackSymbol: SF Symbol name to use if custom icon not found
-    ///   - description: Accessibility description for the icon
-    @MainActor
-    private func setMenuBarIcon(button: NSStatusBarButton, customName: String, fallbackSymbol: String, description: String) {
-        if let customIcon = NSImage(named: customName) {
-            button.image = customIcon
-        } else {
-            button.image = NSImage(systemSymbolName: fallbackSymbol, accessibilityDescription: description)
-        }
-    }
-    
     // MARK: - Window Visibility Management
     
     /// Toggles window visibility when menu bar icon is clicked
@@ -336,22 +187,5 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSToolbarD
     private func showWindow() {
         floatingWindow.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
-    }
-    
-    // MARK: - Window Sizing
-    
-    /// Smoothly resizes the window to the specified height while maintaining width
-    /// - Parameter height: The new height for the window
-    @MainActor
-    private func resizeWindow(toHeight height: CGFloat) {
-        let currentFrame = floatingWindow.frame
-        let newFrame = NSRect(
-            x: currentFrame.origin.x,
-            y: currentFrame.origin.y + (currentFrame.height - height), // Adjust Y to keep top-left corner in place
-            width: 440, // Fixed width
-            height: height
-        )
-        
-        floatingWindow.setFrame(newFrame, display: true, animate: true)
     }
 }

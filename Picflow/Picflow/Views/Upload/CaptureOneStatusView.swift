@@ -59,12 +59,13 @@ struct CaptureOneStatusView: View {
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 32, height: 32)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
             
             // Title and Status (crossfades between "Running" and selection count)
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 0) {
                 Text("Capture One")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.callout)
+                    .fontWeight(.semibold)
                     .foregroundColor(.primary)
                 
                 HStack(spacing: 6) {
@@ -130,8 +131,6 @@ struct CaptureOneStatusView: View {
                 }
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
         
         // Show recipe path error prompt (separate from main status)
         if uploadManager.showRecipePathError {
@@ -196,4 +195,3 @@ struct CaptureOneStatusView: View {
         }
     }
 }
-

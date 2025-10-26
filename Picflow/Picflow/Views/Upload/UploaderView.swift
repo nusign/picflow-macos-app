@@ -4,12 +4,15 @@
 //
 //  Created by AI Assistant
 //
+//  Debug borders: Uses feature-specific borders (D)
+//
 
 import SwiftUI
 
 struct UploaderView: View {
     @ObservedObject var uploader: Uploader
     @ObservedObject var authenticator: Authenticator
+    @Environment(\.showDebugBorders) var showDebugBorders
     let onBack: () -> Void
     @State private var isDragging = false
     @State private var isLiveModeEnabled = false
@@ -20,17 +23,19 @@ struct UploaderView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            VStack(spacing: 12) {
-                // Gallery Title (centered)
-                HStack {
-                    Spacer()
-                    Text(uploader.selectedGallery?.displayName ?? "Gallery")
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundColor(.primary)
-                    Spacer()
-                }
-                
+            // Gallery Title (centered, minimal)
+            HStack {
+                Spacer()
+                Text(uploader.selectedGallery?.displayName ?? "Gallery")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundColor(.primary)
+                    .border(showDebugBorders ? Color.orange : Color.clear, width: 1) // DEBUG: Title
+                Spacer()
+            }
+            .padding(.bottom, 24)
+            
+            // Content Area (back button, toggle, and main content)
+            VStack(spacing: 16) {
                 // Back Button and Live Toggle
                 HStack {
                     BackButton(action: onBack)
@@ -41,41 +46,65 @@ struct UploaderView: View {
                     Toggle("Live", isOn: $isLiveModeEnabled)
                         .toggleStyle(.switch)
                 }
-            }
-            .padding()
-            
-            // Main Content Area (fills available vertical space)
-            if isLiveModeEnabled {
-                LiveFolderView(onFolderSelected: handleFolderSelected)
-                    .frame(maxHeight: .infinity)
-            } else {
-                DropAreaView(isDragging: $isDragging, onFilesSelected: handleFilesSelected)
-                    .frame(maxHeight: .infinity)
-            }
-            
-            // Bottom components - Unified visibility logic
-            VStack(spacing: 16) {
-                // Show upload status when ANY upload is active
-                if isAnyUploadActive {
-                    uploadStatusView
-                }
+                .border(showDebugBorders ? Color.green : Color.clear, width: 1) // DEBUG: Controls HStack
                 
-                // Show Capture One only when:
-                // - NOT in Live mode
-                // - AND no uploads happening from any source
-                if !isLiveModeEnabled && !isAnyUploadActive {
-                    CaptureOneStatusView(uploader: uploader)
-                        .environmentObject(captureOneMonitor)
-                        .environmentObject(captureOneUploadManager)
+                // Main Content Area (fills available vertical space)
+                if isLiveModeEnabled {
+                    LiveFolderView(onFolderSelected: handleFolderSelected)
+                        .frame(maxHeight: .infinity)
+                        .border(showDebugBorders ? Color.purple : Color.clear, width: 2) // DEBUG: LiveFolderView
+                } else {
+                    DropAreaView(isDragging: $isDragging, onFilesSelected: handleFilesSelected)
+                        .frame(maxHeight: .infinity)
+                        .border(showDebugBorders ? Color.cyan : Color.clear, width: 2) // DEBUG: DropAreaView
                 }
             }
-            .padding(.top, 16)
-            .padding(.horizontal, 24)
-            .padding(.bottom, 24)
+            .border(showDebugBorders ? Color.yellow : Color.clear, width: 2) // DEBUG: Content VStack
+            
+            // Status Components (Upload progress or Capture One Integration)
+            if shouldShowStatusArea {
+                VStack(spacing: 0) {
+                    // Upload Status
+                    if isAnyUploadActive {
+                        uploadStatusView
+                            .border(showDebugBorders ? Color.pink : Color.clear, width: 1) // DEBUG: Upload Status
+                    }
+                    
+                    // Capture One
+                    if shouldShowCaptureOne {
+                        CaptureOneStatusView(uploader: uploader)
+                            .environmentObject(captureOneMonitor)
+                            .environmentObject(captureOneUploadManager)
+                            .border(showDebugBorders ? Color.mint : Color.clear, width: 1) // DEBUG: Capture One
+                    }
+                }
+                .padding(.top, 16)
+                .padding(.horizontal, 8)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+
         }
+        .padding(24)
+        .border(showDebugBorders ? Color.red : Color.clear, width: 3) // DEBUG: Outer VStack
+        .animation(.easeInOut(duration: 0.3), value: shouldShowStatusArea)
     }
     
-    // MARK: - Upload Status Logic
+    // MARK: - Status Visibility Logic
+    
+    /// Determines if the entire status area should be visible
+    private var shouldShowStatusArea: Bool {
+        // Show if uploading OR Capture One is running (in normal mode)
+        isAnyUploadActive || shouldShowCaptureOne
+    }
+    
+    /// Determines if Capture One status should be shown
+    private var shouldShowCaptureOne: Bool {
+        // Only show when:
+        // - Not in live mode
+        // - Capture One is actually running
+        // - No uploads are active (uploads take priority)
+        !isLiveModeEnabled && captureOneMonitor.isRunning && !isAnyUploadActive
+    }
     
     /// Check if any upload is active from any source
     private var isAnyUploadActive: Bool {

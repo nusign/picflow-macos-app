@@ -4,7 +4,8 @@
 //
 //  Created by Michel Luarasi on 26.01.2025.
 //
-
+//  Debug borders: Uses feature-specific borders (D)
+//
 
 import SwiftUI
 

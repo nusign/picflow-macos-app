@@ -50,13 +50,12 @@ struct DropAreaView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(24)
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .strokeBorder(
                     style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [0.5, 8])
                 )
-                .foregroundColor(Color.primary.opacity(isDragging ? 0.5 : 0.2))
+                .foregroundColor(Color.primary.opacity(isDragging ? 0.6 : 0.2))
         )
         .onDrop(of: [.fileURL], isTargeted: $isDragging) { providers in
             handleDrop(providers: providers)

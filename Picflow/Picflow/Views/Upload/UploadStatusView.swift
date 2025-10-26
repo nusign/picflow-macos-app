@@ -31,7 +31,8 @@ struct UploadStatusView: View {
             // Middle: Title and Status
             VStack(alignment: .leading, spacing: 2) {
                 Text(statusTitle)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.callout)
+                    .fontWeight(.semibold)
                     .foregroundColor(.primary)
                 
                 HStack(spacing: 6) {
@@ -47,8 +48,6 @@ struct UploadStatusView: View {
             
             Spacer()
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
     }
     
     private var statusTitle: String {
