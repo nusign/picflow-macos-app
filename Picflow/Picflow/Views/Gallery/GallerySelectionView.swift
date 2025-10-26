@@ -22,6 +22,13 @@ struct GallerySelectionView: View {
         VStack(spacing: 0) {
             // Header
             VStack(spacing: 8) {
+                // Top bar with avatar button
+                HStack {
+                    Spacer()
+                    AvatarToolbarButton(authenticator: authenticator)
+                        .padding(.trailing, 8)
+                }
+                
                 // Workspace Indicator
                 HStack(spacing: 6) {
                     Image(systemName: "square.grid.2x2")
@@ -69,14 +76,11 @@ struct GallerySelectionView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 10) {
                         ForEach(galleries, id: \.id) { gallery in
-                            Button {
+                            GalleryCardView(gallery: gallery) {
                                 uploader.selectGallery(gallery)
                                 onGallerySelected()
-                            } label: {
-                                GalleryCardView(gallery: gallery)
-                                    .border(showDebugBorders ? Color.cyan : Color.clear, width: 1) // DEBUG: Gallery Card
                             }
-                            .buttonStyle(.plain)
+                            .border(showDebugBorders ? Color.cyan : Color.clear, width: 1) // DEBUG: Gallery Card
                         }
                     }
                     .frame(maxWidth: 640)

@@ -24,9 +24,31 @@ struct AvatarToolbarButton: View {
                 Button(action: {
                     showProfileMenu.toggle()
                 }) {
-                    Image(systemName: "person.circle.fill")
-                        .imageScale(.large)
+                    AsyncImage(url: URL(string: profile.avatarUrl ?? "")) { phase in
+                        switch phase {
+                        case .empty:
+                            ProgressView()
+                                .frame(width: 32, height: 32)
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 32, height: 32)
+                                .clipShape(Circle())
+                        case .failure:
+                            Image(systemName: "person.circle.fill")
+                                .resizable()
+                                .frame(width: 32, height: 32)
+                                .foregroundColor(.gray)
+                        @unknown default:
+                            Image(systemName: "person.circle.fill")
+                                .resizable()
+                                .frame(width: 32, height: 32)
+                                .foregroundColor(.gray)
+                        }
+                    }
                 }
+                .buttonStyle(.plain)
                 .popover(isPresented: $showProfileMenu, arrowEdge: .bottom) {
                     ProfileDropdownContent(profile: profile, authenticator: authenticator)
                 }
@@ -84,6 +106,13 @@ struct ProfileDropdownContent: View {
                     if let url = URL(string: "https://picflow.com/a/settings/profile") {
                         NSWorkspace.shared.open(url)
                     }
+                }
+                
+                ProfileMenuItem(icon: "gear", title: "Settings") {
+                    Task { @MainActor in
+                        SettingsWindowManager.shared.showSettings()
+                    }
+                    dismiss()
                 }
                 
                 ProfileMenuItem(icon: "arrow.triangle.2.circlepath", title: "Switch Workspace") {

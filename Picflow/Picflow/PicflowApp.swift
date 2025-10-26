@@ -31,8 +31,26 @@ struct PicflowApp: App {
     }
     
     var body: some Scene {
-        Settings {
-            EmptyView()
+        WindowGroup {
+            ContentView(
+                uploader: appDelegate.uploader,
+                authenticator: appDelegate.authenticator
+            )
+            .containerBackground(.ultraThickMaterial, for: .window)
+            .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+        }
+        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 480, height: 400)
+        .windowResizability(.contentSize)
+        .windowBackgroundDragBehavior(.enabled)
+        .commands {
+            // Add Settings menu command
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings...") {
+                    SettingsWindowManager.shared.showSettings()
+                }
+                .keyboardShortcut(",", modifiers: .command)
+            }
         }
     }
 }

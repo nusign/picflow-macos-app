@@ -62,6 +62,13 @@ class MenuBarManager {
         .store(in: &cancellables)
     }
     
+    /// Controls the visibility of the menu bar icon
+    /// - Parameter visible: Whether the icon should be visible
+    @MainActor
+    func setVisible(_ visible: Bool) {
+        statusItem.isVisible = visible
+    }
+    
     // MARK: - Icon Updates
     
     /// Updates the menu bar icon based on upload state

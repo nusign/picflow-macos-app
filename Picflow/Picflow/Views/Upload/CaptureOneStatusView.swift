@@ -68,25 +68,25 @@ struct CaptureOneStatusView: View {
                     .fontWeight(.semibold)
                     .foregroundColor(.primary)
                 
-                HStack(spacing: 6) {
+                HStack(spacing: 4) {
                     Circle()
                         .fill(Color.green)
                         .frame(width: 8, height: 8)
                     
                     if showRunningStatus {
                         Text("Running")
-                            .font(.system(size: 11))
+                            .font(.subheadline)
                             .foregroundColor(.secondary)
                             .transition(.opacity)
                     } else {
                         if monitor.selection.count > 0 {
                             Text("\(monitor.selection.count) variant\(monitor.selection.count == 1 ? "" : "s") selected")
-                                .font(.system(size: 11))
+                                .font(.subheadline)
                                 .foregroundColor(.secondary)
                                 .transition(.opacity)
                         } else {
                             Text("No variants selected")
-                                .font(.system(size: 11))
+                                .font(.subheadline)
                                 .foregroundColor(.secondary)
                                 .transition(.opacity)
                         }

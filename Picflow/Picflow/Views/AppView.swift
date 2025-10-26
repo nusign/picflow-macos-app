@@ -103,8 +103,7 @@ struct AppView: View {
             }
         }
         .border(showCoreDebugBorders ? Color.pink : Color.clear, width: 5) // DEBUG: Outer ZStack boundary
-        .frame(minWidth: 440, minHeight: 380)
-        .background(Color.clear) // Transparent to show visual effect view
+        .frame(maxWidth: .infinity, maxHeight: .infinity) // Fill available space, let WindowGroup control size
         .environment(\.showDebugBorders, showDebugBorders) // Pass feature debug state to child views
         .environment(\.showCoreDebugBorders, showCoreDebugBorders) // Pass core debug state to child views
         .onAppear {

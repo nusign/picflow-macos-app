@@ -23,6 +23,14 @@ struct UploaderView: View {
     
     var body: some View {
         VStack(spacing: 0) {
+            // Top bar with avatar
+            HStack {
+                Spacer()
+                AvatarToolbarButton(authenticator: authenticator)
+                    .padding(.trailing, 8)
+            }
+            .padding(.top, 8)
+            
             // Gallery Title (centered, minimal)
             HStack {
                 Spacer()

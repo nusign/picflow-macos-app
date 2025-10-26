@@ -15,13 +15,23 @@ struct WorkspaceSelectionView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Header
-            HStack {
-                Spacer()
-                Text("Choose Workspace")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-                    .multilineTextAlignment(.center)
-                Spacer()
+            VStack(spacing: 8) {
+                // Top bar with avatar button
+                HStack {
+                    Spacer()
+                    AvatarToolbarButton(authenticator: authenticator)
+                        .padding(.trailing, 8)
+                }
+                
+                // Title
+                HStack {
+                    Spacer()
+                    Text("Choose Workspace")
+                        .font(.largeTitle)
+                        .fontWeight(.bold)
+                        .multilineTextAlignment(.center)
+                    Spacer()
+                }
             }
             .padding()
             
