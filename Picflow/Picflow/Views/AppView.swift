@@ -56,9 +56,7 @@ struct AppView: View {
                 WorkspaceSelectionView(
                     authenticator: authenticator,
                     onWorkspaceSelected: {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            navigationState = .gallerySelection
-                        }
+                        navigationState = .gallerySelection
                     }
                 )
                 .border(showCoreDebugBorders ? Color.blue : Color.clear, width: 2) // DEBUG: Workspace view boundary
@@ -72,9 +70,7 @@ struct AppView: View {
                 GallerySelectionView(
                     uploader: uploader,
                     onGallerySelected: {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            navigationState = .uploader
-                        }
+                        navigationState = .uploader
                     }
                 )
                 .environmentObject(authenticator)
@@ -90,9 +86,7 @@ struct AppView: View {
                     uploader: uploader,
                     authenticator: authenticator,
                     onBack: {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            navigationState = .gallerySelection
-                        }
+                        navigationState = .gallerySelection
                     }
                 )
                 .border(showCoreDebugBorders ? Color.green : Color.clear, width: 2) // DEBUG: Uploader view boundary
@@ -103,7 +97,7 @@ struct AppView: View {
             }
         }
         .border(showCoreDebugBorders ? Color.pink : Color.clear, width: 5) // DEBUG: Outer ZStack boundary
-        .frame(maxWidth: .infinity, maxHeight: .infinity) // Fill available space, let WindowGroup control size
+        .animation(.easeInOut(duration: 0.3), value: navigationState) // Animate navigation state changes
         .environment(\.showDebugBorders, showDebugBorders) // Pass feature debug state to child views
         .environment(\.showCoreDebugBorders, showCoreDebugBorders) // Pass core debug state to child views
         .onAppear {
@@ -119,14 +113,11 @@ struct AppView: View {
         }
         .onChange(of: uploader.selectedGallery) { _, newValue in
             // Sync navigation state with uploader state
+            // Note: Animations are handled by ContentView, so we just update state here
             if newValue != nil && navigationState != .uploader {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    navigationState = .uploader
-                }
+                navigationState = .uploader
             } else if newValue == nil && navigationState == .uploader {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    navigationState = .gallerySelection
-                }
+                navigationState = .gallerySelection
             }
         }
     }
@@ -170,9 +161,7 @@ struct AppView: View {
             object: nil,
             queue: .main
         ) { [self] _ in
-            withAnimation(.easeInOut(duration: 0.3)) {
-                self.navigationState = .workspaceSelection
-            }
+            self.navigationState = .workspaceSelection
         }
     }
 }

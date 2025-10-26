@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+@available(macOS 26.0, *)
 struct LoginView: View {
     @ObservedObject var authenticator: Authenticator
     
@@ -37,7 +38,7 @@ struct LoginView: View {
                     Text("Continue")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.glassProminent)
                 .controlSize(.large)
                 .padding(.top, 8)
             }
@@ -57,13 +58,8 @@ struct LoginView: View {
                             .font(.system(size: 11))
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
-                            .background(
-                                Capsule()
-                                    .fill(Color.orange.opacity(0.2))
-                            )
-                            .foregroundColor(.orange)
                     }
-                    .buttonStyle(.borderless)
+                    .buttonStyle(.glass)
                 }
             }
             .padding(16)
@@ -71,3 +67,4 @@ struct LoginView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
+

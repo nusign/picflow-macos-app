@@ -4,6 +4,7 @@ import SwiftUI
 // import Sentry
 
 @main
+@available(macOS 26.0, *)
 struct PicflowApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
@@ -41,7 +42,7 @@ struct PicflowApp: App {
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 480, height: 400)
-        .windowResizability(.contentSize)
+        .windowResizability(.contentMinSize)
         .windowBackgroundDragBehavior(.enabled)
         .commands {
             // Add Settings menu command
