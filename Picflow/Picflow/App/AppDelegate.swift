@@ -89,6 +89,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
     
+    /// Prevent app from quitting when main window is closed/hidden
+    /// This allows the app to stay running in the menu bar
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        return false
+    }
+    
     // MARK: - Setup Methods
     
     /// Sets up settings manager and its integrations
@@ -113,18 +119,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Window Visibility Management
     
     /// Toggles window visibility when menu bar icon is clicked
-    /// SwiftUI WindowGroup manages the window, so we just activate the app
     @objc private func toggleWindow() {
-        // Get the main window from SwiftUI's WindowGroup
-        if let window = NSApp.windows.first(where: { $0.isVisible }) {
-            // Window is visible, hide it
-            window.orderOut(nil)
-        } else if let window = NSApp.windows.first {
-            // Window exists but hidden, show it
-            window.makeKeyAndOrderFront(nil)
+        // Find the main app window, excluding menu bar windows and panels
+        let mainWindow = NSApp.windows.first { window in
+            window.canBecomeKey && 
+            !window.className.contains("StatusBar") &&
+            window.styleMask.contains(.titled)
+        }
+        
+        guard let window = mainWindow else {
+            // No main window found, activate app
             NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+        
+        // Simple toggle: if window is key, hide it. Otherwise, show it.
+        if window.isKeyWindow {
+            window.orderOut(nil)
         } else {
-            // No window, activate app to let SwiftUI create one
+            window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
         }
     }
