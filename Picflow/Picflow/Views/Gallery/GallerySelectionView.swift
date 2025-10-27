@@ -20,33 +20,6 @@ struct GallerySelectionView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            VStack(spacing: 4) {
-                // Workspace Indicator
-                HStack(spacing: 4) {
-                    Image(systemName: "square.grid.2x2")
-                        .font(.system(size: 16))
-                        .foregroundColor(.secondary)
-                    Text("Current Workspace")
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
-                }
-                
-                // Title
-                HStack {
-                    Spacer()
-                    Text("Choose Gallery")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                        .multilineTextAlignment(.center)
-                        .border(showDebugBorders ? Color.orange : Color.clear, width: 1) // DEBUG: Title
-                    Spacer()
-                }
-            }
-            .padding()
-            .border(showDebugBorders ? Color.yellow : Color.clear, width: 2) // DEBUG: Header HStack
-            
-            // Content
             if isLoading {
                 Spacer()
                 ProgressView("Loading galleries...")
@@ -68,23 +41,67 @@ struct GallerySelectionView: View {
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 10) {
-                        ForEach(galleries, id: \.id) { gallery in
-                            GalleryCardView(gallery: gallery) {
-                                uploader.selectGallery(gallery)
-                                onGallerySelected()
+                            // Header inside ScrollView
+                            VStack(spacing: 4) {
+                                // Workspace Indicator
+                                if let tenant = authenticator.tenant {
+                                    HStack(spacing: 8) {
+                                        // Workspace logo or initial
+                                        if let logoUrl = tenant.logoUrl, let url = URL(string: logoUrl) {
+                                            AsyncImage(url: url) { image in
+                                                image
+                                                    .resizable()
+                                                    .aspectRatio(contentMode: .fill)
+                                            } placeholder: {
+                                                workspacePlaceholder(for: tenant)
+                                            }
+                                            .frame(width: 20, height: 20)
+                                            .background(Color.white)
+                                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                                        } else {
+                                            workspacePlaceholder(for: tenant)
+                                        }
+                                        
+                                        Text(tenant.name)
+                                            .font(.system(size: 12, weight: .medium))
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                                
+                                // Title
+                                HStack {
+                                    Spacer()
+                                    Text("Choose Gallery")
+                                        .font(.largeTitle)
+                                        .fontWeight(.bold)
+                                        .multilineTextAlignment(.center)
+                                        .border(showDebugBorders ? Color.orange : Color.clear, width: 1) // DEBUG: Title
+                                    Spacer()
+                                }
                             }
-                            .border(showDebugBorders ? Color.cyan : Color.clear, width: 1) // DEBUG: Gallery Card
-                        }
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .border(showDebugBorders ? Color.yellow : Color.clear, width: 2) // DEBUG: Header
+                            
+                            // Gallery list
+                            ForEach(galleries, id: \.id) { gallery in
+                                GalleryCardView(gallery: gallery) {
+                                    uploader.selectGallery(gallery)
+                                    onGallerySelected()
+                                }
+                                .border(showDebugBorders ? Color.cyan : Color.clear, width: 1) // DEBUG: Gallery Card
+                            }
                     }
-                    .frame(maxWidth: 640)
-                    .padding()
+                    .frame(maxWidth: 480)
+                    .padding(.bottom, 48)
                     .border(showDebugBorders ? Color.purple : Color.clear, width: 2) // DEBUG: LazyVStack
                     .frame(maxWidth: .infinity) // Center the container
                 }
-                .scrollIndicators(.automatic) // Show scrollbar when scrolling
+                .scrollIndicators(.automatic)
                 .border(showDebugBorders ? Color.blue : Color.clear, width: 2) // DEBUG: ScrollView
             }
         }
+        .frame(maxWidth: .infinity) // Ensure outer VStack takes full width
         .border(showDebugBorders ? Color.red : Color.clear, width: 3) // DEBUG: Outer VStack
         .task {
             await loadGalleries()
@@ -111,5 +128,19 @@ struct GallerySelectionView: View {
         }
         
         isLoading = false
+    }
+    
+    @ViewBuilder
+    private func workspacePlaceholder(for tenant: Tenant) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(Color.accentColor.opacity(0.2))
+            
+            // Show initial letter of workspace name
+            Text(String(tenant.name.prefix(1)).uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(.accentColor)
+        }
+        .frame(width: 20, height: 20)
     }
 }

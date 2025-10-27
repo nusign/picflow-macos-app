@@ -10,13 +10,14 @@ enum HTTPMethod: String {
 
 class Endpoint {
     static var baseURL: URL {
-        URL(string: "\(EnvironmentManager.shared.current.apiBaseURL)/api")!
+        URL(string: EnvironmentManager.shared.current.apiBaseURL)!
     }
     static var token: String?
     static var currentTenantId: String?
     static let decoder: JSONDecoder = {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
+        decoder.dateDecodingStrategy = .secondsSince1970
         return decoder
     }()
     

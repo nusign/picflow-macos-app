@@ -43,13 +43,14 @@ enum AppNavigationState {
 struct AppView: View {
     @ObservedObject var uploader: Uploader
     @ObservedObject var authenticator: Authenticator
-    @State private var navigationState: AppNavigationState = .gallerySelection
+    @State private var navigationState: AppNavigationState = .workspaceSelection
+    @State private var forceShowWorkspaceSelection: Bool = false // True when user explicitly clicks "Switch Workspace"
     @State private var showDebugBorders: Bool = false // D - Feature borders
     @State private var showCoreDebugBorders: Bool = false // C - Core borders
     @State private var eventMonitor: Any? = nil // Store event monitor reference
     
     var body: some View {
-        // Main Navigation Content with Transitions
+        // Main Navigation Content
         // Avatar is overlaid at top-right, stays fixed during navigation
         ZStack {
             if navigationState == .workspaceSelection {
@@ -57,13 +58,12 @@ struct AppView: View {
                     authenticator: authenticator,
                     onWorkspaceSelected: {
                         navigationState = .gallerySelection
-                    }
+                        forceShowWorkspaceSelection = false // Reset after selection
+                    },
+                    forceShowSelection: forceShowWorkspaceSelection
                 )
                 .border(showCoreDebugBorders ? Color.blue : Color.clear, width: 2) // DEBUG: Workspace view boundary
-                .transition(.asymmetric(
-                    insertion: .opacity,
-                    removal: .move(edge: .leading).combined(with: .opacity)
-                ))
+                .transition(.identity) // No transition animation
             }
             
             if navigationState == .gallerySelection {
@@ -75,10 +75,7 @@ struct AppView: View {
                 )
                 .environmentObject(authenticator)
                 .border(showCoreDebugBorders ? Color.green : Color.clear, width: 2) // DEBUG: Gallery view boundary
-                .transition(.asymmetric(
-                    insertion: .move(edge: .leading).combined(with: .opacity),
-                    removal: .move(edge: .leading).combined(with: .opacity)
-                ))
+                .transition(.identity) // No transition animation
             }
             
             if navigationState == .uploader {
@@ -90,10 +87,7 @@ struct AppView: View {
                     }
                 )
                 .border(showCoreDebugBorders ? Color.green : Color.clear, width: 2) // DEBUG: Uploader view boundary
-                .transition(.asymmetric(
-                    insertion: .move(edge: .trailing).combined(with: .opacity),
-                    removal: .move(edge: .trailing).combined(with: .opacity)
-                ))
+                .transition(.identity) // No transition animation
             }
         }
         .border(showCoreDebugBorders ? Color.pink : Color.clear, width: 5) // DEBUG: Outer ZStack boundary
@@ -103,12 +97,16 @@ struct AppView: View {
                 .padding(.top, 12)
                 .padding(.trailing, 12)
         }
-        .animation(.easeInOut(duration: 0.3), value: navigationState) // Animate navigation state changes
         .environment(\.showDebugBorders, showDebugBorders) // Pass feature debug state to child views
         .environment(\.showCoreDebugBorders, showCoreDebugBorders) // Pass core debug state to child views
         .onAppear {
             setupKeyboardShortcut()
             setupNotificationObservers()
+            
+            // Check if tenant is already selected (e.g., from test token or restored session)
+            if authenticator.tenant != nil {
+                navigationState = .gallerySelection
+            }
         }
         .onDisappear {
             // Clean up event monitor when view disappears
@@ -119,7 +117,6 @@ struct AppView: View {
         }
         .onChange(of: uploader.selectedGallery) { _, newValue in
             // Sync navigation state with uploader state
-            // Note: Animations are handled by ContentView, so we just update state here
             if newValue != nil && navigationState != .uploader {
                 navigationState = .uploader
             } else if newValue == nil && navigationState == .uploader {
@@ -167,6 +164,7 @@ struct AppView: View {
             object: nil,
             queue: .main
         ) { [self] _ in
+            self.forceShowWorkspaceSelection = true  // Always show the selection view
             self.navigationState = .workspaceSelection
         }
     }

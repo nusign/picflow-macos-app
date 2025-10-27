@@ -324,9 +324,9 @@ struct EnvironmentPicker: View {
     private var environmentSubtitle: String {
         switch selectedEnvironment {
         case .development:
-            return "dev.picflow.io"
+            return "dev.picflow.com"
         case .production:
-            return "picflow.io"
+            return "picflow.com"
         }
     }
 }

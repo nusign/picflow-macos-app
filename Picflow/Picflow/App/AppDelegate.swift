@@ -58,24 +58,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             setupSettingsManager()
         }
         
-        // When user authenticates, automatically load their tenant details
-        // (workspace, galleries, etc.)
-        authenticator.$state
-            .receive(on: RunLoop.main)
-            .sink { [weak self] state in
-                guard let self = self else { return }
-                if case .authorized = state {
-                    Task { @MainActor in
-                        do {
-                            try await self.authenticator.loadTenantDetails()
-                            print("✅ Tenant details loaded successfully")
-                        } catch {
-                            print("❌ Failed to load tenant details:", error)
-                        }
-                    }
-                }
-            }
-            .store(in: &cancellables)
+        // Tenant loading is now handled by WorkspaceSelectionView
+        // after user logs in via OAuth or selects a workspace
     }
     
     /// Called when the user clicks the dock icon

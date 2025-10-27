@@ -47,6 +47,17 @@ struct GalleryDetails: Codable, Equatable {
     
     var previewImageUrl: URL? {
         guard let uuid = teaser?.uuid, !uuid.isEmpty else { return nil }
-        return URL(string: "https://picflow.media/images/resized/480x/\(uuid).jpg")
+        
+        // Gallery teasers are served from picflow.media CDN
+        // Note: This is separate from assets.picflow.io (which serves tenant logos, etc.)
+        let mediaDomain: String
+        switch EnvironmentManager.shared.current {
+        case .development:
+            mediaDomain = "https://dev.picflow.media"  // DEV media CDN
+        case .production:
+            mediaDomain = "https://picflow.media"  // PROD media CDN
+        }
+        
+        return URL(string: "\(mediaDomain)/images/resized/l640/\(uuid).jpg")
     }
 }

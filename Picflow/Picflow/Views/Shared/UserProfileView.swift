@@ -124,8 +124,8 @@ struct UserDropdownView: View {
                     icon: "arrow.left.arrow.right",
                     title: "Switch Workspace",
                     action: {
-                        // TODO: Implement workspace switching
-                        print("Switch workspace tapped")
+                        print("🔄 Switching workspace...")
+                        NotificationCenter.default.post(name: .switchWorkspace, object: nil)
                         onClose()
                     }
                 )

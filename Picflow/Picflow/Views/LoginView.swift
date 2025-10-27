@@ -9,6 +9,7 @@ import SwiftUI
 
 struct LoginView: View {
     @ObservedObject var authenticator: Authenticator
+    @StateObject private var environmentManager = EnvironmentManager.shared
     
     var body: some View {
         ZStack {
@@ -50,15 +51,18 @@ struct LoginView: View {
                 HStack {
                     Spacer()
                     Button {
-                        authenticator.authenticate(token: Constants.hardcodedToken)
-                        Endpoint.currentTenantId = Constants.tenantId
+                        authenticator.authenticateWithTestToken(
+                            token: Constants.hardcodedToken,
+                            tenantId: Constants.tenantId
+                        )
                     } label: {
-                        Text("Use Test Token")
+                        Text("Use Test Token (\(environmentManager.current == .production ? "PROD" : "DEV"))")
                             .font(.system(size: 11))
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
                     }
                     .buttonStyle(.borderless)
+                    .disabled(Constants.hardcodedToken == "YOUR_DEV_TOKEN_HERE" || Constants.hardcodedToken == "YOUR_NEW_PROD_TOKEN_HERE")
                 }
             }
             .padding(16)

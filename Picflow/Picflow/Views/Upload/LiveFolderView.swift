@@ -38,8 +38,10 @@ struct LiveFolderView: View {
                 .padding(.bottom, 16)
 
                 // Choose/Change Folder Button
-                Button(buttonTitle) {
+                Button {
                     selectFolder()
+                } label: {
+                    Label(buttonTitle, systemImage: buttonIcon)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.large)
@@ -59,10 +61,18 @@ struct LiveFolderView: View {
     }
     
     private var buttonTitle: String {
-        if let displayPath = folderManager.folderDisplayPath {
-            return displayPath
+        if let folderName = folderManager.folderName {
+            return folderName
         } else {
             return "Choose Folder"
+        }
+    }
+    
+    private var buttonIcon: String {
+        if folderManager.folderName != nil {
+            return "arrow.up.folder.fill"
+        } else {
+            return "folder"
         }
     }
     

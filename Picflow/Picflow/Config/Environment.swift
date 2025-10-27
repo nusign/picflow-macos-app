@@ -14,9 +14,9 @@ enum AppEnvironment: String, CaseIterable {
     var apiBaseURL: String {
         switch self {
         case .development:
-            return "https://dev.picflow.io"
+            return "https://dev.picflow.com/api"
         case .production:
-            return "https://picflow.io"
+            return "https://picflow.com/api"
         }
     }
     
