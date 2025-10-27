@@ -16,13 +16,6 @@ struct WorkspaceSelectionView: View {
         VStack(spacing: 0) {
             // Header
             VStack(spacing: 8) {
-                // Top bar with avatar button
-                HStack {
-                    Spacer()
-                    AvatarToolbarButton(authenticator: authenticator)
-                        .padding(.trailing, 8)
-                }
-                
                 // Title
                 HStack {
                     Spacer()

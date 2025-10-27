@@ -37,14 +37,6 @@ struct UploaderView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Top bar with avatar
-            HStack {
-                Spacer()
-                AvatarToolbarButton(authenticator: authenticator)
-                    .padding(.trailing, 8)
-            }
-            .padding(.top, 8)
-            
             // Gallery Title (centered, minimal)
             HStack {
                 Spacer()
@@ -54,6 +46,7 @@ struct UploaderView: View {
                     .border(showDebugBorders ? Color.orange : Color.clear, width: 1) // DEBUG: Title
                 Spacer()
             }
+            .padding(.top, 8)
             .padding(.bottom, 24)
             
             // Content Area (back button, toggle, and main content)

@@ -26,8 +26,7 @@ struct ContentView: View {
                 )
             }
         }
-        .frame(minWidth: 480, idealWidth: 480, maxWidth: .infinity, 
-               minHeight: 400, idealHeight: 400, maxHeight: .infinity) // Fill window with minimum constraints
+        .background(.regularMaterial)
         .ignoresSafeArea() // Extend content into title bar area
         // Only animate the authentication state transition, not initial render
         .animation(.easeInOut(duration: 0.3), value: authenticator.isAuthenticated)

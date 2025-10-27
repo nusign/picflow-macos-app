@@ -15,11 +15,12 @@ SwiftUI app that uploads assets to Picflow.
 - **Sleep Prevention**: Automatically prevents system sleep during active uploads to ensure reliability
 
 ### Settings & Preferences
-- **Menu Bar Icon Control**: Show/hide menu bar icon (default: enabled)
-- **Launch at Login**: Automatically start Picflow when you log in (default: enabled, uses SMAppService)
-- **Auto-Update**: Keep Picflow up to date with latest features (default: enabled, UI ready)
-- **Logs Management**: Open logs folder with automatic 7-day retention and cleanup
-- **Integration Placeholders**: Finder extension and conflict behavior (coming soon)
+- **Settings Access**: Available from macOS menu bar (Picflow > Settings...) or profile dropdown, opens as separate window
+- **Menu Bar Icon Control**: Toggle switch to show/hide menu bar icon (default: enabled)
+- **Launch at Startup**: Toggle switch to automatically start Picflow when you log in (default: enabled, uses SMAppService)
+- **Auto-Update**: Toggle switch to keep Picflow up to date with latest features (default: enabled, UI ready)
+- **Logs Management**: Open logs folder button with automatic 7-day retention and cleanup
+- **Integration Placeholders**: Finder extension and conflict behavior toggles (coming soon, disabled but visible)
 
 ### Authentication & Profile
 - **Auth**: Clerk (OIDC + PKCE) browser-based login; logout supported; tokens stored securely in Keychain
@@ -59,8 +60,9 @@ SwiftUI app that uploads assets to Picflow.
 
 **Main Window**
 - Click the dock icon or menu bar icon to open the main window
-- Window size: 440x320px (login), 380px height (after login), max 960x720px
-- Window features rounded corners with modern macOS styling
+- Window size: 480x400px default, 720x640px maximum (fully resizable)
+- Modern SwiftUI window management with `.frame()` and `.windowResizability(.contentSize)`
+- Window features rounded corners with hidden title bar styling
 - Profile dropdown in toolbar provides quick access to settings
 
 **Upload Modes**
@@ -77,11 +79,12 @@ SwiftUI app that uploads assets to Picflow.
 - Shows checkmark when each file completes
 
 **Settings Management**
-- Click profile icon in toolbar → Settings to access:
-  - **General**: Menu bar icon visibility, launch at login
-  - **Updates**: Auto-update preferences
-  - **Integration**: Finder extension (soon), conflict behavior (soon)
-  - **Advanced**: Open logs folder, view debug information
+- Access via macOS menu bar (Picflow > Settings..., or Cmd+,) or profile dropdown
+- Opens as separate 600x500px window with organized sections:
+  - **General**: Toggle switches for menu bar icon visibility and launch at startup
+  - **Updates**: Toggle switch for automatic updates
+  - **Integration**: Finder extension and conflict behavior (coming soon - disabled toggles with "Soon" badges)
+  - **Advanced**: Open logs folder button to access debug information
 
 **Profile Management**
 - Click profile icon in toolbar to access:
@@ -99,20 +102,24 @@ SwiftUI app that uploads assets to Picflow.
 ## Architecture
 
 ### App Structure
-- **SwiftUI + AppKit**: Menu bar status item, main window, folder monitoring, toolbar integration
+- **SwiftUI WindowGroup**: Modern SwiftUI-first architecture with `.frame()` and `.windowResizability()` for window constraints
+- **AppDelegate**: Lightweight app lifecycle coordinator for menu bar integration and core services
 - **Authenticator**: Clerk OIDC + PKCE authentication flow with Keychain storage
 - **Uploader**: S3 multipart upload with state tracking (idle/uploading/completed/failed)
-- **SettingsManager**: Centralized app preferences with UserDefaults persistence and system integration
-- **MenuBarManager**: Menu bar icon lifecycle, visibility control, and upload state indicators
+- **SettingsManager**: Centralized app preferences singleton with UserDefaults persistence and system integration
+- **SettingsWindowManager**: Dedicated manager for presenting Settings as separate NSWindow
+- **MenuBarManager**: Extracted menu bar icon lifecycle, visibility control, and upload state indicators
 - **Networking**: API client with JWT bearer tokens and tenant headers
 - **Models**: Gallery, Asset, Tenant response structures
 
 ### UI Components
-- **AppDelegate**: Menu bar management, window lifecycle, toolbar setup, settings integration
+- **PicflowApp**: SwiftUI app entry point with WindowGroup, window modifiers, and Settings command
+- **AppDelegate**: Lightweight lifecycle coordinator (menu bar, settings manager, authentication observers)
 - **MenuBarManager**: Extracted menu bar icon management with visibility control
+- **SettingsWindowManager**: Manages Settings window presentation as separate NSWindow
 - **AppView**: Main authenticated container with navigation state management and debug shortcuts (D/C keys)
 - **LoginView**: Modern login screen with Picflow branding, no auto-focus
-- **SettingsView**: Comprehensive settings UI with toggles, disabled previews, and action buttons
+- **SettingsView**: Comprehensive settings UI with toggle switches, disabled previews (no opacity), and action buttons
 - **GallerySelectionView**: Gallery picker with async loading, workspace indicator, optimized card layout
 - **UploaderView**: Upload interface with Live mode toggle, smooth status transitions
 - **LiveFolderView**: Folder selection interface for automated monitoring
@@ -123,17 +130,21 @@ SwiftUI app that uploads assets to Picflow.
 
 ### Key Features Implementation
 - **Dock & Menu Bar App**: Standard macOS app with `.regular` activation policy, menu bar icon can be hidden via settings
-- **Modern Window**: Flexible sizing (480x400 minimum, 720x640 maximum), rounded corners via unified toolbar style
-- **Profile Dropdown**: NSToolbar integration with SwiftUI popover and settings access
-- **Settings System**: `SettingsManager` singleton with `@Published` properties, UserDefaults persistence
-- **Launch at Login**: `SMAppService` integration for macOS 13+, legacy `LSSharedFileList` fallback
+- **Modern Window Management**: Pure SwiftUI approach using `.frame(minWidth:maxWidth:minHeight:maxHeight:)` + `.windowResizability(.contentSize)`
+- **Window Sizing**: 480x400px minimum, 720x640px maximum, 480x400px default launch size
+- **Settings Access**: Dual access via macOS menu bar (Cmd+,) and profile dropdown
+- **Settings Window**: Separate NSWindow (600x500px) managed by `SettingsWindowManager`
+- **Profile Dropdown**: NSToolbar integration with SwiftUI popover
+- **Settings System**: `SettingsManager` singleton with `@Published` properties, UserDefaults persistence, toggle switches
+- **Launch at Startup**: `SMAppService` integration for macOS 13+, toggle switch in Settings
 - **Logs Management**: Automatic 7-day retention in `~/Library/Application Support/Picflow/Logs`
 - **Upload States**: Published `UploadState` enum with auto-reset timers and status area transitions
 - **Folder Monitoring**: `FolderMonitor` with FSEvents watching for file additions
 - **Live Mode Toggle**: Switch between manual and automated upload workflows with smooth animations
 - **Sleep Prevention**: `NSProcessInfo.processInfo.beginActivity` with `.userInitiated` option during uploads
 - **Debug Shortcuts**: Press `D` for feature borders, `C` for core structure borders (dev mode)
-- **No Auto-Focus**: Window opens with no element focused, respects user interaction
+- **No Auto-Focus**: Global focus management via ContentView, no buttons receive focus on window open
+- **Hover Effects**: Gallery cards use native hover detection with instant feedback, no button wrappers
 
 ## Capture One Integration
 
@@ -210,11 +221,11 @@ The app follows a clean SwiftUI architecture with organized folders:
 ```
 Picflow/Picflow/
 ├── App/
-│   ├── AppDelegate.swift           # Main app lifecycle & window management
+│   ├── AppDelegate.swift           # Lightweight lifecycle coordinator
 │   ├── MenuBarManager.swift        # Menu bar icon management
 │   ├── ContentView.swift           # Root SwiftUI view switcher
 │   ├── Constants.swift             # App constants
-│   └── PicflowApp.swift            # SwiftUI app entry point
+│   └── PicflowApp.swift            # SwiftUI app entry point with WindowGroup
 ├── Views/
 │   ├── AppView.swift               # Main authenticated container
 │   ├── LoginView.swift             # Login screen
@@ -228,14 +239,15 @@ Picflow/Picflow/
 │   │   ├── CaptureOneStatusView.swift
 │   │   └── UploadStatusView.swift  # Unified upload progress
 │   ├── Settings/
-│   │   └── SettingsView.swift      # App settings & preferences
+│   │   └── SettingsView.swift      # App settings & preferences UI
 │   ├── Shared/
 │   │   ├── AvatarToolbarButton.swift
 │   │   └── UserProfileView.swift
 │   └── Workspace/
 │       └── WorkspaceSelectionView.swift
 ├── Settings/
-│   └── SettingsManager.swift       # App preferences manager
+│   ├── SettingsManager.swift       # App preferences manager singleton
+│   └── SettingsWindowManager.swift # Settings window presentation manager
 ├── Models/
 │   ├── Gallery.swift
 │   ├── CreateAssetRequest.swift
@@ -282,36 +294,48 @@ See [SENTRY_SETUP_GUIDE.md](SENTRY_SETUP_GUIDE.md) for complete setup instructio
 ## Recent Major Updates
 
 ### Settings System (October 2025)
-- ✅ Comprehensive settings UI (600x500px window)
+- ✅ Comprehensive settings UI (600x500px window) with organized sections
+- ✅ Dual access: macOS menu bar (Cmd+,) and profile dropdown
+- ✅ `SettingsWindowManager` for separate NSWindow presentation
+- ✅ Toggle switches (not checkboxes) for all preferences
 - ✅ Menu bar icon show/hide toggle with live visibility control
-- ✅ Launch at login with `SMAppService` (macOS 13+) and legacy fallback
+- ✅ Launch at startup with `SMAppService` (macOS 13+)
 - ✅ Auto-update toggle (UI ready for implementation)
 - ✅ Logs management with automatic 7-day retention
-- ✅ Settings accessible from profile dropdown
-- ✅ Finder extension and conflict behavior placeholders (coming soon)
+- ✅ Disabled toggles for upcoming features (no opacity, "Soon" badges)
+- ✅ Finder extension and conflict behavior placeholders
 
 ### UI/UX Improvements (October 2025)
 - ✅ Converted from menu bar-only app to regular dock app with menu bar icon for quick access
+- ✅ Modern SwiftUI window management: `.frame()` + `.windowResizability(.contentSize)` (no AppKit manipulation)
+- ✅ Window sizing: 480x400px minimum, 720x640px maximum, 480x400px default
 - ✅ Added profile dropdown in toolbar with workspace/account/settings management
 - ✅ Implemented workspace selection flow via notification-based navigation
-- ✅ Redesigned window sizing: 480x400 minimum, 720x640 maximum (flexible resizing)
-- ✅ Added rounded corners via unified toolbar style (no manual traffic light positioning)
+- ✅ Added rounded corners via hidden title bar style (no manual traffic light positioning)
 - ✅ Optimized gallery card layout with 4:3 preview images, centered 640px max width
 - ✅ Fixed gallery asset count display (removed CodingKeys conflict with snake_case decoder)
 - ✅ Added Live mode toggle with smooth status area transitions (300ms animations)
 - ✅ Integrated custom Picflow icons (PDFs with light/dark variants)
-- ✅ Disabled autofocus on launch and in popovers for cleaner UX
+- ✅ Global no-autofocus implementation via ContentView (single configuration point)
+- ✅ Improved gallery card hover effects with native .onHover and .onTapGesture
+- ✅ Live folder view shows selected folder path in button for better feedback
+- ✅ Centralized animation handling in ContentView and state-specific views
 - ✅ Added "Current Workspace" indicator in gallery selection view
 - ✅ Test token button repositioned to bottom-right overlay (dev mode only)
 - ✅ Debug keyboard shortcuts: D (feature borders), C (core structure borders)
 
 ### Architecture Improvements (October 2025)
+- ✅ Migrated to pure SwiftUI WindowGroup architecture (removed AppKit window management)
+- ✅ Modern window constraints: `.frame()` in PicflowApp instead of AppKit `minSize`/`maxSize`
 - ✅ Extracted `MenuBarManager` from `AppDelegate` (single responsibility principle)
+- ✅ Extracted `SettingsWindowManager` for Settings presentation
 - ✅ Created `SettingsManager` singleton for app-wide preferences
-- ✅ Removed complex window attach/detach logic in favor of standard window behavior
-- ✅ Simplified AppDelegate with better MainActor isolation
+- ✅ Simplified AppDelegate to lightweight lifecycle coordinator
+- ✅ Removed complex window attach/detach logic in favor of standard behavior
 - ✅ Unified upload status components: `UploadStatusView` for all upload types
 - ✅ Reorganized views: Upload/ folder for all upload-related components
 - ✅ Improved visibility logic: status area only renders when needed (no empty VStack)
-- ✅ Better focus management: window-level settings prevent unwanted auto-focus
+- ✅ Global focus management: Single `.focusable(false)` in ContentView
+- ✅ Refactored GalleryCardView: Direct tap handling with onSelect callback, no button wrapper
+- ✅ Centralized animations: State-driven animations in AppView and ContentView
 - ✅ Organized views into logical folders: App/, Views/Gallery/, Views/Upload/, Views/Settings/, Views/Shared/, Views/Workspace/, Settings/

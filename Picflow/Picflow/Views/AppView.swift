@@ -50,7 +50,7 @@ struct AppView: View {
     
     var body: some View {
         // Main Navigation Content with Transitions
-        // Note: Avatar is now in the window toolbar, not overlaid here
+        // Avatar is overlaid at top-right, stays fixed during navigation
         ZStack {
             if navigationState == .workspaceSelection {
                 WorkspaceSelectionView(
@@ -97,6 +97,12 @@ struct AppView: View {
             }
         }
         .border(showCoreDebugBorders ? Color.pink : Color.clear, width: 5) // DEBUG: Outer ZStack boundary
+        .overlay(alignment: .topTrailing) {
+            // Avatar button stays fixed in top-right corner across all views
+            AvatarToolbarButton(authenticator: authenticator)
+                .padding(.top, 12)
+                .padding(.trailing, 12)
+        }
         .animation(.easeInOut(duration: 0.3), value: navigationState) // Animate navigation state changes
         .environment(\.showDebugBorders, showDebugBorders) // Pass feature debug state to child views
         .environment(\.showCoreDebugBorders, showCoreDebugBorders) // Pass core debug state to child views

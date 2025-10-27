@@ -21,16 +21,9 @@ struct GallerySelectionView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Header
-            VStack(spacing: 8) {
-                // Top bar with avatar button
-                HStack {
-                    Spacer()
-                    AvatarToolbarButton(authenticator: authenticator)
-                        .padding(.trailing, 8)
-                }
-                
+            VStack(spacing: 4) {
                 // Workspace Indicator
-                HStack(spacing: 6) {
+                HStack(spacing: 4) {
                     Image(systemName: "square.grid.2x2")
                         .font(.system(size: 16))
                         .foregroundColor(.secondary)
