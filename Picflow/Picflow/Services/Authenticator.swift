@@ -83,13 +83,17 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
     private var authSession: ASWebAuthenticationSession?
     private var codeVerifier: String?
     private var codeChallenge: String?
-    private let keychain = KeychainTokenStore(service: "com.picflow.live.tokens")
+    private let keychain = KeychainTokenStore(service: "com.picflow.macos.tokens")
     
-    private var clerkDomain: String { "clerk.picflow.com" }
-    private var clientId: String {
-        Bundle.main.object(forInfoDictionaryKey: "ClerkClientId") as? String ?? ""
+    private var clerkDomain: String { 
+        EnvironmentManager.shared.current.clerkDomain
     }
-    private var redirectURI: String { "picflow://auth/callback" }
+    private var clientId: String {
+        EnvironmentManager.shared.current.clerkClientId
+    }
+    private var redirectURI: String { 
+        EnvironmentManager.shared.current.redirectURI
+    }
     
     struct OAuthTokenResponse: Decodable {
         let access_token: String
@@ -128,10 +132,12 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
         
         print("🔗 Opening authorization URL:", url.absoluteString)
         
-        authSession = ASWebAuthenticationSession(url: url, callbackURLScheme: "picflow") { [weak self] callbackURL, error in
+        authSession = ASWebAuthenticationSession(url: url, callbackURLScheme: "picflow-macos") { [weak self] callbackURL, error in
             guard let self = self else { return }
             if let error = error {
                 print("❌ Auth cancelled/failed:", error)
+                print("❌ Error code:", (error as NSError).code)
+                print("❌ Error domain:", (error as NSError).domain)
                 Task { @MainActor in
                     self.state = .unauthorized
                     self.isAuthenticated = false
@@ -139,6 +145,7 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
                 return
             }
             guard let callbackURL = callbackURL else {
+                print("❌ No callback URL received")
                 Task { @MainActor in
                     self.state = .unauthorized
                     self.isAuthenticated = false
@@ -149,14 +156,46 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
                 await self.handleRedirect(url: callbackURL)
             }
         }
-        authSession?.presentationContextProvider = self
-        authSession?.prefersEphemeralWebBrowserSession = false
-        authSession?.start()
+        
+        guard let session = authSession else {
+            print("❌ Failed to create ASWebAuthenticationSession")
+            state = .unauthorized
+            return
+        }
+        
+        session.presentationContextProvider = self
+        session.prefersEphemeralWebBrowserSession = false
+        
+        print("🚀 Starting authentication session...")
+        let started = session.start()
+        
+        if started {
+            print("✅ Authentication session started successfully")
+            // Activate the app to bring auth window to front
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                NSApp.activate(ignoringOtherApps: true)
+            }
+        } else {
+            print("❌ Failed to start authentication session")
+            state = .unauthorized
+        }
     }
     
     // MARK: - ASWebAuthenticationPresentationContextProviding
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        return NSApplication.shared.windows.first ?? ASPresentationAnchor()
+        // Try to get the key window first, fallback to any visible window
+        if let keyWindow = NSApplication.shared.keyWindow {
+            print("📱 Using key window for auth presentation")
+            return keyWindow
+        }
+        
+        if let firstWindow = NSApplication.shared.windows.first(where: { $0.isVisible }) {
+            print("📱 Using first visible window for auth presentation")
+            return firstWindow
+        }
+        
+        print("⚠️ No visible window found, creating new presentation anchor")
+        return ASPresentationAnchor()
     }
     
     // Handle JWT token callback from web page

@@ -9,6 +9,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject var settingsManager: SettingsManager
+    @StateObject private var environmentManager = EnvironmentManager.shared
     
     var body: some View {
         VStack(spacing: 0) {
@@ -70,6 +71,10 @@ struct SettingsView: View {
                                 settingsManager.openLogsFolder()
                             }
                         )
+                    }
+                    
+                    SettingsSection(title: "Developer") {
+                        EnvironmentPicker(selectedEnvironment: $environmentManager.current)
                     }
                 }
                 .padding(24)
@@ -281,3 +286,47 @@ struct SettingsButton: View {
     }
 }
 
+// MARK: - Environment Picker
+
+struct EnvironmentPicker: View {
+    @Binding var selectedEnvironment: AppEnvironment
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "globe")
+                .font(.system(size: 16))
+                .foregroundColor(.accentColor)
+                .frame(width: 24, height: 24)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text("API Environment")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.primary)
+                
+                Text(environmentSubtitle)
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            Picker("", selection: $selectedEnvironment) {
+                ForEach(AppEnvironment.allCases, id: \.self) { env in
+                    Text(env.rawValue).tag(env)
+                }
+            }
+            .labelsHidden()
+            .frame(width: 140)
+        }
+        .padding(12)
+    }
+    
+    private var environmentSubtitle: String {
+        switch selectedEnvironment {
+        case .development:
+            return "dev.picflow.io"
+        case .production:
+            return "picflow.io"
+        }
+    }
+}

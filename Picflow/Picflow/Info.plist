@@ -27,7 +27,7 @@
             <string>com.picflow.macos.oauth</string>
             <key>CFBundleURLSchemes</key>
             <array>
-                <string>picflow</string>
+                <string>picflow-macos</string>
             </array>
         </dict>
     </array>

@@ -9,7 +9,9 @@ enum HTTPMethod: String {
 }
 
 class Endpoint {
-    static var baseURL = URL(string: "https://api.picflow.io")!
+    static var baseURL: URL {
+        URL(string: "\(EnvironmentManager.shared.current.apiBaseURL)/api")!
+    }
     static var token: String?
     static var currentTenantId: String?
     static let decoder: JSONDecoder = {
