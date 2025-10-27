@@ -102,13 +102,16 @@ struct ProfileDropdownContent: View {
                     }
                 }
                 
-                ProfileMenuItem(icon: "gearshape", title: "Account Settings") {
+                ProfileMenuItem(icon: "arrow.up.forward.app", title: "Profile Settings") {
                     if let url = URL(string: "https://picflow.com/a/settings/profile") {
                         NSWorkspace.shared.open(url)
                     }
                 }
+
+                Divider()
+                    .padding(.vertical, 4)
                 
-                ProfileMenuItem(icon: "gear", title: "Settings") {
+                ProfileMenuItem(icon: "gear", title: "App Settings") {
                     Task { @MainActor in
                         SettingsWindowManager.shared.showSettings()
                     }
