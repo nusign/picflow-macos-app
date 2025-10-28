@@ -105,16 +105,11 @@ class Uploader: ObservableObject {
 				}
 				
 				// Capture error to Sentry
-				ErrorReportingManager.shared.reportUploadError(
+				reportUploadError(
 					error,
 					fileName: fileURL.lastPathComponent,
-					galleryId: self.selectedGallery?.id,
-					additionalContext: [
-						"file_path": fileURL.path,
-						"gallery_name": self.selectedGallery?.displayName ?? "unknown",
-						"file_index": index,
-						"total_files": self.uploadQueue.count
-					]
+					fileIndex: index,
+					additionalContext: ["file_path": fileURL.path]
 				)
 				
 				// Continue with next file even if one fails
@@ -228,15 +223,11 @@ class Uploader: ObservableObject {
 			print("❌ Upload failed for: \(fileURL.lastPathComponent) - Error: \(error)")
 			
 			// Capture detailed error to Sentry
-			ErrorReportingManager.shared.reportUploadError(
+			reportUploadError(
 				error,
 				fileName: fileURL.lastPathComponent,
 				fileSize: fileData.count,
-				galleryId: self.selectedGallery?.id,
-				additionalContext: [
-					"file_path": fileURL.path,
-					"gallery_name": self.selectedGallery?.displayName ?? "unknown"
-				]
+				additionalContext: ["file_path": fileURL.path]
 			)
 			
 			throw error
@@ -302,6 +293,41 @@ class Uploader: ObservableObject {
 		      200...299 ~= httpResponse.statusCode else {
 			throw UploadError.s3UploadFailed
 		}
+	}
+	
+	// MARK: - Error Reporting Helpers
+	
+	/// Report upload error with automatic gallery and queue context
+	private func reportUploadError(
+		_ error: Error,
+		fileName: String? = nil,
+		fileSize: Int? = nil,
+		fileIndex: Int? = nil,
+		additionalContext: [String: Any] = [:]
+	) {
+		var context = additionalContext
+		
+		// Automatically include gallery context
+		if let gallery = selectedGallery {
+			context["gallery_id"] = gallery.id
+			context["gallery_name"] = gallery.displayName
+		}
+		
+		// Automatically include queue info
+		context["total_files"] = uploadQueue.count
+		
+		// Include file-specific info if provided
+		if let fileIndex = fileIndex {
+			context["file_index"] = fileIndex
+		}
+		
+		ErrorReportingManager.shared.reportUploadError(
+			error,
+			fileName: fileName,
+			fileSize: fileSize,
+			galleryId: selectedGallery?.id,
+			additionalContext: context
+		)
 	}
 }
 

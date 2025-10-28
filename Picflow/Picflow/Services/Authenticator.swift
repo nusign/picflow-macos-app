@@ -106,10 +106,10 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
                 // Capture to Sentry (unless user cancelled)
                 let nsError = error as NSError
                 if nsError.domain != ASWebAuthenticationSessionErrorDomain || nsError.code != ASWebAuthenticationSessionError.canceledLogin.rawValue {
-                    ErrorReportingManager.shared.reportAuthError(
+                    reportAuthError(
                         error,
                         method: "oauth",
-                        context: [
+                        additionalContext: [
                             "error_code": nsError.code,
                             "error_domain": nsError.domain,
                             "auth_url": url.absoluteString
@@ -130,10 +130,10 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
                 let error = NSError(domain: "com.picflow.auth", code: 1001, userInfo: [
                     NSLocalizedDescriptionKey: "No callback URL received from OAuth flow"
                 ])
-                ErrorReportingManager.shared.reportAuthError(
+                reportAuthError(
                     error,
                     method: "oauth",
-                    context: ["auth_url": url.absoluteString]
+                    additionalContext: ["auth_url": url.absoluteString]
                 )
                 
                 Task { @MainActor in
@@ -201,10 +201,10 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
             let error = NSError(domain: "com.picflow.auth", code: 1002, userInfo: [
                 NSLocalizedDescriptionKey: "No token found in JWT callback URL"
             ])
-            ErrorReportingManager.shared.reportAuthError(
+            reportAuthError(
                 error,
                 method: "jwt_callback",
-                context: ["callback_url": url.absoluteString]
+                additionalContext: ["callback_url": url.absoluteString]
             )
             
             state = .unauthorized
@@ -240,10 +240,7 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
             print("❌ Failed to fetch profile:", error)
             
             // Capture to Sentry
-            ErrorReportingManager.shared.reportAuthError(
-                error,
-                method: "jwt_callback"
-            )
+            reportAuthError(error, method: "jwt_callback")
             
             state = .unauthorized
             isAuthenticated = false
@@ -261,10 +258,10 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
             let error = NSError(domain: "com.picflow.auth", code: 1003, userInfo: [
                 NSLocalizedDescriptionKey: "Invalid OAuth redirect URL or missing code verifier"
             ])
-            ErrorReportingManager.shared.reportAuthError(
+            reportAuthError(
                 error,
                 method: "oauth",
-                context: [
+                additionalContext: [
                     "redirect_url": url.absoluteString,
                     "has_verifier": self.codeVerifier != nil
                 ]
@@ -313,10 +310,10 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
             print("❌ Token exchange failed:", error)
             
             // Capture to Sentry
-            ErrorReportingManager.shared.reportAuthError(
+            reportAuthError(
                 error,
                 method: "oauth",
-                context: [
+                additionalContext: [
                     "has_code": true,
                     "has_verifier": self.codeVerifier != nil
                 ]
@@ -569,6 +566,28 @@ private enum PKCE {
              .replacingOccurrences(of: "/", with: "_")
              .replacingOccurrences(of: "=", with: "")
         return s
+    }
+    
+    // MARK: - Error Reporting Helpers
+    
+    /// Report authentication error with automatic context
+    private func reportAuthError(
+        _ error: Error,
+        method: String,
+        additionalContext: [String: Any] = [:]
+    ) {
+        var context = additionalContext
+        
+        // Automatically include auth state if available
+        if case .authorized(_, let profile) = state {
+            context["user_email"] = profile.email
+        }
+        
+        ErrorReportingManager.shared.reportAuthError(
+            error,
+            method: method,
+            context: context
+        )
     }
 }
 
