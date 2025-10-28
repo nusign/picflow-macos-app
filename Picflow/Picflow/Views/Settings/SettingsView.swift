@@ -71,6 +71,15 @@ struct SettingsView: View {
                                 settingsManager.openLogsFolder()
                             }
                         )
+                        
+                        SettingsButton(
+                            icon: "ladybug",
+                            title: "Test Sentry",
+                            subtitle: "Send a test event to verify error reporting",
+                            action: {
+                                testSentry()
+                            }
+                        )
                     }
                     
                     SettingsSection(title: "Developer") {
@@ -82,6 +91,12 @@ struct SettingsView: View {
         }
         .frame(width: 600, height: 500)
         .background(.regularMaterial)
+    }
+    
+    // MARK: - Helper Functions
+    
+    private func testSentry() {
+        ErrorReportingManager.shared.sendTestEvents()
     }
 }
 

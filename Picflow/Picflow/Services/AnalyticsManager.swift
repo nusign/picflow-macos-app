@@ -52,10 +52,11 @@ class AnalyticsManager: ObservableObject {
         }
         
         var traits: [String: Any] = [
+            "id": profile.id,
             "email": profile.email,
             "first_name": profile.firstName,
             "last_name": profile.lastName,
-            "full_name": profile.fullName,
+            "name": profile.fullName,
         ]
         
         if let avatarUrl = profile.avatarUrl {

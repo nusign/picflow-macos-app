@@ -6,8 +6,7 @@
 //
 
 import Foundation
-// TODO: Uncomment after adding Sentry SDK
-// import Sentry
+import Sentry
 
 enum FileEvent {
     case added
@@ -40,31 +39,22 @@ class FolderMonitor {
             let contents = try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)
             knownFiles = Set(contents.map { $0.lastPathComponent })
             
-            // TODO: Uncomment after adding Sentry SDK
-            /*
-            SentrySDK.addBreadcrumb(crumb: Breadcrumb(
+            ErrorReportingManager.shared.addBreadcrumb(
+                "Folder monitoring started",
+                category: "folder_monitor",
                 level: .info,
-                category: "folder_monitor"
-            ).apply {
-                $0.message = "Folder monitoring started"
-                $0.data = [
+                data: [
                     "folder_path": url.path,
                     "initial_file_count": contents.count
                 ]
-            })
-            */
+            )
         } catch {
             print("⚠️ Failed to read initial folder contents:", error)
             
-            // TODO: Uncomment after adding Sentry SDK
-            /*
-            SentrySDK.capture(error: error) { scope in
-                scope.setContext(value: [
-                    "folder_path": url.path
-                ], key: "folder_monitor")
-                scope.setTag(value: "folder_monitor", key: "component")
-            }
-            */
+            ErrorReportingManager.shared.reportFolderMonitorError(
+                error,
+                folderPath: self.url.path
+            )
         }
         
         source = DispatchSource.makeFileSystemObjectSource(
@@ -95,16 +85,12 @@ class FolderMonitor {
             for file in addedFiles {
                 callback(url.appendingPathComponent(file), .added)
                 
-                // TODO: Uncomment after adding Sentry SDK
-                /*
-                SentrySDK.addBreadcrumb(crumb: Breadcrumb(
+                ErrorReportingManager.shared.addBreadcrumb(
+                    "File added to monitored folder",
+                    category: "folder_monitor",
                     level: .info,
-                    category: "folder_monitor"
-                ).apply {
-                    $0.message = "File added to monitored folder"
-                    $0.data = ["file_name": file]
-                })
-                */
+                    data: ["file_name": file]
+                )
             }
             
             // Detect removed files
@@ -117,15 +103,10 @@ class FolderMonitor {
         } catch {
             print("⚠️ Failed to scan folder:", error)
             
-            // TODO: Uncomment after adding Sentry SDK
-            /*
-            SentrySDK.capture(error: error) { scope in
-                scope.setContext(value: [
-                    "folder_path": url.path
-                ], key: "folder_monitor")
-                scope.setLevel(.warning)
-            }
-            */
+            ErrorReportingManager.shared.reportFolderMonitorError(
+                error,
+                folderPath: self.url.path
+            )
         }
     }
 }

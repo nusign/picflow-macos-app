@@ -128,10 +128,11 @@ AnalyticsManager.shared.trackUploadFailed(fileName: name, error: message, galler
 ## User Identification
 
 Users are identified by **email address** with these traits:
+- `id` - User ID (e.g., usr_PVE7Kpt21c98J5Tx)
 - `email` - User's email (also used as userId)
 - `first_name` - First name
 - `last_name` - Last name
-- `full_name` - Full name
+- `name` - Full name
 - `avatar_url` - Profile picture URL (optional)
 - `tenant_id` - Current workspace ID (optional)
 - `tenant_name` - Current workspace name (optional)

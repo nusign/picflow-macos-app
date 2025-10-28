@@ -8,8 +8,7 @@
 import Foundation
 import AppKit
 import Combine
-// TODO: Uncomment after adding Sentry SDK
-// import Sentry
+import Sentry
 
 /// Monitors whether Capture One is currently running and reads selection data
 class CaptureOneMonitor: ObservableObject {

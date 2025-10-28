@@ -11,6 +11,7 @@ import SwiftUI
 import AuthenticationServices
 import Security
 import CryptoKit
+import Sentry
 
 // MARK: - Private Response Wrappers
 
@@ -101,6 +102,21 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
                 print("❌ Auth cancelled/failed:", error)
                 print("❌ Error code:", (error as NSError).code)
                 print("❌ Error domain:", (error as NSError).domain)
+                
+                // Capture to Sentry (unless user cancelled)
+                let nsError = error as NSError
+                if nsError.domain != ASWebAuthenticationSessionErrorDomain || nsError.code != ASWebAuthenticationSessionError.canceledLogin.rawValue {
+                    ErrorReportingManager.shared.reportAuthError(
+                        error,
+                        method: "oauth",
+                        context: [
+                            "error_code": nsError.code,
+                            "error_domain": nsError.domain,
+                            "auth_url": url.absoluteString
+                        ]
+                    )
+                }
+                
                 Task { @MainActor in
                     self.state = .unauthorized
                     self.isAuthenticated = false
@@ -109,6 +125,17 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
             }
             guard let callbackURL = callbackURL else {
                 print("❌ No callback URL received")
+                
+                // Capture missing callback URL to Sentry
+                let error = NSError(domain: "com.picflow.auth", code: 1001, userInfo: [
+                    NSLocalizedDescriptionKey: "No callback URL received from OAuth flow"
+                ])
+                ErrorReportingManager.shared.reportAuthError(
+                    error,
+                    method: "oauth",
+                    context: ["auth_url": url.absoluteString]
+                )
+                
                 Task { @MainActor in
                     self.state = .unauthorized
                     self.isAuthenticated = false
@@ -169,6 +196,17 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
               let tokenItem = components.queryItems?.first(where: { $0.name == "token" }),
               let token = tokenItem.value else {
             print("❌ No token found in callback URL")
+            
+            // Capture to Sentry
+            let error = NSError(domain: "com.picflow.auth", code: 1002, userInfo: [
+                NSLocalizedDescriptionKey: "No token found in JWT callback URL"
+            ])
+            ErrorReportingManager.shared.reportAuthError(
+                error,
+                method: "jwt_callback",
+                context: ["callback_url": url.absoluteString]
+            )
+            
             state = .unauthorized
             isAuthenticated = false
             return
@@ -191,8 +229,22 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
             state = .authorized(token: token, profile: profile.user)
             isAuthenticated = true
             print("✅ Authentication successful!")
+            
+            // Add breadcrumb
+            ErrorReportingManager.shared.addBreadcrumb(
+                "JWT token authentication successful",
+                category: "auth",
+                level: .info
+            )
         } catch {
             print("❌ Failed to fetch profile:", error)
+            
+            // Capture to Sentry
+            ErrorReportingManager.shared.reportAuthError(
+                error,
+                method: "jwt_callback"
+            )
+            
             state = .unauthorized
             isAuthenticated = false
         }
@@ -204,6 +256,20 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
               let code = codeItem.value,
               let verifier = codeVerifier else {
             print("Invalid redirect URL or missing verifier")
+            
+            // Capture to Sentry
+            let error = NSError(domain: "com.picflow.auth", code: 1003, userInfo: [
+                NSLocalizedDescriptionKey: "Invalid OAuth redirect URL or missing code verifier"
+            ])
+            ErrorReportingManager.shared.reportAuthError(
+                error,
+                method: "oauth",
+                context: [
+                    "redirect_url": url.absoluteString,
+                    "has_verifier": self.codeVerifier != nil
+                ]
+            )
+            
             state = .unauthorized
             isAuthenticated = false
             return
@@ -230,6 +296,14 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
             AnalyticsManager.shared.trackLogin(method: "oauth")
             AnalyticsManager.shared.identifyUser(profile: profile.user, tenant: nil)
             
+            // Add breadcrumb
+            ErrorReportingManager.shared.addBreadcrumb(
+                "OAuth login successful",
+                category: "auth",
+                level: .info,
+                data: ["user_email": profile.user.email]
+            )
+            
             // Force flush for immediate testing
             AnalyticsManager.shared.flush()
             
@@ -237,6 +311,17 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
             try await fetchAvailableTenants()
         } catch {
             print("❌ Token exchange failed:", error)
+            
+            // Capture to Sentry
+            ErrorReportingManager.shared.reportAuthError(
+                error,
+                method: "oauth",
+                context: [
+                    "has_code": true,
+                    "has_verifier": self.codeVerifier != nil
+                ]
+            )
+            
             state = .unauthorized
             isAuthenticated = false
         }

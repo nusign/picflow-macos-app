@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import Sentry
 
 enum UploadState {
 	case idle
@@ -76,6 +77,17 @@ class Uploader: ObservableObject {
 			AnalyticsManager.shared.trackUploadStarted(fileCount: uploadQueue.count, galleryId: galleryId)
 		}
 		
+		// Sentry breadcrumb: Upload started
+		ErrorReportingManager.shared.addBreadcrumb(
+			"Upload started",
+			category: "upload",
+			level: .info,
+			data: [
+				"file_count": uploadQueue.count,
+				"gallery_id": selectedGallery?.id ?? "unknown"
+			]
+		)
+		
 		for (index, fileURL) in uploadQueue.enumerated() {
 			currentFileIndex = index
 			do {
@@ -91,6 +103,20 @@ class Uploader: ObservableObject {
 						galleryId: galleryId
 					)
 				}
+				
+				// Capture error to Sentry
+				ErrorReportingManager.shared.reportUploadError(
+					error,
+					fileName: fileURL.lastPathComponent,
+					galleryId: self.selectedGallery?.id,
+					additionalContext: [
+						"file_path": fileURL.path,
+						"gallery_name": self.selectedGallery?.displayName ?? "unknown",
+						"file_index": index,
+						"total_files": self.uploadQueue.count
+					]
+				)
+				
 				// Continue with next file even if one fails
 			}
 		}
@@ -185,9 +211,34 @@ class Uploader: ObservableObject {
 				galleryId: gallery.id
 			)
 			
+			// Sentry breadcrumb: File uploaded successfully
+			ErrorReportingManager.shared.addBreadcrumb(
+				"File uploaded successfully",
+				category: "upload",
+				level: .info,
+				data: [
+					"file_name": fileURL.lastPathComponent,
+					"file_size": fileData.count,
+					"gallery_id": gallery.id
+				]
+			)
+			
 			print("✅ Upload completed successfully for: \(fileURL.lastPathComponent)")
 		} catch {
 			print("❌ Upload failed for: \(fileURL.lastPathComponent) - Error: \(error)")
+			
+			// Capture detailed error to Sentry
+			ErrorReportingManager.shared.reportUploadError(
+				error,
+				fileName: fileURL.lastPathComponent,
+				fileSize: fileData.count,
+				galleryId: self.selectedGallery?.id,
+				additionalContext: [
+					"file_path": fileURL.path,
+					"gallery_name": self.selectedGallery?.displayName ?? "unknown"
+				]
+			)
+			
 			throw error
 		}
 	}
