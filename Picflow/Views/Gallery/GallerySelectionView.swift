@@ -4,15 +4,12 @@
 //
 //  Created by Michel Luarasi on 26.01.2025.
 //
-//  Debug borders: Uses feature-specific borders (D)
-//
 
 import SwiftUI
 
 struct GallerySelectionView: View {
     @ObservedObject var uploader: Uploader
     @EnvironmentObject var authenticator: Authenticator
-    @Environment(\.showDebugBorders) var showDebugBorders
     let onGallerySelected: () -> Void
     @State private var galleries: [GalleryDetails] = []
     @State private var isLoading = false
@@ -75,13 +72,11 @@ struct GallerySelectionView: View {
                                         .font(.largeTitle)
                                         .fontWeight(.bold)
                                         .multilineTextAlignment(.center)
-                                        .border(showDebugBorders ? Color.orange : Color.clear, width: 1) // DEBUG: Title
                                     Spacer()
                                 }
                             }
                             .padding()
                             .frame(maxWidth: .infinity)
-                            .border(showDebugBorders ? Color.yellow : Color.clear, width: 2) // DEBUG: Header
                             
                             // Gallery list
                             ForEach(galleries, id: \.id) { gallery in
@@ -91,20 +86,16 @@ struct GallerySelectionView: View {
                                     AnalyticsManager.shared.trackGallerySelected(gallery: gallery)
                                     onGallerySelected()
                                 }
-                                .border(showDebugBorders ? Color.cyan : Color.clear, width: 1) // DEBUG: Gallery Card
                             }
                     }
                     .frame(maxWidth: 480)
                     .padding(.bottom, 48)
-                    .border(showDebugBorders ? Color.purple : Color.clear, width: 2) // DEBUG: LazyVStack
                     .frame(maxWidth: .infinity) // Center the container
                 }
                 .scrollIndicators(.automatic)
-                .border(showDebugBorders ? Color.blue : Color.clear, width: 2) // DEBUG: ScrollView
             }
         }
         .frame(maxWidth: .infinity) // Ensure outer VStack takes full width
-        .border(showDebugBorders ? Color.red : Color.clear, width: 3) // DEBUG: Outer VStack
         .task {
             await loadGalleries()
         }

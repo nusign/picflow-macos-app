@@ -4,15 +4,12 @@
 //
 //  Created by AI Assistant
 //
-//  Debug borders: Uses feature-specific borders (D)
-//
 
 import SwiftUI
 
 struct UploaderView: View {
     @ObservedObject var uploader: Uploader
     @ObservedObject var authenticator: Authenticator
-    @Environment(\.showDebugBorders) var showDebugBorders
     let onBack: () -> Void
     @State private var isDragging = false
     @State private var isLiveModeEnabled = false
@@ -43,7 +40,6 @@ struct UploaderView: View {
                 Text(uploader.selectedGallery?.displayName ?? "Gallery")
                     .font(.system(size: 22, weight: .semibold))
                     .foregroundColor(.primary)
-                    .border(showDebugBorders ? Color.orange : Color.clear, width: 1) // DEBUG: Title
                 Spacer()
             }
             .padding(.top, 8)
@@ -64,20 +60,16 @@ struct UploaderView: View {
                             handleLiveModeToggle(newValue)
                         }
                 }
-                .border(showDebugBorders ? Color.green : Color.clear, width: 1) // DEBUG: Controls HStack
                 
                 // Main Content Area (fills available vertical space)
                 if isLiveModeEnabled {
                     LiveFolderView(folderManager: folderMonitoringManager)
                         .frame(maxHeight: .infinity)
-                        .border(showDebugBorders ? Color.purple : Color.clear, width: 2) // DEBUG: LiveFolderView
                 } else {
                     DropAreaView(isDragging: $isDragging, onFilesSelected: handleFilesSelected)
                         .frame(maxHeight: .infinity)
-                        .border(showDebugBorders ? Color.cyan : Color.clear, width: 2) // DEBUG: DropAreaView
                 }
             }
-            .border(showDebugBorders ? Color.yellow : Color.clear, width: 2) // DEBUG: Content VStack
             
             // Status Components (Upload progress or Capture One Integration)
             if shouldShowStatusArea {
@@ -85,13 +77,11 @@ struct UploaderView: View {
                     // Live Folder Status (always show when folder is selected in live mode)
                     if shouldShowLiveFolder {
                         LiveFolderUploadStatus(manager: folderMonitoringManager)
-                            .border(showDebugBorders ? Color.purple : Color.clear, width: 1) // DEBUG: Live Folder Status
                     }
                     
                     // Upload Status
                     if isAnyUploadActive {
                         uploadStatusView
-                            .border(showDebugBorders ? Color.pink : Color.clear, width: 1) // DEBUG: Upload Status
                     }
                     
                     // Capture One
@@ -99,7 +89,6 @@ struct UploaderView: View {
                         CaptureOneStatusView(uploader: uploader)
                             .environmentObject(captureOneMonitor)
                             .environmentObject(captureOneUploadManager)
-                            .border(showDebugBorders ? Color.mint : Color.clear, width: 1) // DEBUG: Capture One
                     }
                 }
                 .padding(.top, 16)
@@ -108,7 +97,6 @@ struct UploaderView: View {
 
         }
         .padding(24)
-        .border(showDebugBorders ? Color.red : Color.clear, width: 3) // DEBUG: Outer VStack
         .animation(.easeInOut(duration: 0.3), value: shouldShowStatusArea)
         .liveModeAnimation(isActive: isLiveModeActive)
     }
