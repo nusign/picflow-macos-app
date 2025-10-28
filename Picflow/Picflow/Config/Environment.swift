@@ -42,6 +42,30 @@ enum AppEnvironment: String, CaseIterable {
         // Same for both environments
         return "picflow-macos://auth/callback"
     }
+    
+    // Customer.io CDP configuration (HTTP API Source)
+    var customerIOCdpApiKey: String {
+        switch self {
+        case .development:
+            return "de4da9a43b8f30a56d86"  // Development HTTP API source
+        case .production:
+            return "05498e8c1c5a1702938c"  // Production HTTP API source
+        }
+    }
+    
+    var customerIOCdpBaseURL: String {
+        // Custom domain (CNAME to Customer.io EU region)
+        return "https://cdp.picflow.com/v1"
+    }
+    
+    var customerIOSiteId: String {
+        switch self {
+        case .development:
+            return "d890455b0fa2c4c2badb"
+        case .production:
+            return "19dda8b5fd362405c507"
+        }
+    }
 }
 
 /// Manages the current environment configuration

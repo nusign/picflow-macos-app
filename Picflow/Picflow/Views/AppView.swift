@@ -56,7 +56,7 @@ struct AppView: View {
             if navigationState == .workspaceSelection {
                 WorkspaceSelectionView(
                     authenticator: authenticator,
-                    onWorkspaceSelected: {
+                    onTenantSelected: {
                         navigationState = .gallerySelection
                         forceShowWorkspaceSelection = false // Reset after selection
                     },

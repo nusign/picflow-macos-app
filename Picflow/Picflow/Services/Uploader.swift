@@ -71,17 +71,42 @@ class Uploader: ObservableObject {
 		
 		print("🚀 Starting upload of \(uploadQueue.count) files")
 		
+		// Track upload started
+		if let galleryId = selectedGallery?.id {
+			AnalyticsManager.shared.trackUploadStarted(fileCount: uploadQueue.count, galleryId: galleryId)
+		}
+		
 		for (index, fileURL) in uploadQueue.enumerated() {
 			currentFileIndex = index
 			do {
 				try await upload(fileURL: fileURL)
 			} catch {
 				print("❌ Failed to upload \(fileURL.lastPathComponent): \(error)")
+				
+				// Track upload failure
+				if let galleryId = selectedGallery?.id {
+					AnalyticsManager.shared.trackUploadFailed(
+						fileName: fileURL.lastPathComponent,
+						error: error.localizedDescription,
+						galleryId: galleryId
+					)
+				}
 				// Continue with next file even if one fails
 			}
 		}
 		
 		print("✅ Upload queue completed")
+		
+		// Track upload completion
+		if let startTime = uploadStartTime, let galleryId = selectedGallery?.id {
+			let duration = Date().timeIntervalSince(startTime)
+			AnalyticsManager.shared.trackUploadCompleted(
+				fileCount: uploadQueue.count,
+				totalSize: totalBytesTransferred,
+				duration: duration,
+				galleryId: galleryId
+			)
+		}
 		
 		// Show completed state briefly, then reset
 		uploadState = .completed
@@ -152,6 +177,13 @@ class Uploader: ObservableObject {
 			updateUploadStatistics()
 			
 			uploadProgress = 1.0
+			
+			// Track individual file upload
+			AnalyticsManager.shared.trackFileUploaded(
+				fileName: fileURL.lastPathComponent,
+				fileSize: fileData.count,
+				galleryId: gallery.id
+			)
 			
 			print("✅ Upload completed successfully for: \(fileURL.lastPathComponent)")
 		} catch {

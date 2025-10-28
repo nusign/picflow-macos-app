@@ -87,6 +87,8 @@ struct GallerySelectionView: View {
                             ForEach(galleries, id: \.id) { gallery in
                                 GalleryCardView(gallery: gallery) {
                                     uploader.selectGallery(gallery)
+                                    // Track gallery selection
+                                    AnalyticsManager.shared.trackGallerySelected(gallery: gallery)
                                     onGallerySelected()
                                 }
                                 .border(showDebugBorders ? Color.cyan : Color.clear, width: 1) // DEBUG: Gallery Card

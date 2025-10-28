@@ -6,27 +6,11 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXContainerItemProxy section */
-		195B9DBD2D3FB40800BEBCBD /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 195B9DA32D3FB40600BEBCBD /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 195B9DAA2D3FB40600BEBCBD;
-			remoteInfo = Picflow;
-		};
-		195B9DC72D3FB40800BEBCBD /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 195B9DA32D3FB40600BEBCBD /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 195B9DAA2D3FB40600BEBCBD;
-			remoteInfo = Picflow;
-		};
-/* End PBXContainerItemProxy section */
+/* Begin PBXBuildFile section */
+/* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		195B9DAB2D3FB40600BEBCBD /* Picflow.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Picflow.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		195B9DBC2D3FB40800BEBCBD /* PicflowTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PicflowTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		195B9DC62D3FB40800BEBCBD /* PicflowUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PicflowUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -48,34 +32,10 @@
 			path = Picflow;
 			sourceTree = "<group>";
 		};
-		195B9DBF2D3FB40800BEBCBD /* PicflowTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = PicflowTests;
-			sourceTree = "<group>";
-		};
-		195B9DC92D3FB40800BEBCBD /* PicflowUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = PicflowUITests;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		195B9DA82D3FB40600BEBCBD /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		195B9DB92D3FB40800BEBCBD /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		195B9DC32D3FB40800BEBCBD /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -89,8 +49,7 @@
 			isa = PBXGroup;
 			children = (
 				195B9DAD2D3FB40600BEBCBD /* Picflow */,
-				195B9DBF2D3FB40800BEBCBD /* PicflowTests */,
-				195B9DC92D3FB40800BEBCBD /* PicflowUITests */,
+				1969B46E2EB0C5CA003D5AE1 /* Frameworks */,
 				195B9DAC2D3FB40600BEBCBD /* Products */,
 			);
 			sourceTree = "<group>";
@@ -99,10 +58,15 @@
 			isa = PBXGroup;
 			children = (
 				195B9DAB2D3FB40600BEBCBD /* Picflow.app */,
-				195B9DBC2D3FB40800BEBCBD /* PicflowTests.xctest */,
-				195B9DC62D3FB40800BEBCBD /* PicflowUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		1969B46E2EB0C5CA003D5AE1 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -130,52 +94,6 @@
 			productReference = 195B9DAB2D3FB40600BEBCBD /* Picflow.app */;
 			productType = "com.apple.product-type.application";
 		};
-		195B9DBB2D3FB40800BEBCBD /* PicflowTests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 195B9DD32D3FB40800BEBCBD /* Build configuration list for PBXNativeTarget "PicflowTests" */;
-			buildPhases = (
-				195B9DB82D3FB40800BEBCBD /* Sources */,
-				195B9DB92D3FB40800BEBCBD /* Frameworks */,
-				195B9DBA2D3FB40800BEBCBD /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				195B9DBE2D3FB40800BEBCBD /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				195B9DBF2D3FB40800BEBCBD /* PicflowTests */,
-			);
-			name = PicflowTests;
-			packageProductDependencies = (
-			);
-			productName = PicflowTests;
-			productReference = 195B9DBC2D3FB40800BEBCBD /* PicflowTests.xctest */;
-			productType = "com.apple.product-type.bundle.unit-test";
-		};
-		195B9DC52D3FB40800BEBCBD /* PicflowUITests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 195B9DD62D3FB40800BEBCBD /* Build configuration list for PBXNativeTarget "PicflowUITests" */;
-			buildPhases = (
-				195B9DC22D3FB40800BEBCBD /* Sources */,
-				195B9DC32D3FB40800BEBCBD /* Frameworks */,
-				195B9DC42D3FB40800BEBCBD /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				195B9DC82D3FB40800BEBCBD /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				195B9DC92D3FB40800BEBCBD /* PicflowUITests */,
-			);
-			name = PicflowUITests;
-			packageProductDependencies = (
-			);
-			productName = PicflowUITests;
-			productReference = 195B9DC62D3FB40800BEBCBD /* PicflowUITests.xctest */;
-			productType = "com.apple.product-type.bundle.ui-testing";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -188,14 +106,6 @@
 				TargetAttributes = {
 					195B9DAA2D3FB40600BEBCBD = {
 						CreatedOnToolsVersion = 16.2;
-					};
-					195B9DBB2D3FB40800BEBCBD = {
-						CreatedOnToolsVersion = 16.2;
-						TestTargetID = 195B9DAA2D3FB40600BEBCBD;
-					};
-					195B9DC52D3FB40800BEBCBD = {
-						CreatedOnToolsVersion = 16.2;
-						TestTargetID = 195B9DAA2D3FB40600BEBCBD;
 					};
 				};
 			};
@@ -216,28 +126,12 @@
 			projectRoot = "";
 			targets = (
 				195B9DAA2D3FB40600BEBCBD /* Picflow */,
-				195B9DBB2D3FB40800BEBCBD /* PicflowTests */,
-				195B9DC52D3FB40800BEBCBD /* PicflowUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		195B9DA92D3FB40600BEBCBD /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		195B9DBA2D3FB40800BEBCBD /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		195B9DC42D3FB40800BEBCBD /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -254,34 +148,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		195B9DB82D3FB40800BEBCBD /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		195B9DC22D3FB40800BEBCBD /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin PBXTargetDependency section */
-		195B9DBE2D3FB40800BEBCBD /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 195B9DAA2D3FB40600BEBCBD /* Picflow */;
-			targetProxy = 195B9DBD2D3FB40800BEBCBD /* PBXContainerItemProxy */;
-		};
-		195B9DC82D3FB40800BEBCBD /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 195B9DAA2D3FB40600BEBCBD /* Picflow */;
-			targetProxy = 195B9DC72D3FB40800BEBCBD /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		195B9DCE2D3FB40800BEBCBD /* Debug */ = {
@@ -338,7 +205,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 15.1;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -397,7 +264,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 15.1;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
@@ -427,7 +294,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 15.1;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = Nusign.Picflow;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -457,80 +324,12 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 15.1;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = Nusign.Picflow;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-			};
-			name = Release;
-		};
-		195B9DD42D3FB40800BEBCBD /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEAD_CODE_STRIPPING = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 15.1;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = Nusign.PicflowTests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Picflow.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Picflow";
-			};
-			name = Debug;
-		};
-		195B9DD52D3FB40800BEBCBD /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEAD_CODE_STRIPPING = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 15.1;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = Nusign.PicflowTests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Picflow.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Picflow";
-			};
-			name = Release;
-		};
-		195B9DD72D3FB40800BEBCBD /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEAD_CODE_STRIPPING = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = Nusign.PicflowUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = Picflow;
-			};
-			name = Debug;
-		};
-		195B9DD82D3FB40800BEBCBD /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEAD_CODE_STRIPPING = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = Nusign.PicflowUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = Picflow;
 			};
 			name = Release;
 		};
@@ -551,24 +350,6 @@
 			buildConfigurations = (
 				195B9DD12D3FB40800BEBCBD /* Debug */,
 				195B9DD22D3FB40800BEBCBD /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		195B9DD32D3FB40800BEBCBD /* Build configuration list for PBXNativeTarget "PicflowTests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				195B9DD42D3FB40800BEBCBD /* Debug */,
-				195B9DD52D3FB40800BEBCBD /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		195B9DD62D3FB40800BEBCBD /* Build configuration list for PBXNativeTarget "PicflowUITests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				195B9DD72D3FB40800BEBCBD /* Debug */,
-				195B9DD82D3FB40800BEBCBD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

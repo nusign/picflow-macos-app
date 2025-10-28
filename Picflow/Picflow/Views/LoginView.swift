@@ -51,10 +51,7 @@ struct LoginView: View {
                 HStack {
                     Spacer()
                     Button {
-                        authenticator.authenticateWithTestToken(
-                            token: Constants.hardcodedToken,
-                            tenantId: Constants.tenantId
-                        )
+                        authenticator.authenticateWithTestToken(token: Constants.testToken)
                     } label: {
                         Text("Use Test Token (\(environmentManager.current == .production ? "PROD" : "DEV"))")
                             .font(.system(size: 11))
@@ -62,7 +59,7 @@ struct LoginView: View {
                             .padding(.vertical, 6)
                     }
                     .buttonStyle(.borderless)
-                    .disabled(Constants.hardcodedToken == "YOUR_DEV_TOKEN_HERE" || Constants.hardcodedToken == "YOUR_NEW_PROD_TOKEN_HERE")
+                    .disabled(Constants.testToken == "YOUR_DEV_TOKEN_HERE" || Constants.testToken == "YOUR_NEW_PROD_TOKEN_HERE")
                 }
             }
             .padding(16)

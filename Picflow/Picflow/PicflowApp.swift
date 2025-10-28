@@ -32,6 +32,11 @@ struct PicflowApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     init() {
+        // Initialize analytics for user tracking and events
+        Task { @MainActor in
+            AnalyticsManager.shared.initialize()
+        }
+        
         // Initialize Sentry for error reporting
         // TODO: Uncomment after adding Sentry SDK via Swift Package Manager
         /*
@@ -69,7 +74,6 @@ struct PicflowApp: App {
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 480, height: 400)
         .windowResizability(.contentSize)
-        .windowBackgroundDragBehavior(.enabled)
         .commands {
             // Add Settings menu command
             CommandGroup(replacing: .appSettings) {

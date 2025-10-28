@@ -9,59 +9,13 @@ import SwiftUI
 
 struct WorkspaceSelectionView: View {
     @ObservedObject var authenticator: Authenticator
-    let onWorkspaceSelected: () -> Void
+    let onTenantSelected: () -> Void
     let forceShowSelection: Bool  // If true, never auto-skip (e.g., from "Switch Workspace" button)
     @State private var isLoading = false
     @State private var errorMessage: String?
     
     var body: some View {
         VStack(spacing: 0) {
-            // Header with avatar and user info
-            if let profile = authenticator.state.authorizedProfile {
-                VStack(spacing: 8) {
-                    // User avatar
-                    if let avatarURL = profile.avatarUrl, let url = URL(string: avatarURL) {
-                        AsyncImage(url: url) { image in
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                        } placeholder: {
-                            Circle()
-                                .fill(Color.accentColor.opacity(0.2))
-                                .overlay(
-                                    Text(profile.initials)
-                                        .font(.system(size: 36, weight: .medium))
-                                        .foregroundColor(.accentColor)
-                                )
-                        }
-                        .frame(width: 96, height: 96)
-                        .clipShape(Circle())
-                    } else {
-                        Circle()
-                            .fill(Color.accentColor.opacity(0.2))
-                            .overlay(
-                                Text(profile.initials)
-                                    .font(.system(size: 36, weight: .medium))
-                                    .foregroundColor(.accentColor)
-                            )
-                            .frame(width: 96, height: 96)
-                    }
-                    
-                    // Title
-                    Text("Choose Workspace")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                    
-                    // Signed in as
-                    Text("Signed in as: \(profile.email)")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                .padding(.top, 24)
-                .padding(.bottom, 20)
-            }
-            
-            // Content
             if isLoading {
                 // Loading state
                 Spacer()
@@ -118,6 +72,52 @@ struct WorkspaceSelectionView: View {
                 // Tenant list with Create button at bottom
                 ScrollView {
                     VStack(spacing: 12) {
+                        // Header with avatar and user info
+                        if let profile = authenticator.state.authorizedProfile {
+                            VStack(spacing: 8) {
+                                // User avatar
+                                if let avatarURL = profile.avatarUrl, let url = URL(string: avatarURL) {
+                                    AsyncImage(url: url) { image in
+                                        image
+                                            .resizable()
+                                            .aspectRatio(contentMode: .fill)
+                                    } placeholder: {
+                                        Circle()
+                                            .fill(Color.accentColor.opacity(0.2))
+                                            .overlay(
+                                                Text(profile.initials)
+                                                    .font(.system(size: 36, weight: .medium))
+                                                    .foregroundColor(.accentColor)
+                                            )
+                                    }
+                                    .frame(width: 96, height: 96)
+                                    .clipShape(Circle())
+                                } else {
+                                    Circle()
+                                        .fill(Color.accentColor.opacity(0.2))
+                                        .overlay(
+                                            Text(profile.initials)
+                                                .font(.system(size: 36, weight: .medium))
+                                                .foregroundColor(.accentColor)
+                                        )
+                                        .frame(width: 96, height: 96)
+                                }
+                                
+                                // Title
+                                Text("Choose Workspace")
+                                    .font(.largeTitle)
+                                    .fontWeight(.bold)
+                                
+                                // Signed in as
+                                Text("Signed in as: \(profile.email)")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.top, 24)
+                            .padding(.bottom, 20)
+                        }
+                        
+                        // Workspace list
                         ForEach(authenticator.availableTenants, id: \.id) { tenant in
                             WorkspaceCard(
                                 tenant: tenant,
@@ -148,29 +148,27 @@ struct WorkspaceSelectionView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity) // Ensure outer VStack takes full width
         .onAppear {
             fetchTenants()
         }
     }
     
     private func fetchTenants() {
+        // Tenants should already be loaded during login
+        guard authenticator.availableTenants.isEmpty else {
+            checkAutoSelect()
+            return
+        }
+        
         isLoading = true
         errorMessage = nil
         
         Task {
             do {
                 try await authenticator.fetchAvailableTenants()
-                
-                // Only auto-proceed if:
-                // 1. User has exactly 1 tenant
-                // 2. NOT forced to show selection (e.g., NOT from "Switch Workspace" button)
-                if !forceShowSelection && authenticator.availableTenants.count == 1 {
-                    print("🏢 Only 1 tenant available, auto-selecting...")
-                    // Give user a moment to see the workspace before auto-proceeding
-                    try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
-                    await MainActor.run {
-                        onWorkspaceSelected()
-                    }
+                await MainActor.run {
+                    checkAutoSelect()
                 }
             } catch {
                 errorMessage = error.localizedDescription
@@ -180,9 +178,35 @@ struct WorkspaceSelectionView: View {
         }
     }
     
+    private func checkAutoSelect() {
+        // Auto-proceed logic (only if NOT forced to show selection)
+        guard !forceShowSelection else {
+            print("📋 Showing tenant selection (\(authenticator.availableTenants.count) available)")
+            return
+        }
+        
+        // Case 1: Tenant already selected (from test token)
+        if authenticator.tenant != nil {
+            print("♻️ Tenant already selected, proceeding to gallery")
+            onTenantSelected()
+            return
+        }
+        
+        // Case 2: Only 1 tenant available, auto-select it
+        if authenticator.availableTenants.count == 1,
+           let onlyTenant = authenticator.availableTenants.first {
+            print("🏢 Only 1 tenant, auto-selecting: \(onlyTenant.name)")
+            selectTenant(onlyTenant)
+            return
+        }
+        
+        // Otherwise: Show selection UI (multiple tenants)
+        print("📋 Showing tenant selection (\(authenticator.availableTenants.count) available)")
+    }
+    
     private func selectTenant(_ tenant: Tenant) {
         authenticator.selectTenant(tenant)
-        onWorkspaceSelected()
+        onTenantSelected()
     }
 }
 
@@ -264,4 +288,3 @@ struct WorkspaceCard: View {
         .frame(width: 48, height: 48)
     }
 }
-

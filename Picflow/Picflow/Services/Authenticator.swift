@@ -12,65 +12,18 @@ import AuthenticationServices
 import Security
 import CryptoKit
 
-// MARK: - Profile
-struct Profile: Codable {
-    let firstName: String
-    let lastName: String
-    let email: String
-    let avatarUrl: String?
-    
-    var fullName: String {
-        "\(firstName) \(lastName)"
-    }
-    
-    var initials: String {
-        let firstInitial = firstName.prefix(1).uppercased()
-        let lastInitial = lastName.prefix(1).uppercased()
-        return "\(firstInitial)\(lastInitial)"
-    }
-}
+// MARK: - Private Response Wrappers
 
-// MARK: - Authentication Request
-private struct AuthenticationRequest: Decodable {
-    let token: String
-}
-
-// MARK: - GetProfile Response
 private struct GetProfileResponse: Decodable {
     let user: Profile
 }
 
-// MARK: - Tenant
-struct TenantResponse: Codable {
-    let tenant: Tenant
-}
-
-struct Tenant: Codable {
-    let id: String
-    let name: String
-    let path: String
-    let logoUrl: String?
-    let darkLogoUrl: String?
-    let faviconUrl: String?
-    let logoPosition: String?
-    let contacts: Contacts?
-    let socials: Socials?
-    let createdAt: Date?
-    let updatedAt: Date?
-    let deletedAt: Date?
-    
-    struct Contacts: Codable {
-        let site: String?
-        let email: String?
-        let phone: String?
-    }
-    
-    struct Socials: Codable {
-        let facebook: String?
-        let instagram: String?
-        let twitter: String?
-        let linkedIn: String?
-    }
+private struct OAuthTokenResponse: Decodable {
+    let access_token: String
+    let refresh_token: String?
+    let token_type: String
+    let expires_in: Int?
+    let id_token: String?  // JWT token for backend authentication
 }
 
 // MARK: - Authenticator
@@ -110,14 +63,6 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
     }
     private var redirectURI: String { 
         EnvironmentManager.shared.current.redirectURI
-    }
-    
-    struct OAuthTokenResponse: Decodable {
-        let access_token: String
-        let refresh_token: String?
-        let token_type: String
-        let expires_in: Int?
-        let id_token: String?  // JWT token for backend authentication
     }
     
     func startLogin() {
@@ -280,6 +225,16 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
             state = .authorized(token: jwtToken, profile: profile.user)
             isAuthenticated = true
             print("✅ OAuth login complete!")
+            
+            // Track login event
+            AnalyticsManager.shared.trackLogin(method: "oauth")
+            AnalyticsManager.shared.identifyUser(profile: profile.user, tenant: nil)
+            
+            // Force flush for immediate testing
+            AnalyticsManager.shared.flush()
+            
+            // Fetch available tenants (user will select from list)
+            try await fetchAvailableTenants()
         } catch {
             print("❌ Token exchange failed:", error)
             state = .unauthorized
@@ -388,32 +343,15 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
         }
     }
     
-    // Test token authentication with hardcoded tenant (for development/testing)
-    func authenticateWithTestToken(token: String, tenantId: String) {
+    // Test token authentication (for development/testing)
+    func authenticateWithTestToken(token: String) {
         self.token = token
         Endpoint.token = token
-        Endpoint.currentTenantId = tenantId
         state = .authenticating
-        
-        // Create a mock tenant for test mode
-        let mockTenant = Tenant(
-            id: tenantId,
-            name: "Test Workspace",
-            path: "test",
-            logoUrl: nil,
-            darkLogoUrl: nil,
-            faviconUrl: nil,
-            logoPosition: nil,
-            contacts: nil,
-            socials: nil,
-            createdAt: Date(),
-            updatedAt: Date(),
-            deletedAt: nil
-        )
-        self.tenant = mockTenant
         
         Task {
             do {
+                // Fetch user profile
                 let response: GetProfileResponse = try await Endpoint(
                     path: "/v1/profile",
                     httpMethod: .get
@@ -423,33 +361,24 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
                     state = .authorized(token: token, profile: response.user)
                     isAuthenticated = true
                 }
+                
+                // Track login event
+                AnalyticsManager.shared.trackLogin(method: "test_token")
+                AnalyticsManager.shared.identifyUser(profile: response.user, tenant: nil)
+                
+                // Force flush for immediate testing
+                AnalyticsManager.shared.flush()
+                
+                // Fetch available tenants (user will select from list, just like OAuth)
+                try await fetchAvailableTenants()
             } catch {
-                print("Authentication failed:", error)
+                print("❌ Test token authentication failed:", error)
                 await MainActor.run {
                     state = .unauthorized
                     isAuthenticated = false
                 }
             }
         }
-    }
-    
-    func loadTenantDetails() async throws {
-        guard isAuthenticated else {
-            throw AuthenticationError.notAuthenticated
-        }
-        
-        print("Making request to /v1/profile/current_tenant")
-        
-        let response: TenantResponse = try await Endpoint(
-            path: "/v1/profile/current_tenant",
-            httpMethod: .get
-        ).response()
-        
-        await MainActor.run {
-            self.tenant = response.tenant
-        }
-        
-        print("Tenant details loaded:", response)
     }
     
     // MARK: - Tenant Management
@@ -493,20 +422,21 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
         UserDefaults.standard.set(tenant.id, forKey: "selectedTenantId")
         
         print("✅ Selected tenant: \(tenant.name) (ID: \(tenant.id))")
-    }
-    
-    func restoreSavedTenant() {
-        // Try to restore previously selected tenant
-        guard let savedTenantId = UserDefaults.standard.string(forKey: "selectedTenantId"),
-              let tenant = availableTenants.first(where: { $0.id == savedTenantId }) else {
-            return
-        }
         
-        selectTenant(tenant)
-        print("♻️ Restored saved tenant: \(tenant.name)")
+        // Track workspace selection and update user attributes
+        AnalyticsManager.shared.trackWorkspaceSelected(tenant: tenant)
+        
+        // Update user identification with tenant information
+        if let profile = state.authorizedProfile {
+            AnalyticsManager.shared.identifyUser(profile: profile, tenant: tenant)
+        }
     }
     
     func logout() {
+        // Track logout event before clearing user data
+        AnalyticsManager.shared.trackLogout()
+        AnalyticsManager.shared.clearIdentification()
+        
         state = .unauthorized
         isAuthenticated = false
         token = nil
@@ -562,69 +492,5 @@ private extension Array where Element == URLQueryItem {
         var components = URLComponents()
         components.queryItems = self
         return components.query?.data(using: .utf8)
-    }
-}
-
-// MARK: - Keychain Token Store
-final class KeychainTokenStore {
-    private let service: String
-    private let accountAccess = "accessToken"
-    private let accountRefresh = "refreshToken"
-    
-    init(service: String) {
-        self.service = service
-    }
-    
-    func save(accessToken: String, refreshToken: String?) {
-        saveGeneric(account: accountAccess, value: accessToken)
-        if let refreshToken = refreshToken {
-            saveGeneric(account: accountRefresh, value: refreshToken)
-        }
-    }
-    
-    func load() -> (access: String?, refresh: String?) {
-        (loadGeneric(account: accountAccess), loadGeneric(account: accountRefresh))
-    }
-    
-    func clear() {
-        deleteGeneric(account: accountAccess)
-        deleteGeneric(account: accountRefresh)
-    }
-    
-    private func saveGeneric(account: String, value: String) {
-        let data = Data(value.utf8)
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account
-        ]
-        SecItemDelete(query as CFDictionary)
-        var attributes = query
-        attributes[kSecValueData as String] = data
-        SecItemAdd(attributes as CFDictionary, nil)
-    }
-    
-    private func loadGeneric(account: String) -> String? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecReturnData as String: true
-        ]
-        var result: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        if status == errSecSuccess, let data = result as? Data {
-            return String(data: data, encoding: .utf8)
-        }
-        return nil
-    }
-    
-    private func deleteGeneric(account: String) {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account
-        ]
-        SecItemDelete(query as CFDictionary)
     }
 }

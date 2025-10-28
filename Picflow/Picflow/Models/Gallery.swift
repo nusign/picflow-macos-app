@@ -16,7 +16,7 @@ struct GalleryDetails: Codable, Equatable {
     
     struct Cover: Codable, Equatable {
         let size: String?
-        let uuid: String
+        let uuid: String?  // Optional - not always present in API response
         let position: String?
         let overlayColor: String?
         let contentPosition: [Double]?
