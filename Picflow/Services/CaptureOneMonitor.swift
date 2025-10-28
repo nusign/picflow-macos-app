@@ -23,11 +23,20 @@ class CaptureOneMonitor: ObservableObject {
     private let scriptBridge = CaptureOneScriptBridge()
     
     // Possible bundle identifiers for Capture One
+    // Note: Must match entitlements file (wildcards not supported)
+    // Based on: https://en.wikipedia.org/wiki/Capture_One
     private let captureOneBundleIdentifiers = [
-        "com.captureone.captureone16",  // Current version (16.x)
+        // Current versions
+        "com.captureone.captureone16",
+        // Future versions
+        "com.captureone.captureone17",
+        "com.captureone.captureone18",
+        "com.captureone.captureone19",
+        "com.captureone.captureone20",
+        // Past versions
         "com.captureone.captureone15",
-        "com.captureone.captureone",
-        "com.phaseone.captureone"
+        // Generic fallbacks
+        "com.captureone.captureone"
     ]
     
     init() {

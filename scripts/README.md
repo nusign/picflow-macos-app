@@ -114,4 +114,3 @@ Questions? Check:
 **Setup time:** 45 minutes (one-time)  
 **Release time:** 5-10 minutes (per version)  
 **Automation:** One command releases
-

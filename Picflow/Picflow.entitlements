@@ -12,7 +12,17 @@
 	<true/>
 	<key>com.apple.security.temporary-exception.apple-events</key>
 	<array>
+		<!-- Current version -->
 		<string>com.captureone.captureone16</string>
+		<!-- Future versions -->
+		<string>com.captureone.captureone17</string>
+		<string>com.captureone.captureone18</string>
+		<string>com.captureone.captureone19</string>
+		<string>com.captureone.captureone20</string>
+		<!-- Past versions -->
+		<string>com.captureone.captureone15</string>
+		<!-- Generic fallbacks -->
+		<string>com.captureone.captureone</string>
 	</array>
 </dict>
 </plist>
