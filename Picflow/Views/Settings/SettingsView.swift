@@ -511,10 +511,14 @@ class DeveloperModeManager {
     /// Get a unique device identifier for whitelisting purposes
     static func getDeviceIdentifier() -> String {
         // Use hardware UUID - persists across app reinstalls
-        if let platformExpert = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("IOPlatformExpertDevice") as CFDictionary? as! CFMutableDictionary),
-           let serialNumberAsCFString = IORegistryEntryCreateCFProperty(platformExpert, kIOPlatformUUIDKey as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? String {
+        let platformExpert = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOPlatformExpertDevice"))
+        
+        if platformExpert != 0 {
+            if let serialNumberAsCFString = IORegistryEntryCreateCFProperty(platformExpert, kIOPlatformUUIDKey as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? String {
+                IOObjectRelease(platformExpert)
+                return serialNumberAsCFString
+            }
             IOObjectRelease(platformExpert)
-            return serialNumberAsCFString
         }
         
         // Fallback to a stored UUID if hardware UUID is not available
