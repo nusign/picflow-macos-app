@@ -10,7 +10,7 @@ import Foundation
 import Sentry
 
 /// Centralized error reporting manager for consistent error tracking
-@MainActor
+/// Note: Not @MainActor because Sentry SDK is thread-safe and can be called from any thread
 class ErrorReportingManager {
     static let shared = ErrorReportingManager()
     

@@ -529,6 +529,28 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
         keychain.clear()
         UserDefaults.standard.removeObject(forKey: "selectedTenantId")
     }
+    
+    // MARK: - Error Reporting Helpers
+    
+    /// Report authentication error with automatic context
+    private func reportAuthError(
+        _ error: Error,
+        method: String,
+        additionalContext: [String: Any] = [:]
+    ) {
+        var context = additionalContext
+        
+        // Automatically include auth state if available
+        if case .authorized(_, let profile) = state {
+            context["user_email"] = profile.email
+        }
+        
+        ErrorReportingManager.shared.reportAuthError(
+            error,
+            method: method,
+            context: context
+        )
+    }
 }
 
 // MARK: - Authentication Error
@@ -566,28 +588,6 @@ private enum PKCE {
              .replacingOccurrences(of: "/", with: "_")
              .replacingOccurrences(of: "=", with: "")
         return s
-    }
-    
-    // MARK: - Error Reporting Helpers
-    
-    /// Report authentication error with automatic context
-    private func reportAuthError(
-        _ error: Error,
-        method: String,
-        additionalContext: [String: Any] = [:]
-    ) {
-        var context = additionalContext
-        
-        // Automatically include auth state if available
-        if case .authorized(_, let profile) = state {
-            context["user_email"] = profile.email
-        }
-        
-        ErrorReportingManager.shared.reportAuthError(
-            error,
-            method: method,
-            context: context
-        )
     }
 }
 
