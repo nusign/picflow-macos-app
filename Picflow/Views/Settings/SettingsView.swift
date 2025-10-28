@@ -6,10 +6,13 @@
 //
 
 import SwiftUI
+import IOKit
 
 struct SettingsView: View {
     @EnvironmentObject var settingsManager: SettingsManager
     @StateObject private var environmentManager = EnvironmentManager.shared
+    @State private var developerModeEnabled = DeveloperModeManager.shared.isEnabled
+    @State private var clickCount = 0
     
     var body: some View {
         VStack(spacing: 0) {
@@ -71,20 +74,45 @@ struct SettingsView: View {
                                 settingsManager.openLogsFolder()
                             }
                         )
-                        
-                        SettingsButton(
-                            icon: "ladybug",
-                            title: "Test Sentry",
-                            subtitle: "Send a test event to verify error reporting",
-                            action: {
-                                testSentry()
-                            }
-                        )
                     }
                     
+                    // Developer Section - Hidden in production unless developer mode is enabled
+                    #if DEBUG
                     SettingsSection(title: "Developer") {
-                        EnvironmentPicker(selectedEnvironment: $environmentManager.current)
+                        DeveloperSectionContent(selectedEnvironment: $environmentManager.current)
                     }
+                    #else
+                    if developerModeEnabled {
+                        SettingsSection(title: "Developer") {
+                            DeveloperSectionContent(
+                                selectedEnvironment: $environmentManager.current,
+                                developerModeEnabled: $developerModeEnabled
+                            )
+                        }
+                    }
+                    #endif
+                    
+                    // Hidden activation area - Click "Picflow" title 5 times to enable developer mode
+                    #if !DEBUG
+                    Color.clear
+                        .frame(height: 1)
+                        .contentShape(Rectangle())
+                        .onTapGesture(count: 5) {
+                            DeveloperModeManager.shared.toggle()
+                            developerModeEnabled = DeveloperModeManager.shared.isEnabled
+                            
+                            // Visual feedback
+                            NSSound.beep()
+                            
+                            let alert = NSAlert()
+                            alert.messageText = developerModeEnabled ? "Developer Mode Enabled" : "Developer Mode Disabled"
+                            alert.informativeText = developerModeEnabled 
+                                ? "Developer settings are now visible. Restart the app to hide them again."
+                                : "Developer settings are now hidden."
+                            alert.alertStyle = .informational
+                            alert.runModal()
+                        }
+                    #endif
                 }
                 .padding(24)
             }
@@ -301,6 +329,103 @@ struct SettingsButton: View {
     }
 }
 
+// MARK: - Developer Section Content
+
+struct DeveloperSectionContent: View {
+    @Binding var selectedEnvironment: AppEnvironment
+    var developerModeEnabled: Binding<Bool>? = nil
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            EnvironmentPicker(selectedEnvironment: $selectedEnvironment)
+            
+            Divider()
+                .padding(.horizontal, 12)
+            
+            SettingsButton(
+                icon: "ladybug",
+                title: "Test Sentry",
+                subtitle: "Send a test event to verify error reporting",
+                action: {
+                    ErrorReportingManager.shared.sendTestEvents()
+                }
+            )
+            
+            #if !DEBUG
+            if let developerModeBinding = developerModeEnabled {
+                Divider()
+                    .padding(.horizontal, 12)
+                
+                SettingsButton(
+                    icon: "xmark.circle",
+                    title: "Disable Developer Mode",
+                    subtitle: "Hide developer settings",
+                    action: {
+                        DeveloperModeManager.shared.disable()
+                        developerModeBinding.wrappedValue = false
+                    }
+                )
+            }
+            #endif
+            
+            Divider()
+                .padding(.horizontal, 12)
+            
+            DeviceInfoRow()
+        }
+    }
+}
+
+// MARK: - Device Info Row
+
+struct DeviceInfoRow: View {
+    private let deviceID = DeveloperModeManager.getDeviceIdentifier()
+    @State private var showCopiedFeedback = false
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "laptopcomputer")
+                .font(.system(size: 16))
+                .foregroundColor(.accentColor)
+                .frame(width: 24, height: 24)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Device ID")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.primary)
+                
+                Text(deviceID)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+            
+            Button(action: copyDeviceID) {
+                HStack(spacing: 4) {
+                    Image(systemName: showCopiedFeedback ? "checkmark" : "doc.on.doc")
+                        .font(.system(size: 11))
+                    Text(showCopiedFeedback ? "Copied" : "Copy")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .foregroundColor(showCopiedFeedback ? .green : .accentColor)
+            }
+            .buttonStyle(.borderless)
+        }
+        .padding(12)
+    }
+    
+    private func copyDeviceID() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(deviceID, forType: .string)
+        
+        showCopiedFeedback = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            showCopiedFeedback = false
+        }
+    }
+}
+
 // MARK: - Environment Picker
 
 struct EnvironmentPicker: View {
@@ -343,5 +468,63 @@ struct EnvironmentPicker: View {
         case .production:
             return "picflow.com"
         }
+    }
+}
+
+// MARK: - Developer Mode Manager
+
+class DeveloperModeManager {
+    static let shared = DeveloperModeManager()
+    
+    private let storageKey = "com.picflow.macos.developerMode"
+    
+    var isEnabled: Bool {
+        #if DEBUG
+        return true
+        #else
+        return UserDefaults.standard.bool(forKey: storageKey)
+        #endif
+    }
+    
+    func toggle() {
+        #if !DEBUG
+        let newValue = !isEnabled
+        UserDefaults.standard.set(newValue, forKey: storageKey)
+        print("🔧 Developer mode \(newValue ? "enabled" : "disabled")")
+        #endif
+    }
+    
+    func enable() {
+        #if !DEBUG
+        UserDefaults.standard.set(true, forKey: storageKey)
+        print("🔧 Developer mode enabled")
+        #endif
+    }
+    
+    func disable() {
+        #if !DEBUG
+        UserDefaults.standard.set(false, forKey: storageKey)
+        print("🔧 Developer mode disabled")
+        #endif
+    }
+    
+    /// Get a unique device identifier for whitelisting purposes
+    static func getDeviceIdentifier() -> String {
+        // Use hardware UUID - persists across app reinstalls
+        if let platformExpert = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("IOPlatformExpertDevice") as CFDictionary? as! CFMutableDictionary),
+           let serialNumberAsCFString = IORegistryEntryCreateCFProperty(platformExpert, kIOPlatformUUIDKey as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? String {
+            IOObjectRelease(platformExpert)
+            return serialNumberAsCFString
+        }
+        
+        // Fallback to a stored UUID if hardware UUID is not available
+        let fallbackKey = "com.picflow.macos.deviceUUID"
+        if let stored = UserDefaults.standard.string(forKey: fallbackKey) {
+            return stored
+        }
+        
+        let newUUID = UUID().uuidString
+        UserDefaults.standard.set(newUUID, forKey: fallbackKey)
+        return newUUID
     }
 }

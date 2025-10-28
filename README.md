@@ -213,13 +213,25 @@ end tell
 - [Capture One Scripting Documentation](https://support.captureone.com/hc/en-us/articles/360002681418-Scripting-for-Capture-One)
 - AppleScript Dictionary: Open Capture One → Scripts → Open Scripting Dictionary
 
+## Developer Settings
+
+Developer settings (API environment switcher, test features) are automatically hidden in production releases.
+
+**Xcode builds:** Developer settings always visible (no setup needed)
+
+**Production builds:** Enable with terminal command:
+```bash
+defaults write com.picflow.macos com.picflow.macos.developerMode -bool true
+```
+Then restart the app. To disable, set to `false`.
+
 ## Development & Testing
 
 ### Project Structure
 The app follows a clean SwiftUI architecture with organized folders:
 
 ```
-Picflow/Picflow/
+Picflow/
 ├── App/
 │   ├── AppDelegate.swift           # Lightweight lifecycle coordinator
 │   ├── MenuBarManager.swift        # Menu bar icon management

@@ -4,8 +4,8 @@
 # This uses your test token from Constants.swift
 
 # Read token and tenant from Constants.swift
-TOKEN=$(grep "hardcodedToken =" Picflow/Picflow/Constants.swift | cut -d'"' -f2)
-TENANT_ID=$(grep "tenantId =" Picflow/Picflow/Constants.swift | cut -d'"' -f2)
+TOKEN=$(grep "hardcodedToken =" Picflow/App/Constants.swift | cut -d'"' -f2)
+TENANT_ID=$(grep "tenantId =" Picflow/App/Constants.swift | cut -d'"' -f2)
 
 echo "🧪 Testing Galleries API"
 echo "========================"

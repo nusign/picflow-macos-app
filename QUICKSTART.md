@@ -13,10 +13,10 @@
 
 ```bash
 # Open in Xcode
-open Picflow/Picflow.xcodeproj
+open "Picflow macOS.xcodeproj"
 
 # Or via command line
-xcodebuild -project Picflow/Picflow.xcodeproj -scheme Picflow build
+xcodebuild -project "Picflow macOS.xcodeproj" -scheme Picflow build
 ```
 
 ### 2. Test the New Login Flow

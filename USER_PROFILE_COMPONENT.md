@@ -67,7 +67,7 @@ When clicking the avatar:
 ## 📦 Files Created/Modified
 
 ### Created:
-- ✨ `Picflow/Picflow/Views/UserProfileView.swift`
+- ✨ `Picflow/Views/Shared/UserProfileView.swift`
   - `UserProfileView` - 32px avatar button component
   - `UserDropdownView` - Popover content with user info and menu
   - `DropdownMenuItem` - Reusable menu item with hover effect
