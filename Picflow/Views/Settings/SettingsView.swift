@@ -124,7 +124,24 @@ struct SettingsView: View {
     // MARK: - Helper Functions
     
     private func testSentry() {
-        ErrorReportingManager.shared.sendTestEvents()
+        // Send a simple test message
+        ErrorReportingManager.shared.captureMessage(
+            "Test event from Picflow Settings",
+            level: .info
+        )
+        
+        // Send a test error
+        let testError = NSError(
+            domain: "com.picflow.test",
+            code: 999,
+            userInfo: [NSLocalizedDescriptionKey: "Test error to verify Sentry"]
+        )
+        ErrorReportingManager.shared.reportError(
+            testError,
+            tags: ["source": "settings_test"]
+        )
+        
+        print("✅ Test events sent to Sentry")
     }
 }
 
@@ -347,7 +364,17 @@ struct DeveloperSectionContent: View {
                 title: "Test Sentry",
                 subtitle: "Send a test event to verify error reporting",
                 action: {
-                    ErrorReportingManager.shared.sendTestEvents()
+                    // Send a simple test error
+                    let testError = NSError(
+                        domain: "com.picflow.test",
+                        code: 999,
+                        userInfo: [NSLocalizedDescriptionKey: "Test error from Settings"]
+                    )
+                    ErrorReportingManager.shared.reportError(
+                        testError,
+                        tags: ["source": "settings_test"]
+                    )
+                    print("✅ Test error sent to Sentry")
                 }
             )
             
@@ -476,7 +503,7 @@ struct EnvironmentPicker: View {
 class DeveloperModeManager {
     static let shared = DeveloperModeManager()
     
-    private let storageKey = "com.picflow.macos.developerMode"
+    private let storageKey = "\(Constants.bundleIdentifier).developerMode"
     
     var isEnabled: Bool {
         #if DEBUG
@@ -522,7 +549,7 @@ class DeveloperModeManager {
         }
         
         // Fallback to a stored UUID if hardware UUID is not available
-        let fallbackKey = "com.picflow.macos.deviceUUID"
+        let fallbackKey = "\(Constants.bundleIdentifier).deviceUUID"
         if let stored = UserDefaults.standard.string(forKey: fallbackKey) {
             return stored
         }

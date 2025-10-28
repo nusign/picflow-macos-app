@@ -51,9 +51,10 @@ class FolderMonitor {
         } catch {
             print("⚠️ Failed to read initial folder contents:", error)
             
-            ErrorReportingManager.shared.reportFolderMonitorError(
+            ErrorReportingManager.shared.reportError(
                 error,
-                folderPath: self.url.path
+                context: ["folder_path": self.url.path],
+                tags: ["operation": "folder_monitor"]
             )
         }
         
@@ -103,9 +104,10 @@ class FolderMonitor {
         } catch {
             print("⚠️ Failed to scan folder:", error)
             
-            ErrorReportingManager.shared.reportFolderMonitorError(
+            ErrorReportingManager.shared.reportError(
                 error,
-                folderPath: self.url.path
+                context: ["folder_path": self.url.path],
+                tags: ["operation": "folder_monitor"]
             )
         }
     }

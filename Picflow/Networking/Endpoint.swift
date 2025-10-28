@@ -9,6 +9,11 @@ enum HTTPMethod: String {
 }
 
 class Endpoint {
+    // MARK: - API Configuration
+    static let apiVersion = "2023-01-01"
+    static let requestTimeout: TimeInterval = 30
+    
+    // MARK: - State
     static var baseURL: URL {
         URL(string: EnvironmentManager.shared.current.apiBaseURL)!
     }
@@ -72,7 +77,7 @@ class Endpoint {
         // Add required headers
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("2023-01-01", forHTTPHeaderField: "X-API-Version")
+        request.setValue(Self.apiVersion, forHTTPHeaderField: "X-API-Version")
         
         if let token = Endpoint.token {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")

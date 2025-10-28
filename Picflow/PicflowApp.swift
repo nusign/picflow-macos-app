@@ -1,5 +1,4 @@
 import SwiftUI
-import Sentry
 import AppKit
 
 private struct WindowConfigurator: NSViewRepresentable {
@@ -34,26 +33,8 @@ struct PicflowApp: App {
             AnalyticsManager.shared.initialize()
         }
         
-        // Initialize Sentry for error reporting
-        SentrySDK.start { options in
-            options.dsn = Constants.sentryDSN
-            options.debug = true // Set to true for debugging Sentry itself
-            options.enableAutoSessionTracking = true
-            options.attachStacktrace = true // Attach stack traces to all events
-            
-            // Set environment based on EnvironmentManager
-            let environment = EnvironmentManager.shared.current
-            options.environment = environment.rawValue.lowercased()
-            
-            // Performance monitoring (optional)
-            options.tracesSampleRate = 0.1 // 10% of transactions, reduce overhead
-            
-            // Release tracking (useful for tracking which version has errors)
-            if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
-               let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String {
-                options.releaseName = "picflow-macos@\(version)+\(build)"
-            }
-        }
+        // Sentry is now initialized in AppDelegate.applicationDidFinishLaunching
+        // (recommended by official guide for earliest possible initialization)
     }
     
     var body: some Scene {

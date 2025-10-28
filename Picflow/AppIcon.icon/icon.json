@@ -1,41 +1,8 @@
 {
   "fill" : {
-    "automatic-gradient" : "display-p3:1.00000,0.50769,0.22486,1.00000"
+    "automatic-gradient" : "display-p3:0.26304,0.32300,1.00000,1.00000"
   },
   "groups" : [
-    {
-      "blur-material" : 0.5,
-      "layers" : [
-        {
-          "hidden" : false,
-          "image-name" : "Beat-Mask.svg",
-          "name" : "Beat-Mask",
-          "position" : {
-            "scale" : 1,
-            "translation-in-points" : [
-              218.328125,
-              380.5625
-            ]
-          }
-        }
-      ],
-      "lighting" : "combined",
-      "position" : {
-        "scale" : 1,
-        "translation-in-points" : [
-          -25.9921875,
-          -58.015625
-        ]
-      },
-      "shadow" : {
-        "kind" : "neutral",
-        "opacity" : 0.5
-      },
-      "translucency" : {
-        "enabled" : true,
-        "value" : 0.5
-      }
-    },
     {
       "blend-mode" : "normal",
       "blur-material" : null,
@@ -46,14 +13,7 @@
           "glass" : true,
           "hidden" : false,
           "image-name" : "Symbol.svg",
-          "name" : "Symbol",
-          "position" : {
-            "scale" : 1,
-            "translation-in-points" : [
-              0,
-              0
-            ]
-          }
+          "name" : "Symbol"
         }
       ],
       "lighting" : "individual",

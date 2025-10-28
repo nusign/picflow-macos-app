@@ -11,6 +11,7 @@
 
 import SwiftUI
 import Combine
+import Sentry
 
 /// Main application delegate that coordinates menu bar integration and core services
 class AppDelegate: NSObject, NSApplicationDelegate {
@@ -46,6 +47,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// Called when the application finishes launching
     /// Sets up menu bar integration and authentication observers
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Initialize Sentry as early as possible (recommended by official guide)
+        setupSentry()
+        
         // Show dock icon - this is a regular app with menu bar icon for quick access
         NSApp.setActivationPolicy(.regular)
         
@@ -60,6 +64,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Tenant loading is now handled by WorkspaceSelectionView
         // after user logs in via OAuth or selects a workspace
+    }
+    
+    // MARK: - Sentry Setup
+    
+    /// Initialize Sentry error reporting (simple implementation following official guide)
+    private func setupSentry() {
+        SentrySDK.start { options in
+            options.dsn = Constants.sentryDSN
+            
+            // Only enable debug in development
+            #if DEBUG
+            options.debug = true
+            #endif
+            
+            // macOS-specific: Enable uncaught NSException reporting
+            // The SDK can't capture these out of the box on macOS
+            options.enableUncaughtNSExceptionReporting = true
+            
+            // Set environment
+            options.environment = EnvironmentManager.shared.current.rawValue.lowercased()
+            
+            // Set release version for tracking
+            if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
+               let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String {
+                options.releaseName = "picflow-macos@\(version)+\(build)"
+            }
+        }
     }
     
     /// Called when the user clicks the dock icon

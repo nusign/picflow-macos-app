@@ -9,61 +9,38 @@ import SwiftUI
 
 struct LoginView: View {
     @ObservedObject var authenticator: Authenticator
-    @StateObject private var environmentManager = EnvironmentManager.shared
     
     var body: some View {
-        ZStack {
-            // Centered login form
-            VStack(spacing: 16) {
-                Image("Picflow-Logo")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 64, height: 64)
-                
-                VStack(spacing: 8) {
-                    Text("Log in to Picflow")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                        .multilineTextAlignment(.center)
-                        
-                    Text("Click the button below to log in using your browser.")
-                        .font(.body)
-                        .multilineTextAlignment(.center)
-                }
-
-                // OAuth Login Button
-                Button {
-                    authenticator.startLogin()
-                } label: {
-                    Text("Continue")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .padding(.top, 8)
-            }
-            .frame(maxWidth: 220)
-            .padding()
+        VStack(spacing: 16) {
+            Image("Picflow-Logo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 64, height: 64)
             
-            // Test token button - fixed to bottom right
-            VStack {
-                Spacer()
-                HStack {
-                    Spacer()
-                    Button {
-                        authenticator.authenticateWithTestToken(token: Constants.testToken)
-                    } label: {
-                        Text("Use Test Token (\(environmentManager.current == .production ? "PROD" : "DEV"))")
-                            .font(.system(size: 11))
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                    }
-                    .buttonStyle(.borderless)
-                    .disabled(Constants.testToken == "YOUR_DEV_TOKEN_HERE" || Constants.testToken == "YOUR_NEW_PROD_TOKEN_HERE")
-                }
+            VStack(spacing: 8) {
+                Text("Log in to Picflow")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                    .multilineTextAlignment(.center)
+                    
+                Text("Click the button below to log in using your browser.")
+                    .font(.body)
+                    .multilineTextAlignment(.center)
             }
-            .padding(16)
+
+            // OAuth Login Button
+            Button {
+                authenticator.startLogin()
+            } label: {
+                Text("Continue")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .padding(.top, 8)
         }
+        .frame(maxWidth: 220)
+        .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

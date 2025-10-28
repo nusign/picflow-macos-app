@@ -27,7 +27,7 @@ The release script automates the entire release process:
 
 ## First Time Setup
 
-Follow: `RELEASE_SETUP_CHECKLIST.md`
+Follow: `../RELEASES.md` → One-Time Setup section
 
 **Quick checklist:**
 - [ ] Install tools: `brew install sparkle create-dmg rclone`
@@ -67,9 +67,11 @@ build/
 
 ## Documentation
 
-- `RELEASE_SETUP_CHECKLIST.md` - One-time setup guide
-- `RELEASE_GUIDE.md` - Complete release documentation
-- `APP_UPDATES_GUIDE.md` - Update system overview
+See `../RELEASES.md` for complete documentation:
+- One-time setup guide
+- Release process
+- Troubleshooting
+- How updates work
 
 ## Requirements
 
@@ -81,7 +83,7 @@ build/
 
 ## Troubleshooting
 
-See `RELEASE_GUIDE.md` → Troubleshooting section
+See `../RELEASES.md` → Troubleshooting section
 
 ## Cost
 
@@ -104,7 +106,7 @@ See `RELEASE_GUIDE.md` → Troubleshooting section
 
 Questions? Check:
 1. Script comments
-2. `RELEASE_GUIDE.md`
+2. `../RELEASES.md`
 3. Error messages in terminal
 
 ---

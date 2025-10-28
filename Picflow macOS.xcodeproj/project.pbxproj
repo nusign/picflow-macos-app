@@ -112,7 +112,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 195B9DA62D3FB40600BEBCBD /* Build configuration list for PBXProject "Picflow" */;
+			buildConfigurationList = 195B9DA62D3FB40600BEBCBD /* Build configuration list for PBXProject "Picflow macOS" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -340,7 +340,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		195B9DA62D3FB40600BEBCBD /* Build configuration list for PBXProject "Picflow" */ = {
+		195B9DA62D3FB40600BEBCBD /* Build configuration list for PBXProject "Picflow macOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				195B9DCE2D3FB40800BEBCBD /* Debug */,

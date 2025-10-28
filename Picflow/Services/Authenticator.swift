@@ -54,7 +54,7 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
     private var authSession: ASWebAuthenticationSession?
     private var codeVerifier: String?
     private var codeChallenge: String?
-    private let keychain = KeychainTokenStore(service: "com.picflow.macos.tokens")
+    private let keychain = KeychainTokenStore(service: "\(Constants.bundleIdentifier).tokens")
     
     private var clerkDomain: String { 
         EnvironmentManager.shared.current.clerkDomain
@@ -83,7 +83,7 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
             URLQueryItem(name: "client_id", value: clientId),
             URLQueryItem(name: "response_type", value: "code"),
             URLQueryItem(name: "redirect_uri", value: redirectURI),
-            URLQueryItem(name: "scope", value: "openid profile email"),
+            URLQueryItem(name: "scope", value: Constants.oauthScopes),
             URLQueryItem(name: "code_challenge", value: codeChallenge),
             URLQueryItem(name: "code_challenge_method", value: "S256")
         ]
@@ -96,7 +96,7 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
         
         print("🔗 Opening authorization URL:", url.absoluteString)
         
-        authSession = ASWebAuthenticationSession(url: url, callbackURLScheme: "picflow-macos") { [weak self] callbackURL, error in
+        authSession = ASWebAuthenticationSession(url: url, callbackURLScheme: Constants.appURLScheme) { [weak self] callbackURL, error in
             guard let self = self else { return }
             if let error = error {
                 print("❌ Auth cancelled/failed:", error)
@@ -188,64 +188,7 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
         return ASPresentationAnchor()
     }
     
-    // Handle JWT token callback from web page
-    func handleTokenCallback(url: URL) async {
-        print("🔗 Received callback URL:", url.absoluteString)
-        
-        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              let tokenItem = components.queryItems?.first(where: { $0.name == "token" }),
-              let token = tokenItem.value else {
-            print("❌ No token found in callback URL")
-            
-            // Capture to Sentry
-            let error = NSError(domain: "com.picflow.auth", code: 1002, userInfo: [
-                NSLocalizedDescriptionKey: "No token found in JWT callback URL"
-            ])
-            reportAuthError(
-                error,
-                method: "jwt_callback",
-                additionalContext: ["callback_url": url.absoluteString]
-            )
-            
-            state = .unauthorized
-            isAuthenticated = false
-            return
-        }
-        
-        print("✅ Received token, authenticating...")
-        
-        // Save token to keychain
-        keychain.save(accessToken: token, refreshToken: nil)
-        Endpoint.token = token
-        self.token = token
-        
-        // Fetch profile to verify token
-        do {
-            let profile: GetProfileResponse = try await Endpoint(
-                path: "/v1/profile",
-                httpMethod: .get
-            ).response()
-            
-            state = .authorized(token: token, profile: profile.user)
-            isAuthenticated = true
-            print("✅ Authentication successful!")
-            
-            // Add breadcrumb
-            ErrorReportingManager.shared.addBreadcrumb(
-                "JWT token authentication successful",
-                category: "auth",
-                level: .info
-            )
-        } catch {
-            print("❌ Failed to fetch profile:", error)
-            
-            // Capture to Sentry
-            reportAuthError(error, method: "jwt_callback")
-            
-            state = .unauthorized
-            isAuthenticated = false
-        }
-    }
+    // MARK: - OAuth Redirect Handler
     
     func handleRedirect(url: URL) async {
         guard let comps = URLComponents(url: url, resolvingAgainstBaseURL: false),
@@ -398,70 +341,6 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
         throw EndpointError.invalidResponse
     }
     
-    // Existing manual token path (kept for development/testing)
-    func authenticate(token: String) {
-        self.token = token
-        Endpoint.token = token
-        state = .authenticating
-        
-        Task {
-            do {
-                let response: GetProfileResponse = try await Endpoint(
-                    path: "/v1/profile",
-                    httpMethod: .get
-                ).response()
-                
-                await MainActor.run {
-                    state = .authorized(token: token, profile: response.user)
-                    isAuthenticated = true
-                }
-            } catch {
-                print("Authentication failed:", error)
-                await MainActor.run {
-                    state = .unauthorized
-                    isAuthenticated = false
-                }
-            }
-        }
-    }
-    
-    // Test token authentication (for development/testing)
-    func authenticateWithTestToken(token: String) {
-        self.token = token
-        Endpoint.token = token
-        state = .authenticating
-        
-        Task {
-            do {
-                // Fetch user profile
-                let response: GetProfileResponse = try await Endpoint(
-                    path: "/v1/profile",
-                    httpMethod: .get
-                ).response()
-                
-                await MainActor.run {
-                    state = .authorized(token: token, profile: response.user)
-                    isAuthenticated = true
-                }
-                
-                // Track login event
-                AnalyticsManager.shared.trackLogin(method: "test_token")
-                AnalyticsManager.shared.identifyUser(profile: response.user, tenant: nil)
-                
-                // Force flush for immediate testing
-                AnalyticsManager.shared.flush()
-                
-                // Fetch available tenants (user will select from list, just like OAuth)
-                try await fetchAvailableTenants()
-            } catch {
-                print("❌ Test token authentication failed:", error)
-                await MainActor.run {
-                    state = .unauthorized
-                    isAuthenticated = false
-                }
-            }
-        }
-    }
     
     // MARK: - Tenant Management
     
@@ -472,26 +351,43 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
         
         print("🔄 Fetching available tenants...")
         
-        // Fetch user profile with tenants
-        struct UserProfileResponse: Codable {
-            let user: Profile
-            let tenants: TenantsData
-            
-            struct TenantsData: Codable {
-                let data: [Tenant]
-            }
+        // Fetch tenants using the /v1/tenants endpoint
+        struct TenantsResponse: Codable {
+            let tenants: [Tenant]
+            let sharedTenants: [Tenant]
         }
         
-        let response: UserProfileResponse = try await Endpoint(
-            path: "/v1/profile/current_user",
+        let response: TenantsResponse = try await Endpoint(
+            path: "/v1/tenants",
             httpMethod: .get
         ).response()
         
         await MainActor.run {
-            self.availableTenants = response.tenants.data
-            print("✅ Found \(response.tenants.data.count) tenant(s):")
-            for tenant in response.tenants.data {
+            // Combine owned and shared tenants
+            var allTenants: [Tenant] = []
+            
+            // Add owned tenants
+            allTenants.append(contentsOf: response.tenants)
+            
+            // Add shared tenants with isShared flag set to true
+            let sharedTenantsWithFlag = response.sharedTenants.map { tenant -> Tenant in
+                var mutableTenant = tenant
+                mutableTenant.isShared = true
+                return mutableTenant
+            }
+            allTenants.append(contentsOf: sharedTenantsWithFlag)
+            
+            self.availableTenants = allTenants
+            
+            print("✅ Found \(response.tenants.count) owned tenant(s) and \(response.sharedTenants.count) shared tenant(s):")
+            for tenant in response.tenants {
                 print("   - \(tenant.name) (ID: \(tenant.id))")
+            }
+            if !response.sharedTenants.isEmpty {
+                print("   Shared:")
+                for tenant in sharedTenantsWithFlag {
+                    print("   - \(tenant.name) (ID: \(tenant.id)) [Guest]")
+                }
             }
         }
     }
@@ -545,10 +441,12 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
             context["user_email"] = profile.email
         }
         
-        ErrorReportingManager.shared.reportAuthError(
+        context["auth_method"] = method
+        
+        ErrorReportingManager.shared.reportError(
             error,
-            method: method,
-            context: context
+            context: context,
+            tags: ["operation": "auth", "auth_method": method]
         )
     }
 }

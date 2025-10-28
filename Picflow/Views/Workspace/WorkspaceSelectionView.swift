@@ -221,9 +221,9 @@ struct WorkspaceCard: View {
     var body: some View {
         Button(action: onSelect) {
             HStack(spacing: 16) {
-                // Logo or placeholder with initial (with border when selected)
+                // Favicon or placeholder with initial (with border when selected)
                 Group {
-                    if let logoUrl = tenant.logoUrl, let url = URL(string: logoUrl) {
+                    if let faviconUrl = tenant.faviconUrl, let url = URL(string: faviconUrl) {
                         AsyncImage(url: url) { image in
                             image
                                 .resizable()
@@ -244,10 +244,26 @@ struct WorkspaceCard: View {
                 
                 // Tenant info
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(tenant.name)
-                        .font(.title3)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.primary)
+                    HStack(spacing: 8) {
+                        Text(tenant.name)
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.primary)
+                        
+                        // Show "Guest" badge for shared tenants
+                        if tenant.isShared {
+                            Text("Guest")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(
+                                    Capsule()
+                                        .fill(Color.orange)
+                                )
+                        }
+                    }
                     
                     Text("\(tenant.path).picflow.com")
                         .font(.subheadline)

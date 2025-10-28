@@ -317,16 +317,25 @@ class Uploader: ObservableObject {
 		context["total_files"] = uploadQueue.count
 		
 		// Include file-specific info if provided
+		if let fileName = fileName {
+			context["file_name"] = fileName
+		}
+		if let fileSize = fileSize {
+			context["file_size"] = fileSize
+		}
 		if let fileIndex = fileIndex {
 			context["file_index"] = fileIndex
 		}
 		
-		ErrorReportingManager.shared.reportUploadError(
+		var tags: [String: String] = ["operation": "upload"]
+		if let galleryId = selectedGallery?.id {
+			tags["gallery_id"] = galleryId
+		}
+		
+		ErrorReportingManager.shared.reportError(
 			error,
-			fileName: fileName,
-			fileSize: fileSize,
-			galleryId: selectedGallery?.id,
-			additionalContext: context
+			context: context,
+			tags: tags
 		)
 	}
 }

@@ -169,19 +169,6 @@ class AnalyticsManager: ObservableObject {
         trackEvent("upload_failed", properties: properties)
     }
     
-    // MARK: - User Attributes
-    
-    /// Update user attributes (e.g., when switching workspaces)
-    func updateUserAttributes(_ attributes: [String: Any]) {
-        guard isInitialized, let userId = getCurrentUserId() else {
-            print("⚠️ Analytics not initialized or no user ID, cannot update attributes")
-            return
-        }
-        
-        sendIdentify(userId: userId, traits: attributes)
-        print("✅ Analytics: Updated user attributes")
-    }
-    
     // MARK: - Private HTTP Methods
     
     private func sendIdentify(userId: String, traits: [String: Any]) {

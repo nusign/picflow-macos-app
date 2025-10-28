@@ -25,10 +25,6 @@ final class KeychainTokenStore {
         }
     }
     
-    func load() -> (access: String?, refresh: String?) {
-        (loadGeneric(account: accountAccess), loadGeneric(account: accountRefresh))
-    }
-    
     func clear() {
         deleteGeneric(account: accountAccess)
         deleteGeneric(account: accountRefresh)

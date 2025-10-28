@@ -39,8 +39,7 @@ enum AppEnvironment: String, CaseIterable {
     }
     
     var redirectURI: String {
-        // Same for both environments
-        return "picflow-macos://auth/callback"
+        return Constants.oauthRedirectURI
     }
     
     // Customer.io CDP configuration (HTTP API Source)
@@ -72,7 +71,7 @@ enum AppEnvironment: String, CaseIterable {
 class EnvironmentManager: ObservableObject {
     static let shared = EnvironmentManager()
     
-    private let storageKey = "com.picflow.macos.environment"
+    private let storageKey = "\(Constants.bundleIdentifier).environment"
     
     @Published var current: AppEnvironment {
         didSet {

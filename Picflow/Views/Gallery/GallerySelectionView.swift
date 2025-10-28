@@ -46,8 +46,8 @@ struct GallerySelectionView: View {
                                 // Workspace Indicator
                                 if let tenant = authenticator.tenant {
                                     HStack(spacing: 8) {
-                                        // Workspace logo or initial
-                                        if let logoUrl = tenant.logoUrl, let url = URL(string: logoUrl) {
+                                        // Workspace favicon or initial
+                                        if let faviconUrl = tenant.faviconUrl, let url = URL(string: faviconUrl) {
                                             AsyncImage(url: url) { image in
                                                 image
                                                     .resizable()
