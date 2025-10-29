@@ -1,5 +1,42 @@
 import SwiftUI
 import AppKit
+import Sparkle
+
+// MARK: - Sparkle Check for Updates View
+
+private struct CheckForUpdatesView: View {
+    @ObservedObject private var checkForUpdatesViewModel: CheckForUpdatesViewModel
+    
+    init(updater: SPUUpdater) {
+        self.checkForUpdatesViewModel = CheckForUpdatesViewModel(updater: updater)
+    }
+    
+    var body: some View {
+        Button("Check for Updates...") {
+            checkForUpdatesViewModel.checkForUpdates()
+        }
+        .disabled(!checkForUpdatesViewModel.canCheckForUpdates)
+    }
+}
+
+private final class CheckForUpdatesViewModel: ObservableObject {
+    @Published var canCheckForUpdates = false
+    
+    private let updater: SPUUpdater
+    
+    init(updater: SPUUpdater) {
+        self.updater = updater
+        
+        updater.publisher(for: \.canCheckForUpdates)
+            .assign(to: &$canCheckForUpdates)
+    }
+    
+    func checkForUpdates() {
+        updater.checkForUpdates()
+    }
+}
+
+// MARK: - Window Configurator
 
 private struct WindowConfigurator: NSViewRepresentable {
     let configure: (NSWindow) -> Void
@@ -27,7 +64,17 @@ private extension View {
 struct PicflowApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
+    // Sparkle updater controller
+    private let updaterController: SPUStandardUpdaterController
+    
     init() {
+        // Initialize Sparkle updater
+        updaterController = SPUStandardUpdaterController(
+            startingUpdater: true,
+            updaterDelegate: nil,
+            userDriverDelegate: nil
+        )
+        
         // Initialize analytics for user tracking and events
         Task { @MainActor in
             AnalyticsManager.shared.initialize()
@@ -59,6 +106,11 @@ struct PicflowApp: App {
                     SettingsWindowManager.shared.showSettings()
                 }
                 .keyboardShortcut(",", modifiers: .command)
+            }
+            
+            // Add Check for Updates menu command
+            CommandGroup(after: .appInfo) {
+                CheckForUpdatesView(updater: updaterController.updater)
             }
         }
     }
