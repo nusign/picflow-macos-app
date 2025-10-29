@@ -347,6 +347,9 @@ update_appcast() {
     DOWNLOAD_URL="https://picflow.com/download/macos/${DMG_NAME_VERSIONED}"
     PUBDATE=$(date -u +"%a, %d %b %Y %H:%M:%S %z")
     
+    # Extract build number from the app for Sparkle version comparison
+    BUILD_NUMBER=$(defaults read "${PWD}/${APP_PATH}/Contents/Info.plist" CFBundleVersion)
+    
     # Try to download existing appcast from latest release
     EXISTING_APPCAST=""
     LATEST_RELEASE=$(gh release list --repo "$GITHUB_REPO" --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || echo "")
@@ -376,10 +379,12 @@ EOF
     fi
     
     # Create new item in a temporary file
+    # NOTE: sparkle:version MUST be the build number for proper version comparison
+    # sparkle:shortVersionString is the display version shown to users
     cat > "build/new_item.xml" <<EOF
         <item>
             <title>Version ${VERSION}</title>
-            <sparkle:version>${VERSION}</sparkle:version>
+            <sparkle:version>${BUILD_NUMBER}</sparkle:version>
             <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
             <description><![CDATA[
                 <h2>What's New in ${VERSION}</h2>
