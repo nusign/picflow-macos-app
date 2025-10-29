@@ -38,7 +38,7 @@ struct GalleryDetails: Codable, Equatable {
     // The decoder automatically converts: total_assets_count → totalAssetsCount, etc.
     
     var displayName: String {
-        title ?? name ?? "Untitled Gallery"
+        title ?? name ?? "Untitled"
     }
     
     var assetCount: Int {
