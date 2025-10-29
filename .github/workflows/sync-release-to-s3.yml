@@ -41,7 +41,7 @@ jobs:
       - name: Upload versioned DMG to S3
         run: |
           aws s3 cp "Picflow-${{ steps.release.outputs.version }}.dmg" \
-            "s3://picflow-webapp-prod/macos/Picflow-${{ steps.release.outputs.version }}.dmg" \
+            "s3://picflow-webapp-prod/download/macos/Picflow-${{ steps.release.outputs.version }}.dmg" \
             --cache-control "public, max-age=31536000, immutable" \
             --content-type "application/x-apple-diskimage"
           
@@ -50,7 +50,7 @@ jobs:
       - name: Upload latest DMG to S3
         run: |
           aws s3 cp "Picflow.dmg" \
-            "s3://picflow-webapp-prod/macos/Picflow.dmg" \
+            "s3://picflow-webapp-prod/download/macos/Picflow.dmg" \
             --cache-control "public, max-age=300" \
             --content-type "application/x-apple-diskimage"
           
@@ -59,7 +59,7 @@ jobs:
       - name: Upload appcast.xml to S3
         run: |
           aws s3 cp "appcast.xml" \
-            "s3://picflow-webapp-prod/macos/appcast.xml" \
+            "s3://picflow-webapp-prod/download/macos/appcast.xml" \
             --cache-control "public, max-age=3600, must-revalidate" \
             --content-type "application/rss+xml"
           
@@ -76,7 +76,7 @@ jobs:
           echo "- ✅ \`Picflow.dmg\` (latest, overwrites)" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ \`appcast.xml\` (update feed)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**S3 Location:** \`s3://picflow-webapp-prod/macos/\`" >> $GITHUB_STEP_SUMMARY
+          echo "**S3 Location:** \`s3://picflow-webapp-prod/download/macos/\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Public URLs:**" >> $GITHUB_STEP_SUMMARY
           echo "- Versioned: \`https://picflow.com/download/macos/Picflow-${{ steps.release.outputs.version }}.dmg\`" >> $GITHUB_STEP_SUMMARY
