@@ -226,30 +226,39 @@ sign_with_sparkle() {
     # Note: Only the versioned DMG needs Sparkle signature for auto-updates
     # The "latest" DMG is identical but used for marketing (no signature verification)
     
-    # Try using generate_appcast if available
-    if command -v /opt/homebrew/Caskroom/sparkle/2.8.0/bin/generate_appcast >/dev/null 2>&1; then
-        # Use generate_appcast to create a temporary appcast and extract signature
-        /opt/homebrew/Caskroom/sparkle/2.8.0/bin/generate_appcast \
-            --ed-key-file "$SPARKLE_KEY_PATH" \
-            --download-url-prefix "https://picflow.com/download/macos/" \
-            "build/${DMG_NAME_VERSIONED}" > "build/temp_appcast.xml"
-        
-        # Extract signature from generated appcast
-        SIGNATURE=$(grep "sparkle:edSignature" "build/temp_appcast.xml" | sed 's/.*sparkle:edSignature="\([^"]*\)".*/\1/')
-        rm -f "build/temp_appcast.xml"
-    else
-        # Fallback: Generate signature manually with OpenSSL
-        SIGNATURE=$(openssl pkeyutl -sign -rawin -in <(openssl dgst -binary -sha256 "build/${DMG_NAME_VERSIONED}") -inkey "$SPARKLE_KEY_PATH" | base64)
-    fi
-    
-    LENGTH=$(stat -f%z "build/${DMG_NAME_VERSIONED}")
-    
-    echo "   Signature: ${SIGNATURE}"
-    echo "   Length: ${LENGTH} bytes"
-    
-    # Store in temporary file for appcast.xml
-    echo "$SIGNATURE" > "build/signature.txt"
-    echo "$LENGTH" > "build/length.txt"
+    # Use Python with cryptography library for reliable EdDSA signing
+    python3 << PYTHON_EOF
+import base64
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends import default_backend
+
+# Read the private key
+with open('${SPARKLE_KEY_PATH}', 'rb') as f:
+    private_key = serialization.load_pem_private_key(
+        f.read(),
+        password=None,
+        backend=default_backend()
+    )
+
+# Read the DMG file
+with open('build/${DMG_NAME_VERSIONED}', 'rb') as f:
+    dmg_data = f.read()
+
+# Sign the file (Ed25519 signs the raw data directly)
+signature = private_key.sign(dmg_data)
+
+# Encode as base64 for Sparkle
+signature_b64 = base64.b64encode(signature).decode('ascii')
+
+# Save to files
+with open('build/signature.txt', 'w') as f:
+    f.write(signature_b64)
+with open('build/length.txt', 'w') as f:
+    f.write(str(len(dmg_data)))
+
+print(f"   Signature: {signature_b64}")
+print(f"   Length: {len(dmg_data)} bytes")
+PYTHON_EOF
     
     echo "✅ Sparkle 2 EdDSA signature generated for versioned DMG"
 }

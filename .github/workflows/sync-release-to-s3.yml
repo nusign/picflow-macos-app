@@ -42,7 +42,6 @@ jobs:
         run: |
           aws s3 cp "Picflow-${{ steps.release.outputs.version }}.dmg" \
             "s3://picflow-webapp-prod/macos/Picflow-${{ steps.release.outputs.version }}.dmg" \
-            --acl public-read \
             --cache-control "public, max-age=31536000, immutable" \
             --content-type "application/x-apple-diskimage"
           
@@ -52,7 +51,6 @@ jobs:
         run: |
           aws s3 cp "Picflow.dmg" \
             "s3://picflow-webapp-prod/macos/Picflow.dmg" \
-            --acl public-read \
             --cache-control "public, max-age=300" \
             --content-type "application/x-apple-diskimage"
           
@@ -62,7 +60,6 @@ jobs:
         run: |
           aws s3 cp "appcast.xml" \
             "s3://picflow-webapp-prod/macos/appcast.xml" \
-            --acl public-read \
             --cache-control "public, max-age=3600, must-revalidate" \
             --content-type "application/rss+xml"
           
