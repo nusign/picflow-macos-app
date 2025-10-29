@@ -11,6 +11,15 @@ struct LoginView: View {
     @ObservedObject var authenticator: Authenticator
     @StateObject private var environmentManager = EnvironmentManager.shared
     
+    // Show dev button in DEBUG builds OR when developer mode is enabled
+    private var showDevButton: Bool {
+        #if DEBUG
+        return true
+        #else
+        return DeveloperModeManager.shared.isEnabled
+        #endif
+    }
+    
     var body: some View {
         VStack(spacing: 8) {
             Image("Picflow-Logo")
@@ -40,10 +49,10 @@ struct LoginView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
-            .controlSize(.large)            
-            // Development Login Button (Only in DEBUG builds)
-            #if DEBUG
-            VStack(spacing: 0) {                
+            .controlSize(.large)
+            
+            // Development Login Button (shown in DEBUG OR when developer mode enabled)
+            if showDevButton {
                 Button {
                     // Switch to development environment and login
                     environmentManager.current = .development
@@ -58,7 +67,6 @@ struct LoginView: View {
                 .controlSize(.large)
                 .tint(.orange)
             }
-            #endif
         }
         .frame(maxWidth: 220)
         .padding()

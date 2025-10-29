@@ -10,7 +10,6 @@ import IOKit
 
 struct SettingsView: View {
     @EnvironmentObject var settingsManager: SettingsManager
-    @StateObject private var environmentManager = EnvironmentManager.shared
     @State private var developerModeEnabled = DeveloperModeManager.shared.isEnabled
     @State private var clickCount = 0
     
@@ -79,15 +78,12 @@ struct SettingsView: View {
                     // Developer Section - Hidden in production unless developer mode is enabled
                     #if DEBUG
                     SettingsSection(title: "Developer") {
-                        DeveloperSectionContent(selectedEnvironment: $environmentManager.current)
+                        DeveloperSectionContent()
                     }
                     #else
                     if developerModeEnabled {
                         SettingsSection(title: "Developer") {
-                            DeveloperSectionContent(
-                                selectedEnvironment: $environmentManager.current,
-                                developerModeEnabled: $developerModeEnabled
-                            )
+                            DeveloperSectionContent(developerModeEnabled: $developerModeEnabled)
                         }
                     }
                     #endif
@@ -349,16 +345,10 @@ struct SettingsButton: View {
 // MARK: - Developer Section Content
 
 struct DeveloperSectionContent: View {
-    @Binding var selectedEnvironment: AppEnvironment
     var developerModeEnabled: Binding<Bool>? = nil
     
     var body: some View {
         VStack(spacing: 0) {
-            EnvironmentPicker(selectedEnvironment: $selectedEnvironment)
-            
-            Divider()
-                .padding(.horizontal, 12)
-            
             SettingsButton(
                 icon: "ladybug",
                 title: "Test Sentry",
@@ -449,51 +439,6 @@ struct DeviceInfoRow: View {
         showCopiedFeedback = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             showCopiedFeedback = false
-        }
-    }
-}
-
-// MARK: - Environment Picker
-
-struct EnvironmentPicker: View {
-    @Binding var selectedEnvironment: AppEnvironment
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "globe")
-                .font(.system(size: 16))
-                .foregroundColor(.accentColor)
-                .frame(width: 24, height: 24)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text("API Environment")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.primary)
-                
-                Text(environmentSubtitle)
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            Picker("", selection: $selectedEnvironment) {
-                ForEach(AppEnvironment.allCases, id: \.self) { env in
-                    Text(env.rawValue).tag(env)
-                }
-            }
-            .labelsHidden()
-            .frame(width: 140)
-        }
-        .padding(12)
-    }
-    
-    private var environmentSubtitle: String {
-        switch selectedEnvironment {
-        case .development:
-            return "dev.picflow.com"
-        case .production:
-            return "picflow.com"
         }
     }
 }
