@@ -1,6 +1,6 @@
 # Picflow Releases & Updates
 
-Complete guide for managing Picflow releases and automatic updates using Sparkle 2 and Cloudflare R2.
+Complete guide for managing Picflow releases and automatic updates using Sparkle 2, GitHub Releases, and Amazon S3.
 
 ---
 
@@ -17,63 +17,86 @@ Complete guide for managing Picflow releases and automatic updates using Sparkle
 
 ## Overview
 
-Picflow uses **Sparkle 2** (industry standard) for automatic updates, hosted on **Cloudflare R2** (free for small apps).
+Picflow uses **Sparkle 2** (industry standard) for automatic updates, distributed via **GitHub Releases** and **Amazon S3**.
 
-### Why Sparkle?
+### Why This Setup?
 
-✅ **Industry standard** - Used by Sketch, Tower, Things, Notion, Linear  
-✅ **Free & open source** - No recurring costs  
-✅ **Secure** - EdDSA signatures + Apple notarization  
-✅ **Delta updates** - Only download changed files  
-✅ **Feature-complete** - Release notes, beta channels, phased rollouts  
+✅ **Sparkle 2** - Industry standard, free, secure, feature-complete  
+✅ **GitHub Releases** - Version control integrated, free hosting  
+✅ **S3 + CloudFront** - Fast global CDN, reliable delivery  
+✅ **Automated** - GitHub Actions sync releases to S3 automatically  
+✅ **Dual URLs** - Versioned for Sparkle, static for marketing  
 
 ### Update Flow
 
 ```
-User's Mac                    Cloudflare R2
+User's Mac                    Picflow CDN
      │                              │
      ├─1. Check for updates ───────>│ appcast.xml
      │                              │
      │<─2. New version available ───┤
      │                              │
-     ├─3. Download DMG ─────────────>│ Picflow-1.2.0.dmg
+     ├─3. Download DMG ─────────────>│ Picflow-0.2.0.dmg
      │                              │
-     ├─4. Verify signature          │
-     ├─5. Install & relaunch        │
+     ├─4. Verify signatures          │
+     ├─5. Install & relaunch         │
 ```
 
-**Cost:** $0/month (under 200 downloads, Cloudflare R2 free tier)  
-**Release time:** ~5-10 minutes per version  
-**Setup time:** ~45 minutes (one-time)
+**Release time:** ~7-12 minutes per version  
+**Setup time:** ~30 minutes (one-time)  
+**Cost:** Free (GitHub) + minimal S3/CloudFront costs
 
 ---
 
 ## How Updates Work
 
+### Dual URL Strategy
+
+**1. Versioned URLs** (for Sparkle 2 auto-updates)
+```
+https://picflow.com/download/macos/Picflow-0.1.0.dmg
+https://picflow.com/download/macos/Picflow-0.2.0.dmg
+https://picflow.com/download/macos/Picflow-0.3.0.dmg
+```
+- Each has a unique EdDSA signature
+- Used by Sparkle 2 for verified updates
+- Must remain permanent and unchanged
+- Signature verification fails if file changes
+
+**2. Static URL** (for marketing/emails)
+```
+https://picflow.com/download/macos/Picflow.dmg (always latest)
+```
+- Overwritten with each release
+- Always points to the newest version
+- Used in emails, website, documentation
+- No signature verification needed
+
 ### Technical Details
 
 #### 1. Sparkle Framework
-- **Language:** Swift/Objective-C
+- **Version:** Sparkle 2.x
 - **Integration:** Swift Package Manager
 - **Signing:** EdDSA (modern, secure)
 - **Check frequency:** Daily (configurable)
 
 #### 2. Update Feed (appcast.xml)
-XML file listing available versions:
+Sparkle 2 format XML file listing available versions:
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
     <channel>
         <title>Picflow Updates</title>
+        <link>https://picflow.com/download/macos/appcast.xml</link>
         <item>
-            <title>Version 1.2.0</title>
-            <sparkle:version>1.2.0</sparkle:version>
-            <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
-            <pubDate>Tue, 28 Jan 2025 10:00:00 +0000</pubDate>
+            <title>Version 0.2.0</title>
+            <sparkle:version>0.2.0</sparkle:version>
+            <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
+            <pubDate>Wed, 29 Oct 2025 14:00:00 +0000</pubDate>
             <enclosure 
-                url="https://updates.picflow.com/Picflow-1.2.0.dmg"
-                sparkle:edSignature="SIGNATURE_HERE"
-                length="45678901"
+                url="https://picflow.com/download/macos/Picflow-0.2.0.dmg"
+                sparkle:edSignature="EDDSA_SIGNATURE_HERE"
+                length="3953599"
                 type="application/octet-stream"
             />
         </item>
@@ -82,12 +105,12 @@ XML file listing available versions:
 ```
 
 #### 3. Version Comparison
-Sparkle compares `CFBundleShortVersionString` in app's Info.plist with latest version in appcast.xml.
+Sparkle compares `CFBundleShortVersionString` in app's Info.plist with latest version in appcast.xml using semantic versioning (MAJOR.MINOR.PATCH).
 
-#### 4. Security
-- **Apple Code Signing** - Verified by macOS
+#### 4. Security (Triple Layer)
+- **Apple Code Signing** - Verified by macOS Gatekeeper
 - **Apple Notarization** - Malware scan by Apple
-- **Sparkle EdDSA Signature** - Prevents tampering
+- **Sparkle EdDSA Signature** - Prevents tampering with updates
 
 ---
 
@@ -97,55 +120,47 @@ Sparkle compares `CFBundleShortVersionString` in app's Info.plist with latest ve
 
 ```bash
 # Install required tools via Homebrew
-brew install sparkle create-dmg rclone
+brew install create-dmg gh
 
-# Optional: Prettier Xcode output (skip if you get permission errors)
+# Optional: Prettier Xcode output
 gem install xcpretty
+
+# Python cryptography library for EdDSA signing
+pip3 install cryptography
 ```
 
 **Verify:**
 ```bash
-which sparkle && which create-dmg && which rclone
-# Should show paths to all three ✓
+which create-dmg && which gh && python3 -c "import cryptography; print('✓')"
+# Should show paths and checkmark ✓
 ```
 
 ---
 
 ### Step 2: Generate Sparkle Keys (5 minutes)
 
-#### 2.1: Generate Key Pair
+#### 2.1: Generate EdDSA Key Pair
 ```bash
-generate_keys
-```
+# Create directory for keys
+mkdir -p ~/.sparkle
 
-**Output:**
-```
-A key has been generated and saved in your keychain.
-Public key: YOUR_PUBLIC_KEY_HERE
+# Generate Ed25519 private key
+openssl genpkey -algorithm Ed25519 -out ~/.sparkle/private_key
+
+# Extract public key
+openssl pkey -in ~/.sparkle/private_key -pubout -outform DER | tail -c 32 | base64
 ```
 
 **Copy the public key** - you'll need it next.
 
-#### 2.2: Export Private Key
-```bash
-# 1. Open Keychain Access app
-# 2. Search for "Sparkle"
-# 3. Right-click → Export "Sparkle EdDSA key"
-# 4. Save as file (no password needed)
-# 5. Move to ~/.sparkle/
-
-mkdir -p ~/.sparkle
-mv ~/Downloads/Sparkle\ EdDSA\ key.p12 ~/.sparkle/private_key
-```
-
-#### 2.3: Add Public Key to Info.plist
+#### 2.2: Add Public Key to Info.plist
 
 Open `Picflow/Info.plist` and add:
 ```xml
 <key>SUPublicEDKey</key>
 <string>PASTE_YOUR_PUBLIC_KEY_HERE</string>
 <key>SUFeedURL</key>
-<string>https://updates.picflow.com/appcast.xml</string>
+<string>https://picflow.com/download/macos/appcast.xml</string>
 <key>SUEnableAutomaticChecks</key>
 <true/>
 <key>SUScheduledCheckInterval</key>
@@ -154,144 +169,51 @@ Open `Picflow/Info.plist` and add:
 
 ---
 
-### Step 3: Create Cloudflare R2 Bucket (10 minutes)
+### Step 3: Configure GitHub Repository (5 minutes)
 
-#### 3.1: Create Bucket
-1. Go to https://dash.cloudflare.com
-2. Click **R2** in sidebar
-3. Click **Create bucket**
-4. Name: `picflow-updates`
-5. Location: Automatic
-6. Click **Create bucket**
-
-#### 3.2: Make Bucket Public
-1. Open bucket → **Settings**
-2. Scroll to **Public access**
-3. Click **Allow Access**
-4. **Copy public URL:** `https://pub-xxxxx.r2.dev`
-
-#### 3.3: Get API Credentials
-1. Go to **R2** → **Overview**
-2. Click **Manage R2 API Tokens**
-3. Click **Create API token**
-4. Name: `Picflow Releases`
-5. Permissions: **Object Read & Write**
-6. Click **Create API token**
-
-**Save these (you'll need them next):**
-- Access Key ID
-- Secret Access Key  
-- Endpoint URL
-
-#### 3.4: Configure rclone
+#### 3.1: Authenticate gh CLI
 ```bash
-rclone config
+gh auth login
+# Follow prompts to authenticate
 ```
 
-**Follow prompts:**
-```
-n) New remote
-name> r2
-Storage> s3 (pick the number)
-provider> Cloudflare (pick the number)
-env_auth> 1 (false)
-access_key_id> [PASTE ACCESS KEY ID]
-secret_access_key> [PASTE SECRET ACCESS KEY]
-region> auto
-endpoint> [PASTE ENDPOINT URL]
-location_constraint> [LEAVE BLANK]
-acl> private
-Edit advanced config? n
-y) Yes this is OK
-q) Quit
-```
+#### 3.2: Update Release Script
 
-**Test connection:**
+Edit `scripts/release.sh`:
+
+**Lines 17-22:**
 ```bash
-rclone lsd r2:picflow-updates
-# Should show your bucket ✓
+DEVELOPER_ID="Developer ID Application: YOUR NAME (YOUR_TEAM_ID)"
+NOTARIZATION_PROFILE="notarytool"
+SPARKLE_KEY_PATH="$HOME/.sparkle/private_key"
+GITHUB_REPO="your-username/picflow-macos"
+APPCAST_URL="https://picflow.com/download/macos/appcast.xml"
 ```
 
-#### 3.5: Upload Initial appcast.xml
+**Find your Developer ID:**
 ```bash
-cat > /tmp/appcast.xml << 'EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
-    <channel>
-        <title>Picflow Updates</title>
-        <link>https://updates.picflow.com/appcast.xml</link>
-        <description>Picflow app updates</description>
-        <language>en</language>
-    </channel>
-</rss>
-EOF
-
-rclone copy /tmp/appcast.xml r2:picflow-updates/
-```
-
-**Verify:**
-```bash
-curl https://pub-xxxxx.r2.dev/appcast.xml
-# Should show XML ✓
+security find-identity -v -p codesigning
+# Look for: "Developer ID Application: Your Name (XXXXXXXXXX)"
 ```
 
 ---
 
-### Step 4: Set Up Custom Domain (Optional, 10 minutes)
+### Step 4: Configure Apple Notarization (5 minutes)
 
-Instead of `pub-xxxxx.r2.dev`, use `updates.picflow.com`:
-
-#### 4.1: Connect Domain
-1. R2 bucket → **Settings** → **Custom Domains**
-2. Click **Connect Domain**
-3. Enter: `updates.picflow.com`
-
-#### 4.2: Add DNS Record
-1. Go to **Cloudflare DNS** for picflow.com
-2. Add CNAME record:
-   - Name: `updates`
-   - Target: (shown in R2 settings)
-   - Proxy: ✅ Proxied
-3. Click **Save**
-
-#### 4.3: Wait for DNS & Test
-```bash
-# Wait 5-10 minutes, then test:
-curl https://updates.picflow.com/appcast.xml
-# Should show XML ✓
-```
-
-**Update Info.plist if using custom domain:**
-```xml
-<key>SUFeedURL</key>
-<string>https://updates.picflow.com/appcast.xml</string>
-```
-
----
-
-### Step 5: Configure Apple Notarization (5 minutes)
-
-#### 5.1: Get App-Specific Password
+#### 4.1: Get App-Specific Password
 1. Go to https://appleid.apple.com
 2. Sign in
 3. **Security** → **App-Specific Passwords**
 4. Click **+** to generate
 5. Label: `Picflow Notarization`
-6. **Copy the password**
+6. **Copy the password** (format: xxxx-xxxx-xxxx-xxxx)
 
-#### 5.2: Store in Keychain
+#### 4.2: Store in Keychain
 ```bash
 xcrun notarytool store-credentials notarytool \
   --apple-id "your-email@example.com" \
   --team-id "YOUR_TEAM_ID" \
   --password "xxxx-xxxx-xxxx-xxxx"
-```
-
-**Find your Team ID:**
-```bash
-security find-identity -v -p codesigning
-# Look for: "Developer ID Application: Your Name (XXXXXXXXXX)"
-# XXXXXXXXXX is your Team ID
 ```
 
 **Verify:**
@@ -302,26 +224,39 @@ xcrun notarytool history --keychain-profile notarytool
 
 ---
 
-### Step 6: Update Release Script (5 minutes)
+### Step 5: Configure GitHub Action for S3 Sync (5 minutes)
 
-Edit `scripts/release.sh`:
+The GitHub Action (`.github/workflows/sync-release-to-s3.yml`) automatically syncs releases to S3.
 
-**Lines 17-19:**
-```bash
-DEVELOPER_ID="Developer ID Application: YOUR NAME (YOUR_TEAM_ID)"
-R2_BUCKET="picflow-updates"
-APPCAST_URL="https://updates.picflow.com/appcast.xml"  # or your pub- URL
+#### 5.1: Add GitHub Secrets
+
+Go to your GitHub repo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
+
+Add these three secrets:
+- `AWS_ACCESS_KEY_ID` - Your AWS access key
+- `AWS_SECRET_ACCESS_KEY` - Your AWS secret key  
+- `AWS_DEFAULT_REGION` - Your S3 region (e.g., `us-east-1`)
+
+#### 5.2: Configure Production Environment
+
+Go to **Settings** → **Environments** → **New environment** → Name: `production`
+
+This allows the workflow to access the secrets.
+
+---
+
+### Step 6: Enable Hardened Runtime (Already Done)
+
+Hardened Runtime is required for notarization. This is already enabled in the Xcode project:
+
+```xml
+<!-- In Picflow macOS.xcodeproj/project.pbxproj -->
+ENABLE_HARDENED_RUNTIME = YES;
 ```
 
-**Line ~110 (inside export_app function):**
-```bash
-<string>YOUR_TEAM_ID</string>  # Replace with your actual Team ID
-```
-
-**Make executable:**
-```bash
-chmod +x scripts/release.sh
-```
+**Verify in Xcode:**
+- Select target → **Signing & Capabilities**
+- **Hardened Runtime** should be enabled ✓
 
 ---
 
@@ -331,19 +266,19 @@ chmod +x scripts/release.sh
 1. Open `Picflow macOS.xcodeproj`
 2. Select target **Picflow**
 3. **General** tab
-4. Set **Version** to `1.0.0`
+4. Set **Version** to `0.1.0`
 5. Set **Build** to `1`
 
 #### 7.2: Run Test Release
 ```bash
-./scripts/release.sh 1.0.0
+./scripts/release.sh 0.1.0
 ```
 
 **Expected output:**
 ```
 ╔═══════════════════════════════════════╗
 ║   Picflow Release Automation          ║
-║   Version: 1.0.0                      ║
+║   Version: 0.1.0                      ║
 ╚═══════════════════════════════════════╝
 
 ==> Checking requirements...
@@ -352,76 +287,82 @@ chmod +x scripts/release.sh
 ==> Archiving Picflow...
 ✅ Archive created
 
-==> Exporting Picflow.app...
-✅ App exported
+==> Exporting and re-signing Picflow.app...
+✅ App exported and re-signed
 
 ==> Creating DMG...
-✅ DMG created
+✅ DMG created: build/Picflow-0.1.0.dmg
 
-==> Signing DMG...
-✅ DMG signed
+==> Verifying app signature...
+✅ App is properly signed
 
 ==> Notarizing DMG (may take 3-5 minutes)...
 ✅ DMG notarized and stapled
 
-==> Signing with Sparkle...
-✅ Sparkle signature generated
+==> Creating latest DMG copy...
+✅ Latest DMG created: build/Picflow.dmg
 
-==> Uploading to Cloudflare R2...
-✅ DMG uploaded to R2
+==> Signing versioned DMG with Sparkle 2...
+✅ Sparkle 2 EdDSA signature generated
 
-==> Updating appcast.xml...
-✅ appcast.xml updated
+==> Creating GitHub release...
+✅ GitHub release created: v0.1.0
+
+==> Uploading assets to GitHub release...
+✅ Both DMGs uploaded to GitHub release
+
+==> Creating appcast.xml...
+✅ appcast.xml created and uploaded
 
 ╔═══════════════════════════════════════╗
 ║   🎉 Release Complete!                ║
 ╚═══════════════════════════════════════╝
-
-📦 DMG: build/Picflow-1.0.0.dmg
-🌐 Download: https://updates.picflow.com/Picflow-1.0.0.dmg
 ```
 
-#### 7.3: Verify Upload
+#### 7.3: Verify GitHub Action Ran
+
 ```bash
-# Check files on R2
-rclone ls r2:picflow-updates
+# Check recent workflow runs
+gh run list --limit 1
 
 # Should show:
-# Picflow-1.0.0.dmg
-# appcast.xml
+# completed  success  Picflow 0.1.0  Sync Release to S3
 ```
 
-#### 7.4: Test Download & Verification
+#### 7.4: Verify Files on S3
+
+Check that files are accessible:
 ```bash
-# Download
-curl -O https://updates.picflow.com/Picflow-1.0.0.dmg
+# Test appcast.xml
+curl -I https://picflow.com/download/macos/appcast.xml
+# Should return: HTTP/2 200
 
-# Verify code signature
-codesign -dvv Picflow-1.0.0.dmg
-# Should show: signed by your Developer ID ✓
+# Test versioned DMG
+curl -I https://picflow.com/download/macos/Picflow-0.1.0.dmg
+# Should return: HTTP/2 200
 
-# Verify notarization
-spctl -a -vv -t install Picflow-1.0.0.dmg
-# Should show: accepted ✓
+# Test latest DMG
+curl -I https://picflow.com/download/macos/Picflow.dmg
+# Should return: HTTP/2 200
 ```
 
 ---
 
 ### ✅ Setup Complete!
 
-**Setup time:** ~45 minutes (one-time)
+**Setup time:** ~30 minutes (one-time)
 
 **Quick Setup Checklist:**
-- ☐ Tools installed (sparkle, create-dmg, rclone)
-- ☐ Sparkle keys generated and saved
+- ☐ Tools installed (create-dmg, gh, Python cryptography)
+- ☐ Sparkle EdDSA keys generated
 - ☐ Public key added to Info.plist
-- ☐ R2 bucket created and configured
-- ☐ rclone configured and tested
-- ☐ Custom domain set up (optional)
+- ☐ GitHub CLI authenticated
+- ☐ Release script updated with credentials
 - ☐ Apple notarization configured
-- ☐ Release script updated
+- ☐ GitHub Action secrets configured
 - ☐ Test release successful
-- ☐ DMG downloadable and verified
+- ☐ GitHub Action synced to S3
+- ☐ URLs accessible
 
 **Future releases:** Just run `./scripts/release.sh X.Y.Z`
 
@@ -432,7 +373,7 @@ spctl -a -vv -t install Picflow-1.0.0.dmg
 ### Quick Release (One Command)
 
 ```bash
-./scripts/release.sh 1.2.0
+./scripts/release.sh 0.2.0
 ```
 
 That's it! The script handles everything automatically.
@@ -441,20 +382,22 @@ That's it! The script handles everything automatically.
 
 ### What Happens During Release
 
-The script performs these steps:
+The script and GitHub Action perform these steps:
 
-1. **Check requirements** - Verify all tools installed
+1. **Check requirements** - Verify all tools installed (~5 sec)
 2. **Archive app** - Build release in Xcode (~2-3 min)
-3. **Export .app** - Extract signed app (~30 sec)
+3. **Export & re-sign** - Deep sign all frameworks and app (~30 sec)
 4. **Create DMG** - Package as disk image (~30 sec)
-5. **Sign with Apple** - Code sign DMG (~10 sec)
+5. **Verify signature** - Check app signature (~5 sec)
 6. **Notarize** - Submit to Apple for verification (~3-5 min)
-7. **Sign with Sparkle** - Generate EdDSA signature (~5 sec)
-8. **Upload to R2** - Upload DMG (~10-30 sec)
-9. **Update appcast.xml** - Add new version to feed (~5 sec)
-10. **Generate release notes** - Create markdown summary (~5 sec)
+7. **Create latest DMG** - Copy notarized DMG for marketing (~5 sec)
+8. **Sign with Sparkle** - Generate EdDSA signature (~5 sec)
+9. **Create GitHub release** - Create release on GitHub (~5 sec)
+10. **Upload DMGs** - Upload both DMGs to GitHub (~10-30 sec)
+11. **Upload appcast** - Upload Sparkle feed (~5 sec)
+12. **GitHub Action** - Syncs to S3 automatically (~1-2 min)
 
-**Total time:** ~5-10 minutes (notarization is the slowest step)
+**Total time:** ~7-12 minutes (notarization is the slowest step)
 
 ---
 
@@ -463,53 +406,62 @@ The script performs these steps:
 #### 1. Update Version Number in Xcode
 - Open `Picflow macOS.xcodeproj`
 - Select target → **General**
-- **Version:** `1.2.0` (semantic versioning)
+- **Version:** Use semantic versioning (e.g., `0.2.0`)
 - **Build:** Increment by 1
 
 #### 2. Test Build Locally
 ```bash
-# In Xcode: Product → Archive
-# Verify it works before releasing
+# In Xcode: Product → Run
+# Verify everything works before releasing
 ```
 
 #### 3. Commit Changes
 ```bash
 git add .
-git commit -m "Version 1.2.0: Add new features"
-git tag v1.2.0
-git push origin main --tags
+git commit -m "Version 0.2.0: Add new features"
+git push origin main
 ```
 
 #### 4. Run Release Script
 ```bash
-./scripts/release.sh 1.2.0
+./scripts/release.sh 0.2.0
 ```
 
 ---
 
 ### After Each Release
 
-#### 1. Archive the DMG
-Keep the DMG in `build/` for future reference:
+#### 1. Monitor GitHub Action
+
 ```bash
-# Optionally move to archive folder
-mkdir -p releases
-cp build/Picflow-1.2.0.dmg releases/
+# Watch the sync to S3
+gh run watch
+
+# Should complete in ~1-2 minutes
 ```
 
-#### 2. Test the Update Flow
+#### 2. Test the URLs
+
 ```bash
-# On a machine with older version installed:
-# 1. Open Picflow
-# 2. Settings → Check for updates (if you added menu item)
-# 3. Or wait for automatic check
-# 4. Verify update downloads and installs
+# Verify all files are accessible
+curl -I https://picflow.com/download/macos/appcast.xml
+curl -I https://picflow.com/download/macos/Picflow-0.2.0.dmg
+curl -I https://picflow.com/download/macos/Picflow.dmg
 ```
 
-#### 3. Monitor
+#### 3. Test the Update Flow
+
+On a machine with an older version:
+1. Open Picflow
+2. Wait for automatic update check (or trigger manually)
+3. Verify update downloads and installs
+4. Confirm app relaunches with new version
+
+#### 4. Monitor
+
 - Check Sentry for new errors
 - Check analytics for update adoption rate
-- Monitor Cloudflare R2 for bandwidth usage
+- Monitor CloudWatch for S3/CloudFront usage
 
 ---
 
@@ -517,37 +469,31 @@ cp build/Picflow-1.2.0.dmg releases/
 
 ### Setup Issues
 
-#### "generate_keys: command not found"
+#### "create-dmg: command not found"
 ```bash
-brew install sparkle
+brew install create-dmg
 ```
 
-#### "rclone: command not found"
+#### "gh: command not found"
 ```bash
-brew install rclone
+brew install gh
+gh auth login
 ```
 
-#### "Can't export Sparkle private key from Keychain"
+#### "No module named 'cryptography'"
 ```bash
-# Try regenerating:
-generate_keys
-
-# Then export again:
-# Keychain Access → Search "Sparkle" → Right-click → Export
+pip3 install cryptography
 ```
 
-#### "rclone can't connect to R2"
+#### "Can't generate Sparkle keys"
 ```bash
-# Reconfigure:
-rclone config
+# Ensure OpenSSL is installed
+brew install openssl
 
-# Test connection:
-rclone lsd r2:picflow-updates
-
-# If fails, verify:
-# 1. Access Key ID is correct
-# 2. Secret Access Key is correct
-# 3. Endpoint URL is correct (include https://)
+# Generate keys manually
+mkdir -p ~/.sparkle
+openssl genpkey -algorithm Ed25519 -out ~/.sparkle/private_key
+openssl pkey -in ~/.sparkle/private_key -pubout -outform DER | tail -c 32 | base64
 ```
 
 ---
@@ -559,13 +505,12 @@ rclone lsd r2:picflow-updates
 xcode-select --install
 ```
 
-#### "Sparkle private key not found at ~/.sparkle/private_key"
+#### "Sparkle private key not found"
 ```bash
-# Check if file exists:
-ls -la ~/.sparkle/
+# Check if file exists
+ls -la ~/.sparkle/private_key
 
-# If missing, export from Keychain Access again
-# Save to: ~/.sparkle/private_key
+# If missing, regenerate (see Step 2)
 ```
 
 #### "Notarization failed"
@@ -576,49 +521,39 @@ xcrun notarytool log <submission-id> \
 ```
 
 **Common causes:**
-- Hardened Runtime not enabled (check Xcode settings)
+- Hardened Runtime not enabled
 - Missing entitlements
 - Unsigned frameworks
 
-**Fix:**
-```bash
-# Verify signing in Xcode:
-# Target → Signing & Capabilities
-# - Enable Hardened Runtime
-# - Check signing certificate is valid
-```
-
 #### "Code signing failed"
 ```bash
-# List available certificates:
+# List available certificates
 security find-identity -v -p codesigning
 
 # Verify Developer ID certificate exists
 # If expired, renew at developer.apple.com
 ```
 
-#### "rclone: Failed to copy"
+#### "GitHub release creation failed"
 ```bash
-# Test R2 connection:
-rclone lsd r2:picflow-updates
+# Check authentication
+gh auth status
 
-# If fails, reconfigure:
-rclone config
-
-# Check bucket permissions in Cloudflare dashboard
+# Re-authenticate if needed
+gh auth login
 ```
 
-#### "Upload succeeded but appcast.xml not updating"
-**Manual fix:**
+#### "GitHub Action failed to sync to S3"
+
+Check the workflow logs:
 ```bash
-# Download current appcast
-rclone copy r2:picflow-updates/appcast.xml ./
-
-# Edit appcast.xml manually (add your version)
-
-# Upload back
-rclone copy appcast.xml r2:picflow-updates/
+gh run view --log
 ```
+
+**Common causes:**
+- Missing or incorrect AWS secrets
+- S3 bucket permissions
+- Incorrect S3 paths in workflow
 
 ---
 
@@ -629,11 +564,11 @@ rclone copy appcast.xml r2:picflow-updates/
 **Checklist:**
 1. ✅ Check appcast.xml is accessible:
    ```bash
-   curl https://updates.picflow.com/appcast.xml
+   curl https://picflow.com/download/macos/appcast.xml
    ```
 2. ✅ Verify version in appcast is higher than user's version
 3. ✅ Check user has "Automatically update" enabled in Settings
-4. ✅ Verify SUFeedURL in Info.plist matches R2 URL
+4. ✅ Verify SUFeedURL in Info.plist matches appcast URL
 5. ✅ Check Sparkle public key in Info.plist is correct
 
 #### "Update downloads but won't install"
@@ -655,19 +590,18 @@ rclone copy appcast.xml r2:picflow-updates/
 If you need to pull back a bad release:
 
 ```bash
-# 1. Delete DMG from R2
-rclone delete r2:picflow-updates/Picflow-1.2.0.dmg
+# 1. Delete GitHub release
+gh release delete v0.2.0 --yes
 
-# 2. Download and edit appcast.xml
-rclone copy r2:picflow-updates/appcast.xml ./
+# 2. Delete git tag
+git tag -d v0.2.0
+git push origin :refs/tags/v0.2.0
 
-# Edit appcast.xml - remove the <item> for version 1.2.0
-
-# 3. Upload updated appcast
-rclone copy appcast.xml r2:picflow-updates/
-
-# Users will now see previous version as latest
+# 3. Manually remove files from S3 if needed
+# (GitHub Action only adds/overwrites, doesn't delete)
 ```
+
+Users will see the previous version as latest in appcast.xml.
 
 ---
 
@@ -675,11 +609,11 @@ rclone copy appcast.xml r2:picflow-updates/
 
 For urgent security fixes, mark update as critical:
 
-**Edit appcast.xml:**
+**Edit appcast.xml manually and re-upload:**
 ```xml
 <item>
-    <title>Version 1.2.1 (Critical Security Update)</title>
-    <sparkle:version>1.2.1</sparkle:version>
+    <title>Version 0.2.1 (Critical Security Update)</title>
+    <sparkle:version>0.2.1</sparkle:version>
     <sparkle:criticalUpdate>true</sparkle:criticalUpdate>  <!-- Add this -->
     <!-- ... rest of item ... -->
 </item>
@@ -689,139 +623,16 @@ Users will be **required** to update before continuing.
 
 ---
 
-### Beta Releases
-
-#### Separate Beta Channel
-
-**1. Create beta appcast:**
-```bash
-cat > /tmp/appcast-beta.xml << 'EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
-    <channel>
-        <title>Picflow Beta Updates</title>
-        <link>https://updates.picflow.com/appcast-beta.xml</link>
-        <description>Picflow beta channel</description>
-    </channel>
-</rss>
-EOF
-
-rclone copy /tmp/appcast-beta.xml r2:picflow-updates/
-```
-
-**2. Beta builds use different feed:**
-```swift
-#if DEBUG
-let feedURL = "https://updates.picflow.com/appcast-beta.xml"
-#else
-let feedURL = "https://updates.picflow.com/appcast.xml"
-#endif
-```
-
-**3. Modify release script for beta:**
-```bash
-# In scripts/release.sh, add beta flag:
-APPCAST_FILE="appcast-beta.xml"
-DMG_NAME="${APP_NAME}-${VERSION}-beta.dmg"
-```
-
----
-
 ### Delta Updates
 
-Sparkle 2 supports delta updates (only download changed files):
+Sparkle 2 supports delta updates (only download changed files) for bandwidth savings. This requires additional setup with `generate_appcast` tool from Sparkle.
 
 **Benefits:**
 - 50-90% bandwidth savings
 - Faster updates
 - Better user experience
 
-**How it works:**
-- Sparkle generates binary diffs automatically
-- Users download only changed files
-- Falls back to full DMG if diff fails
-
-**Enable in appcast.xml:**
-```xml
-<enclosure 
-    url="https://updates.picflow.com/Picflow-1.2.0.dmg"
-    sparkle:edSignature="..."
-    length="45678901"
-    type="application/octet-stream"
-/>
-<sparkle:deltas>
-    <enclosure 
-        url="https://updates.picflow.com/Picflow-1.1.0-to-1.2.0.delta"
-        sparkle:edSignature="..."
-        sparkle:deltaFrom="1.1.0"
-        length="5123456"
-    />
-</sparkle:deltas>
-```
-
----
-
-### Monitoring & Analytics
-
-#### Track Update Events
-
-Add to your `SparkleUpdateManager`:
-
-```swift
-extension SparkleUpdateManager: SPUUpdaterDelegate {
-    func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
-        AnalyticsManager.shared.captureMessage(
-            "Update available",
-            context: ["version": item.versionString]
-        )
-    }
-    
-    func updaterDidNotFindUpdate(_ updater: SPUUpdater) {
-        AnalyticsManager.shared.captureMessage("No update available")
-    }
-    
-    func updater(_ updater: SPUUpdater, willInstallUpdate item: SUAppcastItem) {
-        AnalyticsManager.shared.captureMessage(
-            "Installing update",
-            context: ["version": item.versionString]
-        )
-    }
-}
-```
-
-#### Monitor R2 Usage
-
-```bash
-# List all files
-rclone ls r2:picflow-updates
-
-# Check bucket size
-rclone size r2:picflow-updates
-
-# Check Cloudflare dashboard for:
-# - Bandwidth usage
-# - Number of requests
-# - Storage used
-```
-
----
-
-### Costs & Limits
-
-**Cloudflare R2 Free Tier:**
-- 10 GB storage (free)
-- 10 GB egress per month (free)
-- 10 million operations per month (free)
-
-**For Picflow (~50 MB DMG):**
-- Storage: ~500 MB (10 versions) = **$0**
-- Bandwidth: 10 GB = ~200 downloads/month = **$0**
-- Beyond free tier: $0.015/GB egress
-
-**Estimated monthly cost:** 
-- 0-200 downloads: **$0/month**
-- 500 downloads: **~$1/month**
-- 1,000 downloads: **~$2/month**
+See [Sparkle documentation](https://sparkle-project.org/documentation/delta-updates/) for details.
 
 ---
 
@@ -831,22 +642,20 @@ rclone size r2:picflow-updates
 
 ```bash
 # Release new version
-./scripts/release.sh 1.2.0
+./scripts/release.sh 0.2.0
 
-# Test R2 connection
-rclone lsd r2:picflow-updates
+# Check GitHub Actions status
+gh run list --limit 5
 
-# Download current appcast
-rclone copy r2:picflow-updates/appcast.xml ./
+# Watch latest workflow run
+gh run watch
 
-# Upload appcast
-rclone copy appcast.xml r2:picflow-updates/
+# View workflow logs
+gh run view --log
 
-# List all files on R2
-rclone ls r2:picflow-updates
-
-# Check bucket size
-rclone size r2:picflow-updates
+# Test URLs
+curl -I https://picflow.com/download/macos/appcast.xml
+curl -I https://picflow.com/download/macos/Picflow.dmg
 
 # Check notarization status
 xcrun notarytool history --keychain-profile notarytool
@@ -863,39 +672,46 @@ security find-identity -v -p codesigning
 - **Sparkle private key:** `~/.sparkle/private_key`
 - **Build output:** `build/`
 - **Release script:** `scripts/release.sh`
-- **R2 bucket:** `picflow-updates`
-- **Public URL:** `https://updates.picflow.com/`
+- **GitHub Action:** `.github/workflows/sync-release-to-s3.yml`
 - **Info.plist:** `Picflow/Info.plist`
+- **S3 bucket:** `s3://picflow-webapp-prod/download/macos/`
+- **Public URLs:** `https://picflow.com/download/macos/`
 
 ---
 
 ## Resources
 
 ### Documentation
-- **Sparkle:** https://sparkle-project.org/documentation/
+- **Sparkle 2:** https://sparkle-project.org/documentation/
 - **Sparkle GitHub:** https://github.com/sparkle-project/Sparkle
 - **Apple Notarization:** https://developer.apple.com/documentation/security/notarizing_macos_software_before_distribution
-- **Cloudflare R2:** https://developers.cloudflare.com/r2/
+- **GitHub Actions:** https://docs.github.com/en/actions
 
 ### Tools
 - **create-dmg:** https://github.com/create-dmg/create-dmg
-- **rclone:** https://rclone.org/
-- **Sparkle CLI:** `brew install sparkle`
+- **gh CLI:** https://cli.github.com/
+- **Python cryptography:** https://cryptography.io/
 
 ---
 
 ## Summary
 
-**Setup:** ~45 minutes (one-time)  
-**Release:** ~5-10 minutes (per version)  
-**Cost:** $0-2/month (depending on downloads)  
-**Automation:** 95% (one command releases)  
+**Setup:** ~30 minutes (one-time)  
+**Release:** ~7-12 minutes (per version)  
+**Automation:** 95% (one command + GitHub Action)  
+**Distribution:** GitHub Releases → S3 → CloudFront → Users
+
+**Workflow:**
+1. Developer runs: `./scripts/release.sh X.Y.Z`
+2. Script builds, signs, notarizes, uploads to GitHub
+3. GitHub Action syncs to S3 automatically
+4. Users get update notification via Sparkle 2
+5. One-click install for users
 
 **Next Steps:**
 1. ✅ Complete one-time setup
 2. ✅ Test first release
-3. ✅ Set up monitoring
+3. ✅ Verify GitHub Action syncs to S3
 4. 🚀 Ship updates to users!
 
 Happy releasing! 🎉
-

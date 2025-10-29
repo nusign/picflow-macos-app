@@ -296,14 +296,63 @@ Comprehensive error reporting is integrated throughout the app:
 
 See [SENTRY_SETUP_GUIDE.md](SENTRY_SETUP_GUIDE.md) for complete setup instructions (if available).
 
+## Distribution & Updates
+
+**Distribution Method:** Direct distribution via GitHub Releases and S3  
+**Automatic Updates:** Sparkle 2 framework with EdDSA signatures  
+**Update URL:** https://picflow.com/download/macos/
+
+### How Updates Work
+
+Picflow uses **Sparkle 2** (industry standard) for secure automatic updates:
+- ✅ **Automatic checks** - App checks daily for new versions
+- ✅ **Secure updates** - EdDSA signatures + Apple notarization + code signing
+- ✅ **User control** - Toggle auto-updates in Settings
+- ✅ **Dual URL strategy** - Versioned URLs for Sparkle, static URL for marketing
+- ✅ **One-click releases** - Fully automated via `./scripts/release.sh X.Y.Z`
+
+**For detailed setup and release process, see:**
+- 📖 [**SPARKLE_SETUP.md**](SPARKLE_SETUP.md) - Sparkle 2 configuration and dual URL strategy
+- 📖 [**RELEASES.md**](RELEASES.md) - Complete release automation guide
+- 📂 [**scripts/README.md**](scripts/README.md) - Release script documentation
+
+### Release Process (One Command)
+
+```bash
+# Update version in Xcode, then:
+./scripts/release.sh 0.2.0
+
+# Automatically:
+# 1. Builds and archives app
+# 2. Creates and notarizes DMGs (versioned + latest)
+# 3. Signs with Sparkle 2 EdDSA
+# 4. Uploads to GitHub Releases
+# 5. GitHub Action syncs to S3
+# 6. Updates appcast.xml for Sparkle
+```
+
+**Users get notified and can install updates with one click.**
+
 ## TBD
 
-- Distribution: Mac App Store vs direct distribution with [Sparkle](https://sparkle-project.org) (Apple approval concerns - sandboxing required for App Store)
+- ~~Distribution: Mac App Store vs direct distribution~~ ✅ Direct distribution with Sparkle 2 implemented
 - ~~Authentication: Clerk OAuth with consent page vs JWT token-based flow~~ ✅ OAuth implemented
+- ~~Automatic updates~~ ✅ Sparkle 2 with EdDSA signatures implemented
 - Feedback sync: Sync favorites and color labels back to photography software (Lightroom, Capture One, Photo Mechanic)
-- Multipart uploads: For large files (>20MB), investigate backend multipart upload support
+- ~~Multipart uploads: For large files (>20MB)~~ ✅ Implemented with configurable chunk sizes
 
 ## Recent Major Updates
+
+### Release Automation & Updates (October 2025)
+- ✅ Sparkle 2 automatic updates with EdDSA signatures
+- ✅ Dual URL strategy (versioned for Sparkle, static for marketing)
+- ✅ Automated release script (`release.sh`) with one-command releases
+- ✅ GitHub Actions workflow for syncing releases to S3
+- ✅ Apple notarization and code signing integrated
+- ✅ Hardened Runtime enabled for security
+- ✅ Public URLs: https://picflow.com/download/macos/
+- ✅ Update feed: https://picflow.com/download/macos/appcast.xml
+- ✅ Release time: ~7-12 minutes (build, sign, notarize, upload)
 
 ### Settings System (October 2025)
 - ✅ Comprehensive settings UI (600x500px window) with organized sections
