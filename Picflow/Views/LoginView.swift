@@ -9,9 +9,10 @@ import SwiftUI
 
 struct LoginView: View {
     @ObservedObject var authenticator: Authenticator
+    @StateObject private var environmentManager = EnvironmentManager.shared
     
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 8) {
             Image("Picflow-Logo")
                 .resizable()
                 .aspectRatio(contentMode: .fit)
@@ -27,17 +28,37 @@ struct LoginView: View {
                     .font(.body)
                     .multilineTextAlignment(.center)
             }
+            .padding(.bottom, 8)
 
-            // OAuth Login Button
+            // OAuth Login Button (Production)
             Button {
+                // Ensure we're using production environment
+                environmentManager.current = .production
                 authenticator.startLogin()
             } label: {
                 Text("Continue")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .padding(.top, 8)
+            .controlSize(.large)            
+            // Development Login Button (Only in DEBUG builds)
+            #if DEBUG
+            VStack(spacing: 0) {                
+                Button {
+                    // Switch to development environment and login
+                    environmentManager.current = .development
+                    authenticator.startLogin()
+                } label: {
+                    HStack {
+                        Text("Log in to Dev")
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .tint(.orange)
+            }
+            #endif
         }
         .frame(maxWidth: 220)
         .padding()
