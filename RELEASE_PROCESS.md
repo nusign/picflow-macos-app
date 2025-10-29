@@ -12,7 +12,21 @@ pip3 install cryptography
 
 ## Release Steps
 
-### 1. Update Version in Xcode Project
+### 1. Update Version Numbers
+
+**IMPORTANT:** You must update **BOTH** the Xcode project AND the Info.plist file.
+
+#### a) Update Info.plist
+
+Edit `Picflow/Info.plist`:
+```xml
+<key>CFBundleShortVersionString</key>
+<string>0.1.8</string>  <!-- Update this -->
+<key>CFBundleVersion</key>
+<string>8</string>  <!-- Increment this -->
+```
+
+#### b) Update Xcode Project
 
 Edit `Picflow macOS.xcodeproj/project.pbxproj`:
 
@@ -29,9 +43,12 @@ CURRENT_PROJECT_VERSION = 8;  <!-- Increment this (matches last digit of version
 **Quick way using search and replace:**
 ```bash
 # For version 0.1.8, build 8:
-# In the project file, replace:
-MARKETING_VERSION = 0.1;   →   MARKETING_VERSION = 0.1.8;
-CURRENT_PROJECT_VERSION = 1;   →   CURRENT_PROJECT_VERSION = 8;
+# In Info.plist:
+<string>0.1.7</string>   →   <string>0.1.8</string>
+
+# In the project file:
+MARKETING_VERSION = 0.1.7;   →   MARKETING_VERSION = 0.1.8;
+CURRENT_PROJECT_VERSION = 7;   →   CURRENT_PROJECT_VERSION = 8;
 ```
 
 ### 2. Commit Changes
