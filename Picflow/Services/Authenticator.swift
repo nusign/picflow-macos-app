@@ -66,6 +66,111 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
         EnvironmentManager.shared.current.redirectURI
     }
     
+    // MARK: - Session Restoration
+    
+    func restoreSession() async {
+        print("🔄 Attempting to restore session from Keychain...")
+        
+        // Try to load stored tokens
+        let (accessToken, _) = keychain.load()
+        
+        guard let accessToken = accessToken else {
+            print("ℹ️ No stored tokens found")
+            return
+        }
+        
+        print("✅ Found stored token, validating...")
+        
+        // Set the token for API requests
+        Endpoint.token = accessToken
+        self.token = accessToken
+        
+        do {
+            // Use shared method to complete authentication
+            try await completeAuthentication(
+                token: accessToken,
+                method: "session_restore"
+            )
+            
+            // Try to restore selected tenant from UserDefaults
+            if let savedTenantId = UserDefaults.standard.string(forKey: "selectedTenantId") {
+                print("🔄 Restoring selected tenant: \(savedTenantId)")
+                Endpoint.currentTenantId = savedTenantId
+                
+                // Find and select the saved tenant from already-fetched list
+                if let savedTenant = availableTenants.first(where: { $0.id == savedTenantId }) {
+                    await MainActor.run {
+                        self.tenant = savedTenant
+                        print("✅ Tenant restored: \(savedTenant.name)")
+                        
+                        // Update analytics with tenant
+                        if let profile = state.authorizedProfile {
+                            AnalyticsManager.shared.identifyUser(profile: profile, tenant: savedTenant)
+                        }
+                    }
+                } else {
+                    print("⚠️ Saved tenant not found in available tenants")
+                }
+            }
+            
+        } catch {
+            print("❌ Failed to restore session, token may be expired:", error)
+            
+            // Clear invalid tokens
+            await MainActor.run {
+                keychain.clear()
+                Endpoint.token = nil
+                self.token = nil
+                state = .unauthorized
+                isAuthenticated = false
+            }
+            
+            // Add breadcrumb
+            ErrorReportingManager.shared.addBreadcrumb(
+                "Session restoration failed",
+                category: "auth",
+                level: .warning,
+                data: ["error": error.localizedDescription]
+            )
+        }
+    }
+    
+    // MARK: - Shared Authentication Completion
+    
+    /// Completes authentication by fetching profile and setting up state
+    /// Used by both OAuth login and session restoration
+    private func completeAuthentication(token: String, method: String) async throws {
+        // Fetch profile to validate token
+        let response: GetProfileResponse = try await Endpoint(
+            path: "/v1/profile",
+            httpMethod: .get
+        ).response()
+        
+        // Set authenticated state
+        await MainActor.run {
+            state = .authorized(token: token, profile: response.user)
+            isAuthenticated = true
+            print("✅ Authentication complete for: \(response.user.email)")
+            
+            // Add breadcrumb
+            ErrorReportingManager.shared.addBreadcrumb(
+                "Authentication completed",
+                category: "auth",
+                level: .info,
+                data: [
+                    "user_email": response.user.email,
+                    "method": method
+                ]
+            )
+            
+            // Identify user in analytics
+            AnalyticsManager.shared.identifyUser(profile: response.user, tenant: nil)
+        }
+        
+        // Fetch available tenants
+        try await fetchAvailableTenants()
+    }
+    
     func startLogin() {
         state = .authenticating
         
@@ -216,39 +321,26 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
         }
         do {
             let jwtToken = try await exchangeCodeForToken(code: code, verifier: verifier)
+            
+            // Save token to Keychain for persistence
             keychain.save(accessToken: jwtToken, refreshToken: nil)
+            
+            // Set token for API requests
             Endpoint.token = jwtToken
             self.token = jwtToken
             
-            // Don't set tenant yet - user will select it from workspace switcher
-            print("✅ JWT token obtained, waiting for workspace selection...")
+            print("✅ JWT token obtained")
             
-            print("🔄 Fetching user profile with JWT...")
-            let profile: GetProfileResponse = try await Endpoint(
-                path: "/v1/profile",
-                httpMethod: .get
-            ).response()
-            state = .authorized(token: jwtToken, profile: profile.user)
-            isAuthenticated = true
+            // Use shared method to complete authentication
+            try await completeAuthentication(token: jwtToken, method: "oauth")
+            
+            // Track login event (only for OAuth, not for session restore)
+            await MainActor.run {
+                AnalyticsManager.shared.trackLogin(method: "oauth")
+                AnalyticsManager.shared.flush()
+            }
+            
             print("✅ OAuth login complete!")
-            
-            // Track login event
-            AnalyticsManager.shared.trackLogin(method: "oauth")
-            AnalyticsManager.shared.identifyUser(profile: profile.user, tenant: nil)
-            
-            // Add breadcrumb
-            ErrorReportingManager.shared.addBreadcrumb(
-                "OAuth login successful",
-                category: "auth",
-                level: .info,
-                data: ["user_email": profile.user.email]
-            )
-            
-            // Force flush for immediate testing
-            AnalyticsManager.shared.flush()
-            
-            // Fetch available tenants (user will select from list)
-            try await fetchAvailableTenants()
         } catch {
             print("❌ Token exchange failed:", error)
             

@@ -62,8 +62,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             setupSettingsManager()
         }
         
-        // Tenant loading is now handled by WorkspaceSelectionView
-        // after user logs in via OAuth or selects a workspace
+        // Attempt to restore session from Keychain
+        Task { @MainActor in
+            await authenticator.restoreSession()
+        }
     }
     
     // MARK: - Sentry Setup

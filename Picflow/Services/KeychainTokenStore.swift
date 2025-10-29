@@ -25,6 +25,12 @@ final class KeychainTokenStore {
         }
     }
     
+    func load() -> (accessToken: String?, refreshToken: String?) {
+        let accessToken = loadGeneric(account: accountAccess)
+        let refreshToken = loadGeneric(account: accountRefresh)
+        return (accessToken, refreshToken)
+    }
+    
     func clear() {
         deleteGeneric(account: accountAccess)
         deleteGeneric(account: accountRefresh)
