@@ -1,6 +1,40 @@
 import SwiftUI
 import AppKit
 import Sparkle
+import OSLog
+
+// MARK: - Logger
+
+private let logger = Logger(subsystem: "com.picflow.macos", category: "Sparkle")
+
+// MARK: - Sparkle Updater Delegate
+
+private class SparkleUpdaterDelegate: NSObject, SPUUpdaterDelegate {
+    func updater(_ updater: SPUUpdater, didFinishLoading appcast: SUAppcast) {
+        logger.info("✅ Sparkle: Appcast loaded successfully")
+        logger.info("Sparkle: Found \(appcast.items.count) items in appcast")
+        for item in appcast.items {
+            logger.info("Sparkle: Version \(item.displayVersionString)")
+        }
+    }
+    
+    func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
+        logger.info("✅ Sparkle: Found valid update: \(item.displayVersionString)")
+    }
+    
+    func updaterDidNotFindUpdate(_ updater: SPUUpdater) {
+        logger.info("Sparkle: No updates found (app is up to date)")
+    }
+    
+    func updater(_ updater: SPUUpdater, didAbortWithError error: Error) {
+        logger.error("❌ Sparkle: Update aborted with error: \(error.localizedDescription)")
+        logger.error("Sparkle: Error details: \(String(describing: error))")
+    }
+    
+    func updater(_ updater: SPUUpdater, failedToDownloadUpdate item: SUAppcastItem, error: Error) {
+        logger.error("❌ Sparkle: Failed to download update: \(error.localizedDescription)")
+    }
+}
 
 // MARK: - Sparkle Check for Updates View
 
@@ -29,10 +63,31 @@ private final class CheckForUpdatesViewModel: ObservableObject {
         
         updater.publisher(for: \.canCheckForUpdates)
             .assign(to: &$canCheckForUpdates)
+        
+        // Log initial state
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            logger.info("CheckForUpdatesViewModel: canCheckForUpdates = \(self.canCheckForUpdates)")
+            if !self.canCheckForUpdates {
+                logger.warning("⚠️ Sparkle: Cannot check for updates - button is disabled")
+                logger.info("This usually means:")
+                logger.info("  - App is not properly code-signed")
+                logger.info("  - Running from Xcode (development mode)")
+                logger.info("  - Sparkle framework is not properly embedded")
+                logger.info("  - Info.plist is missing required keys")
+            }
+        }
     }
     
     func checkForUpdates() {
-        updater.checkForUpdates()
+        logger.info("User triggered manual update check")
+        logger.info("canCheckForUpdates: \(self.canCheckForUpdates)")
+        
+        if self.canCheckForUpdates {
+            logger.info("Calling updater.checkForUpdates()...")
+            updater.checkForUpdates()
+        } else {
+            logger.error("❌ Cannot check for updates - Sparkle is not ready")
+        }
     }
 }
 
@@ -64,16 +119,61 @@ private extension View {
 struct PicflowApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
-    // Sparkle updater controller
+    // Sparkle updater controller and delegate
     private let updaterController: SPUStandardUpdaterController
+    private let updaterDelegate = SparkleUpdaterDelegate()
     
     init() {
-        // Initialize Sparkle updater
+        logger.info("🚀 Initializing Picflow App")
+        
+        // Log bundle information for debugging
+        if let bundleID = Bundle.main.bundleIdentifier {
+            logger.info("Bundle ID: \(bundleID)")
+        }
+        if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
+            logger.info("App Version: \(version)")
+        }
+        if let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String {
+            logger.info("Build Number: \(build)")
+        }
+        
+        // Log Sparkle configuration
+        if let feedURL = Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") as? String {
+            logger.info("Sparkle Feed URL: \(feedURL)")
+        } else {
+            logger.error("❌ Sparkle: SUFeedURL not found in Info.plist!")
+        }
+        
+        if let publicKey = Bundle.main.object(forInfoDictionaryKey: "SUPublicEDKey") as? String {
+            logger.info("Sparkle Public Key: \(publicKey.prefix(20))...")
+        } else {
+            logger.error("❌ Sparkle: SUPublicEDKey not found in Info.plist!")
+        }
+        
+        // Initialize Sparkle updater with delegate
+        logger.info("Initializing Sparkle updater...")
         updaterController = SPUStandardUpdaterController(
             startingUpdater: true,
-            updaterDelegate: nil,
+            updaterDelegate: updaterDelegate,
             userDriverDelegate: nil
         )
+        
+        // Log updater state
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            logger.info("Sparkle updater can check for updates: \(updaterController.updater.canCheckForUpdates)")
+            logger.info("Sparkle updater automatically checks for updates: \(updaterController.updater.automaticallyChecksForUpdates)")
+            logger.info("Sparkle updater automatically downloads updates: \(updaterController.updater.automaticallyDownloadsUpdates)")
+            
+            // Check if running in development mode
+            #if DEBUG
+            logger.warning("⚠️ Running in DEBUG mode - Sparkle may not work properly")
+            #endif
+            
+            // Check code signing
+            if let executableURL = Bundle.main.executableURL {
+                logger.info("Executable path: \(executableURL.path)")
+            }
+        }
         
         // Initialize analytics for user tracking and events
         Task { @MainActor in
