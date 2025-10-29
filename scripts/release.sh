@@ -29,7 +29,6 @@ APP_NAME="Picflow"
 BUNDLE_ID="com.picflow.macos"
 DEVELOPER_ID="Developer ID Application: Nusign AG (9Q9676B973)"
 NOTARIZATION_PROFILE="notarytool"  # Keychain profile name
-SPARKLE_KEY_PATH="$HOME/.sparkle/private_key"
 GITHUB_REPO="nusign/picflow-macos"  # Github repository for the app
 APPCAST_URL="https://picflow.com/download/macos/appcast.xml"  # Final S3 URL where appcast will live
 
@@ -75,10 +74,10 @@ check_requirements() {
         exit 1
     fi
     
-    # Check for Sparkle private key
-    if [ ! -f "$SPARKLE_KEY_PATH" ]; then
-        print_error "Sparkle private key not found at $SPARKLE_KEY_PATH"
-        echo "Generate keys with: generate_keys"
+    # Check for Sparkle private key in Keychain
+    if ! security find-generic-password -a ed25519 -s "https://sparkle-project.org" >/dev/null 2>&1; then
+        print_error "Sparkle private key not found in Keychain"
+        echo "Generate keys with: /opt/homebrew/Caskroom/sparkle/2.8.0/bin/generate_keys"
         exit 1
     fi
     
@@ -226,19 +225,34 @@ sign_with_sparkle() {
     # Note: Only the versioned DMG needs Sparkle signature for auto-updates
     # The "latest" DMG is identical but used for marketing (no signature verification)
     
+    # Read private key from macOS Keychain (where Sparkle's generate_keys stores it)
+    PRIVATE_KEY_B64=$(security find-generic-password -a ed25519 -s "https://sparkle-project.org" -w 2>/dev/null)
+    
+    if [ -z "$PRIVATE_KEY_B64" ]; then
+        echo "❌ ERROR: Private key not found in Keychain"
+        echo "   Run: /opt/homebrew/Caskroom/sparkle/2.8.0/bin/generate_keys"
+        echo "   Or manually add it with: security add-generic-password -a ed25519 -s \"https://sparkle-project.org\" -w \"<base64-encoded-key>\""
+        exit 1
+    fi
+    
     # Use Python with cryptography library for reliable EdDSA signing
+    export PRIVATE_KEY_B64
     python3 << PYTHON_EOF
 import base64
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
+import os
 
-# Read the private key
-with open('${SPARKLE_KEY_PATH}', 'rb') as f:
-    private_key = serialization.load_pem_private_key(
-        f.read(),
-        password=None,
-        backend=default_backend()
-    )
+# Get private key from environment (passed from shell)
+private_key_b64 = os.environ.get('PRIVATE_KEY_B64')
+private_key_der = base64.b64decode(private_key_b64)
+
+# Load the private key (it's stored as raw 32-byte Ed25519 key in Keychain)
+# We need to reconstruct it into a proper format
+from cryptography.hazmat.primitives.asymmetric import ed25519
+
+# Create Ed25519 private key from the raw bytes
+private_key = ed25519.Ed25519PrivateKey.from_private_bytes(private_key_der)
 
 # Read the DMG file
 with open('build/${DMG_NAME_VERSIONED}', 'rb') as f:

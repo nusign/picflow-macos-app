@@ -297,6 +297,7 @@
 				DEVELOPMENT_ASSET_PATHS = "\"Picflow/Preview Content\"";
 				DEVELOPMENT_TEAM = 9Q9676B973;
 				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = Picflow/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Picflow;
@@ -306,15 +307,14 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-			ENABLE_HARDENED_RUNTIME = YES;
-			MACOSX_DEPLOYMENT_TARGET = 14.0;
-			MARKETING_VERSION = 0.1;
-			PRODUCT_BUNDLE_IDENTIFIER = com.picflow.macos;
-			PRODUCT_NAME = "$(TARGET_NAME)";
-			SWIFT_EMIT_LOC_STRINGS = YES;
-			SWIFT_VERSION = 5.0;
-		};
-		name = Debug;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.picflow.macos;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
 		};
 		195B9DD22D3FB40800BEBCBD /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -332,6 +332,7 @@
 				DEVELOPMENT_ASSET_PATHS = "\"Picflow/Preview Content\"";
 				DEVELOPMENT_TEAM = 9Q9676B973;
 				ENABLE_APP_SANDBOX = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = Picflow/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Picflow;
@@ -341,15 +342,14 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-			ENABLE_HARDENED_RUNTIME = YES;
-			MACOSX_DEPLOYMENT_TARGET = 14.0;
-			MARKETING_VERSION = 0.1;
-			PRODUCT_BUNDLE_IDENTIFIER = com.picflow.macos;
-			PRODUCT_NAME = "$(TARGET_NAME)";
-			SWIFT_EMIT_LOC_STRINGS = YES;
-			SWIFT_VERSION = 5.0;
-		};
-		name = Release;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.picflow.macos;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
