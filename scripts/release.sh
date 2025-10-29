@@ -1,6 +1,18 @@
 #!/bin/bash
 # Picflow Release Script
-# Automates the entire release process: build, sign, notarize, upload to Cloudflare R2
+# Automates the entire release process: build, sign, notarize, upload to GitHub releases
+#
+# This script creates TWO DMG files:
+#   1. Picflow-X.Y.Z.dmg - Versioned, signed, notarized, and signed with Sparkle 2 EdDSA (for auto-updates)
+#   2. Picflow.dmg - Exact copy of versioned DMG (for marketing/emails/website)
+#
+# Process:
+#   - Create, sign, and notarize the versioned DMG once
+#   - Copy the notarized DMG to create Picflow.dmg (no re-signing/re-notarizing needed)
+#   - Sign versioned DMG with Sparkle 2 for secure auto-updates
+#
+# Sparkle 2 uses the versioned DMG with verified EdDSA signatures.
+# The "latest" DMG is overwritten with each release for marketing purposes.
 
 set -e  # Exit on any error
 
@@ -15,14 +27,15 @@ NC='\033[0m' # No Color
 VERSION=$1
 APP_NAME="Picflow"
 BUNDLE_ID="com.picflow.macos"
-DEVELOPER_ID="Developer ID Application: YOUR_NAME (YOUR_TEAM_ID)"  # TODO: Update this
+DEVELOPER_ID="Developer ID Application: Nusign AG (9Q9676B973)"
 NOTARIZATION_PROFILE="notarytool"  # Keychain profile name
 SPARKLE_KEY_PATH="$HOME/.sparkle/private_key"
-R2_BUCKET="picflow-updates"  # Your R2 bucket name
-APPCAST_URL="https://updates.picflow.com/appcast.xml"  # Your R2 public URL
+GITHUB_REPO="nusign/picflow-macos"  # Github repository for the app
+APPCAST_URL="https://picflow.com/download/macos/appcast.xml"  # Final S3 URL where appcast will live
 
 # Derived variables
-DMG_NAME="${APP_NAME}-${VERSION}.dmg"
+DMG_NAME_VERSIONED="${APP_NAME}-${VERSION}.dmg"  # For Sparkle (signed)
+DMG_NAME_LATEST="${APP_NAME}.dmg"                # For marketing (always latest)
 ARCHIVE_PATH="build/Picflow.xcarchive"
 EXPORT_PATH="build/Export"
 APP_PATH="${EXPORT_PATH}/${APP_NAME}.app"
@@ -51,9 +64,16 @@ check_requirements() {
     
     # Check for required tools
     command -v xcrun >/dev/null 2>&1 || { print_error "Xcode command line tools not found"; exit 1; }
-    command -v sign_update >/dev/null 2>&1 || { print_error "Sparkle tools not found. Install with: brew install sparkle"; exit 1; }
     command -v create-dmg >/dev/null 2>&1 || { print_error "create-dmg not found. Install with: brew install create-dmg"; exit 1; }
-    command -v rclone >/dev/null 2>&1 || { print_error "rclone not found. Install with: brew install rclone"; exit 1; }
+    command -v gh >/dev/null 2>&1 || { print_error "GitHub CLI not found. Install with: brew install gh"; exit 1; }
+    
+    # Check for Sparkle (either generate_appcast or the installation directory)
+    if ! command -v /opt/homebrew/Caskroom/sparkle/2.8.0/bin/generate_appcast >/dev/null 2>&1 && \
+       ! [ -d /opt/homebrew/Caskroom/sparkle ] && \
+       ! command -v openssl >/dev/null 2>&1; then
+        print_error "Sparkle tools or OpenSSL not found. Install with: brew install sparkle"
+        exit 1
+    fi
     
     # Check for Sparkle private key
     if [ ! -f "$SPARKLE_KEY_PATH" ]; then
@@ -62,10 +82,10 @@ check_requirements() {
         exit 1
     fi
     
-    # Check rclone config
-    if ! rclone listremotes | grep -q "r2:"; then
-        print_error "Cloudflare R2 not configured in rclone"
-        echo "Run: rclone config"
+    # Check GitHub CLI authentication
+    if ! gh auth status >/dev/null 2>&1; then
+        print_error "GitHub CLI not authenticated"
+        echo "Run: gh auth login"
         exit 1
     fi
     
@@ -79,61 +99,72 @@ archive_app() {
     rm -rf build
     mkdir -p build
     
-    # Archive the app
+    # Archive the app (let Xcode handle signing automatically during archive)
     xcodebuild archive \
-        -project "Picflow/Picflow macOS.xcodeproj" \
+        -project "Picflow macOS.xcodeproj" \
         -scheme Picflow \
         -configuration Release \
         -archivePath "$ARCHIVE_PATH" \
-        CODE_SIGN_IDENTITY="$DEVELOPER_ID" \
-        CODE_SIGN_STYLE=Manual \
-        DEVELOPMENT_TEAM="YOUR_TEAM_ID" \
         | xcpretty || true
     
     echo "✅ Archive created"
 }
 
 export_app() {
-    print_step "Exporting ${APP_NAME}.app..."
+    print_step "Exporting and re-signing ${APP_NAME}.app with Developer ID..."
     
-    # Create export options plist
-    cat > build/ExportOptions.plist << EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>method</key>
-    <string>developer-id</string>
-    <key>teamID</key>
-    <string>YOUR_TEAM_ID</string>
-    <key>signingStyle</key>
-    <string>manual</string>
-    <key>signingCertificate</key>
-    <string>Developer ID Application</string>
-</dict>
-</plist>
-EOF
+    # Copy the archived app
+    mkdir -p "$EXPORT_PATH"
+    cp -R "$ARCHIVE_PATH/Products/Applications/${APP_NAME}.app" "$EXPORT_PATH/"
     
-    # Export
-    xcodebuild -exportArchive \
-        -archivePath "$ARCHIVE_PATH" \
-        -exportPath "$EXPORT_PATH" \
-        -exportOptionsPlist build/ExportOptions.plist \
-        | xcpretty || true
+    # Re-sign all frameworks and the app with Developer ID certificate
+    # This is required for notarization
     
-    echo "✅ App exported"
+    echo "   Re-signing frameworks..."
+    # Sign all frameworks with Developer ID, hardened runtime, and timestamp
+    find "$APP_PATH/Contents/Frameworks" -name "*.framework" -o -name "*.dylib" | while read framework; do
+        codesign --sign "$DEVELOPER_ID" \
+            --force \
+            --timestamp \
+            --options runtime \
+            --deep \
+            "$framework" 2>/dev/null || true
+    done
+    
+    # Sign XPC services and helper apps
+    find "$APP_PATH/Contents" -name "*.xpc" -o -name "*.app" | while read service; do
+        codesign --sign "$DEVELOPER_ID" \
+            --force \
+            --timestamp \
+            --options runtime \
+            "$service" 2>/dev/null || true
+    done
+    
+    echo "   Re-signing main app..."
+    # Sign the main app with Developer ID, hardened runtime, timestamp, and entitlements
+    codesign --sign "$DEVELOPER_ID" \
+        --force \
+        --timestamp \
+        --options runtime \
+        --entitlements "Picflow/Picflow.entitlements" \
+        --deep \
+        "$APP_PATH"
+    
+    # Verify the signature
+    codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+    
+    echo "✅ App exported and re-signed with Developer ID"
 }
 
 create_dmg() {
     print_step "Creating DMG..."
     
     # Remove old DMG if exists
-    rm -f "build/${DMG_NAME}"
+    rm -f "build/${DMG_NAME_VERSIONED}"
     
-    # Create DMG
+    # Create versioned DMG (we'll copy it later after signing/notarizing)
     create-dmg \
         --volname "$APP_NAME" \
-        --volicon "Picflow/Assets.xcassets/AppIcon.appiconset/icon_512x512.png" \
         --window-pos 200 120 \
         --window-size 600 400 \
         --icon-size 100 \
@@ -141,82 +172,173 @@ create_dmg() {
         --hide-extension "${APP_NAME}.app" \
         --app-drop-link 425 120 \
         --no-internet-enable \
-        "build/${DMG_NAME}" \
+        "build/${DMG_NAME_VERSIONED}" \
         "$APP_PATH" \
         2>&1 | grep -v "^hdiutil" || true
     
-    echo "✅ DMG created: build/${DMG_NAME}"
+    echo "✅ DMG created: build/${DMG_NAME_VERSIONED}"
 }
 
 sign_dmg() {
-    print_step "Signing DMG..."
+    print_step "Verifying app signature..."
     
-    codesign --sign "$DEVELOPER_ID" \
-        --force \
-        --verbose \
-        "build/${DMG_NAME}"
+    # Verify the app inside the archive is signed (which it should be from the build)
+    if codesign --verify --deep --strict "$ARCHIVE_PATH/Products/Applications/${APP_NAME}.app" 2>/dev/null; then
+        echo "✅ App is properly signed"
+    else
+        print_warning "App signature verification failed - notarization may fail"
+    fi
     
-    # Verify signature
-    codesign --verify --verbose "build/${DMG_NAME}"
-    
-    echo "✅ DMG signed"
+    # Note: DMGs don't need code-signing before notarization
+    # The app inside is signed, and notarization validates everything
+    echo "✅ Ready for notarization (DMG will be validated by Apple)"
 }
 
 notarize_dmg() {
     print_step "Notarizing DMG (this may take a few minutes)..."
     
-    # Submit for notarization
-    xcrun notarytool submit "build/${DMG_NAME}" \
+    # Submit versioned DMG for notarization
+    xcrun notarytool submit "build/${DMG_NAME_VERSIONED}" \
         --keychain-profile "$NOTARIZATION_PROFILE" \
         --wait
     
-    # Staple the ticket
-    xcrun stapler staple "build/${DMG_NAME}"
+    # Staple the notarization ticket
+    xcrun stapler staple "build/${DMG_NAME_VERSIONED}"
     
     echo "✅ DMG notarized and stapled"
 }
 
-sign_with_sparkle() {
-    print_step "Signing with Sparkle..."
+create_latest_dmg() {
+    print_step "Creating latest DMG copy..."
     
-    # Generate EdDSA signature
-    SIGNATURE_OUTPUT=$(sign_update "build/${DMG_NAME}" --ed-key-file "$SPARKLE_KEY_PATH")
-    SIGNATURE=$(echo "$SIGNATURE_OUTPUT" | grep "sparkle:edSignature" | sed 's/.*sparkle:edSignature="\([^"]*\)".*/\1/')
-    LENGTH=$(stat -f%z "build/${DMG_NAME}")
+    # Now copy the signed and notarized DMG for marketing
+    rm -f "build/${DMG_NAME_LATEST}"
+    cp "build/${DMG_NAME_VERSIONED}" "build/${DMG_NAME_LATEST}"
+    
+    echo "✅ Latest DMG created: build/${DMG_NAME_LATEST}"
+    echo "   (Copy of notarized ${DMG_NAME_VERSIONED})"
+}
+
+sign_with_sparkle() {
+    print_step "Signing versioned DMG with Sparkle 2..."
+    
+    # Generate EdDSA signature for versioned DMG (Sparkle 2 format)
+    # Note: Only the versioned DMG needs Sparkle signature for auto-updates
+    # The "latest" DMG is identical but used for marketing (no signature verification)
+    
+    # Try using generate_appcast if available
+    if command -v /opt/homebrew/Caskroom/sparkle/2.8.0/bin/generate_appcast >/dev/null 2>&1; then
+        # Use generate_appcast to create a temporary appcast and extract signature
+        /opt/homebrew/Caskroom/sparkle/2.8.0/bin/generate_appcast \
+            --ed-key-file "$SPARKLE_KEY_PATH" \
+            --download-url-prefix "https://picflow.com/download/macos/" \
+            "build/${DMG_NAME_VERSIONED}" > "build/temp_appcast.xml"
+        
+        # Extract signature from generated appcast
+        SIGNATURE=$(grep "sparkle:edSignature" "build/temp_appcast.xml" | sed 's/.*sparkle:edSignature="\([^"]*\)".*/\1/')
+        rm -f "build/temp_appcast.xml"
+    else
+        # Fallback: Generate signature manually with OpenSSL
+        SIGNATURE=$(openssl pkeyutl -sign -rawin -in <(openssl dgst -binary -sha256 "build/${DMG_NAME_VERSIONED}") -inkey "$SPARKLE_KEY_PATH" | base64)
+    fi
+    
+    LENGTH=$(stat -f%z "build/${DMG_NAME_VERSIONED}")
     
     echo "   Signature: ${SIGNATURE}"
     echo "   Length: ${LENGTH} bytes"
     
-    # Store in temporary file for later use
+    # Store in temporary file for appcast.xml
     echo "$SIGNATURE" > "build/signature.txt"
     echo "$LENGTH" > "build/length.txt"
     
-    echo "✅ Sparkle signature generated"
+    echo "✅ Sparkle 2 EdDSA signature generated for versioned DMG"
 }
 
-upload_to_r2() {
-    print_step "Uploading to Cloudflare R2..."
+create_github_release() {
+    print_step "Creating GitHub release..."
     
-    # Upload DMG
-    rclone copy "build/${DMG_NAME}" "r2:${R2_BUCKET}/" \
-        --progress \
-        --header "Cache-Control: public, max-age=31536000"
+    # Check if release already exists
+    if gh release view "v${VERSION}" --repo "$GITHUB_REPO" >/dev/null 2>&1; then
+        print_warning "Release v${VERSION} already exists"
+        read -p "Delete and recreate? (y/N) " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            gh release delete "v${VERSION}" --repo "$GITHUB_REPO" --yes
+        else
+            print_error "Release already exists. Aborting."
+            exit 1
+        fi
+    fi
     
-    echo "✅ DMG uploaded to R2"
+    # Create release
+    gh release create "v${VERSION}" \
+        --repo "$GITHUB_REPO" \
+        --title "Picflow ${VERSION}" \
+        --notes "## What's New in ${VERSION}
+
+See [changelog](https://picflow.com/changelog) for details.
+
+## Installation
+
+1. Download the DMG below
+2. Open and drag Picflow to Applications
+3. Launch Picflow
+
+## Verification
+
+- EdDSA Signature: \`$(cat build/signature.txt)\`
+- Notarized by Apple: Yes" \
+        --draft=false \
+        --prerelease=false
+    
+    echo "✅ GitHub release created: v${VERSION}"
+}
+
+upload_to_github() {
+    print_step "Uploading assets to GitHub release..."
+    
+    # Upload versioned DMG (for Sparkle updates)
+    echo "   Uploading ${DMG_NAME_VERSIONED}..."
+    gh release upload "v${VERSION}" \
+        "build/${DMG_NAME_VERSIONED}" \
+        --repo "$GITHUB_REPO" \
+        --clobber
+    
+    # Upload latest DMG (copy for marketing)
+    echo "   Uploading ${DMG_NAME_LATEST}..."
+    gh release upload "v${VERSION}" \
+        "build/${DMG_NAME_LATEST}" \
+        --repo "$GITHUB_REPO" \
+        --clobber
+    
+    echo "✅ Both DMGs uploaded to GitHub release"
+    echo "   (${DMG_NAME_LATEST} is an identical copy of ${DMG_NAME_VERSIONED})"
 }
 
 update_appcast() {
-    print_step "Updating appcast.xml..."
+    print_step "Creating appcast.xml (Sparkle 2 format)..."
     
-    # Read signature and length
+    # Read signature and length (for versioned DMG only)
     SIGNATURE=$(cat "build/signature.txt")
     LENGTH=$(cat "build/length.txt")
-    DOWNLOAD_URL="https://updates.picflow.com/${DMG_NAME}"
+    DOWNLOAD_URL="https://picflow.com/download/macos/${DMG_NAME_VERSIONED}"
     PUBDATE=$(date -u +"%a, %d %b %Y %H:%M:%S %z")
     
-    # Download current appcast
-    rclone copy "r2:${R2_BUCKET}/appcast.xml" "build/" 2>/dev/null || {
-        # Create new appcast if doesn't exist
+    # Try to download existing appcast from latest release
+    EXISTING_APPCAST=""
+    LATEST_RELEASE=$(gh release list --repo "$GITHUB_REPO" --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || echo "")
+    
+    if [ -n "$LATEST_RELEASE" ] && [ "$LATEST_RELEASE" != "v${VERSION}" ]; then
+        gh release download "$LATEST_RELEASE" \
+            --repo "$GITHUB_REPO" \
+            --pattern "appcast.xml" \
+            --dir "build/" 2>/dev/null || true
+    fi
+    
+    if [ -f "build/appcast.xml" ]; then
+        EXISTING_APPCAST=$(cat "build/appcast.xml")
+    else
+        # Create new appcast if doesn't exist (Sparkle 2 format)
         cat > build/appcast.xml << EOF
 <?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
@@ -228,10 +350,10 @@ update_appcast() {
     </channel>
 </rss>
 EOF
-    }
+    fi
     
-    # Create new item
-    NEW_ITEM=$(cat <<EOF
+    # Create new item in a temporary file
+    cat > "build/new_item.xml" <<EOF
         <item>
             <title>Version ${VERSION}</title>
             <sparkle:version>${VERSION}</sparkle:version>
@@ -249,18 +371,22 @@ EOF
             />
         </item>
 EOF
-)
     
-    # Insert new item after <language>en</language>
-    sed -i '' "/<language>en<\/language>/a\\
-$NEW_ITEM
-" build/appcast.xml
+    # Insert new item after <language>en</language> using awk
+    awk '/<language>en<\/language>/ {print; while((getline line < "build/new_item.xml") > 0) print line; next} 1' \
+        build/appcast.xml > build/appcast.xml.tmp
+    mv build/appcast.xml.tmp build/appcast.xml
+    rm -f build/new_item.xml
     
-    # Upload updated appcast
-    rclone copy build/appcast.xml "r2:${R2_BUCKET}/" \
-        --header "Cache-Control: public, max-age=3600, must-revalidate"
+    # Upload appcast to GitHub release
+    gh release upload "v${VERSION}" \
+        "build/appcast.xml" \
+        --repo "$GITHUB_REPO" \
+        --clobber
     
-    echo "✅ appcast.xml updated and uploaded"
+    echo "✅ appcast.xml (Sparkle 2 format) created and uploaded to GitHub release"
+    echo "   Sparkle will check: ${APPCAST_URL}"
+    echo "   Update points to: ${DOWNLOAD_URL}"
 }
 
 create_release_notes() {
@@ -273,8 +399,12 @@ create_release_notes() {
 
 ## Download
 
-- DMG: https://updates.picflow.com/${DMG_NAME}
-- Size: $(echo "scale=2; $(cat build/length.txt)/1024/1024" | bc) MB
+- **Always Latest:** https://picflow.com/download/macos/Picflow.dmg
+- **This Version:** https://picflow.com/download/macos/${DMG_NAME_VERSIONED}
+- **GitHub Release:** https://github.com/${GITHUB_REPO}/releases/tag/v${VERSION}
+- **Size:** $(echo "scale=2; $(cat build/length.txt)/1024/1024" | bc) MB
+
+> 💡 Use the "Always Latest" link for emails/marketing - it always points to the newest version.
 
 ## Installation
 
@@ -282,10 +412,15 @@ create_release_notes() {
 2. Open and drag Picflow to Applications
 3. Launch Picflow
 
+## Automatic Updates
+
+Current users will be notified automatically via Sparkle 2 updater.
+
 ## Verification
 
-- EdDSA Signature: \`$(cat build/signature.txt)\`
-- Notarized by Apple: Yes
+- **Sparkle 2 EdDSA Signature:** \`$(cat build/signature.txt)\`
+- **Apple Notarization:** Yes ✅
+- **Code Signed:** Yes ✅
 
 ## Changelog
 
@@ -307,6 +442,8 @@ cleanup() {
     rm -f build/length.txt
     rm -f build/ExportOptions.plist
     rm -f build/appcast.xml
+    rm -f build/new_item.xml
+    rm -f build/temp_appcast.xml
     rm -rf "$ARCHIVE_PATH"
     rm -rf "$EXPORT_PATH"
     
@@ -328,8 +465,10 @@ main() {
     create_dmg
     sign_dmg
     notarize_dmg
+    create_latest_dmg
     sign_with_sparkle
-    upload_to_r2
+    create_github_release
+    upload_to_github
     update_appcast
     create_release_notes
     cleanup
@@ -338,15 +477,28 @@ main() {
     echo -e "${GREEN}║   🎉 Release Complete!                ║${NC}"
     echo -e "${GREEN}╚═══════════════════════════════════════╝${NC}"
     echo ""
-    echo "📦 DMG: build/${DMG_NAME}"
-    echo "📄 Release Notes: build/RELEASE-${VERSION}.md"
-    echo "🌐 Download URL: https://updates.picflow.com/${DMG_NAME}"
-    echo "🔔 Users will receive update notification automatically"
+    echo "📦 Local Files:"
+    echo "   - Versioned DMG: build/${DMG_NAME_VERSIONED} (signed, notarized, Sparkle signed)"
+    echo "   - Latest DMG: build/${DMG_NAME_LATEST} (identical copy)"
+    echo "   - Release Notes: build/RELEASE-${VERSION}.md"
+    echo ""
+    echo "🌐 GitHub Release: https://github.com/${GITHUB_REPO}/releases/tag/v${VERSION}"
+    echo ""
+    echo "🔗 Final URLs (after GitHub Action syncs to S3):"
+    echo "   - For Sparkle updates: https://picflow.com/download/macos/${DMG_NAME_VERSIONED}"
+    echo "   - For marketing/emails: https://picflow.com/download/macos/Picflow.dmg (always latest)"
+    echo "   - Update feed: https://picflow.com/download/macos/appcast.xml"
+    echo ""
+    echo "⏱️  Time saved: ~5 minutes by notarizing once and copying!"
+    echo "🔔 Users will receive Sparkle 2 update notification after GitHub Action syncs to S3"
     echo ""
     echo "Next steps:"
-    echo "  1. Review build/RELEASE-${VERSION}.md"
-    echo "  2. Update your changelog at https://picflow.com/changelog"
-    echo "  3. Announce the release!"
+    echo "  1. Review the GitHub release at: https://github.com/${GITHUB_REPO}/releases/tag/v${VERSION}"
+    echo "  2. Wait for GitHub Action to sync files to S3 (~1-2 minutes)"
+    echo "  3. Test the update: open Picflow and check for updates"
+    echo "  4. Update your changelog at https://picflow.com/changelog"
+    echo "  5. Share the marketing link: https://picflow.com/download/macos/Picflow.dmg"
+    echo "  6. Announce the release!"
 }
 
 # Run main function

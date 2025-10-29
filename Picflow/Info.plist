@@ -17,7 +17,7 @@
     <key>CFBundlePackageType</key>
     <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>0.1.0</string>
     <key>CFBundleVersion</key>
     <string>1</string>
     <key>CFBundleURLTypes</key>
@@ -35,5 +35,13 @@
     <string>r3Zcs7yzt0s7iLtA</string>
     <key>NSAppleEventsUsageDescription</key>
     <string>Picflow needs permission to read your Capture One selection to automatically upload exported images.</string>
+    <key>SUPublicEDKey</key>
+    <string>MCowBQYDK2VwAyEA3JVzaSLr5EsUYM1qUqz8rt/9xGzKRwCgHpLTc/CZ7Fs=</string>
+    <key>SUFeedURL</key>
+    <string>https://picflow.com/download/macos/appcast.xml</string>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
+    <key>SUScheduledCheckInterval</key>
+    <integer>86400</integer>
 </dict>
 </plist>

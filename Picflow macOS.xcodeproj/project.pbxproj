@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		19257C412EB0EFF300F715DB /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = 19257C402EB0EFF300F715DB /* Sentry */; };
+		195261DD2EB23421002733E7 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 195261DC2EB23421002733E7 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -41,6 +42,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				19257C412EB0EFF300F715DB /* Sentry in Frameworks */,
+				195261DD2EB23421002733E7 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -92,6 +94,7 @@
 			name = Picflow;
 			packageProductDependencies = (
 				19257C402EB0EFF300F715DB /* Sentry */,
+				195261DC2EB23421002733E7 /* Sparkle */,
 			);
 			productName = Picflow;
 			productReference = 195B9DAB2D3FB40600BEBCBD /* Picflow.app */;
@@ -123,6 +126,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				19257C3F2EB0EFF300F715DB /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
+				195261DB2EB23421002733E7 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 195B9DAC2D3FB40600BEBCBD /* Products */;
@@ -285,27 +289,32 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				AUTOMATION_APPLE_EVENTS = YES;
 				CODE_SIGN_ENTITLEMENTS = Picflow/Picflow.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"Picflow/Preview Content\"";
+				DEVELOPMENT_TEAM = 9Q9676B973;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = Picflow/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Picflow;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.picflow.macos;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
-			};
-			name = Debug;
+			ENABLE_HARDENED_RUNTIME = YES;
+			MACOSX_DEPLOYMENT_TARGET = 14.0;
+			MARKETING_VERSION = 0.1;
+			PRODUCT_BUNDLE_IDENTIFIER = com.picflow.macos;
+			PRODUCT_NAME = "$(TARGET_NAME)";
+			SWIFT_EMIT_LOC_STRINGS = YES;
+			SWIFT_VERSION = 5.0;
+		};
+		name = Debug;
 		};
 		195B9DD22D3FB40800BEBCBD /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -315,27 +324,32 @@
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				AUTOMATION_APPLE_EVENTS = YES;
 				CODE_SIGN_ENTITLEMENTS = Picflow/Picflow.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"Picflow/Preview Content\"";
+				DEVELOPMENT_TEAM = 9Q9676B973;
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = Picflow/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Picflow;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.picflow.macos;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
-			};
-			name = Release;
+			ENABLE_HARDENED_RUNTIME = YES;
+			MACOSX_DEPLOYMENT_TARGET = 14.0;
+			MARKETING_VERSION = 0.1;
+			PRODUCT_BUNDLE_IDENTIFIER = com.picflow.macos;
+			PRODUCT_NAME = "$(TARGET_NAME)";
+			SWIFT_EMIT_LOC_STRINGS = YES;
+			SWIFT_VERSION = 5.0;
+		};
+		name = Release;
 		};
 /* End XCBuildConfiguration section */
 
@@ -369,6 +383,14 @@
 				minimumVersion = 8.57.0;
 			};
 		};
+		195261DB2EB23421002733E7 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.8.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -376,6 +398,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 19257C3F2EB0EFF300F715DB /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
 			productName = Sentry;
+		};
+		195261DC2EB23421002733E7 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 195261DB2EB23421002733E7 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
