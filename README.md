@@ -312,7 +312,7 @@ Picflow uses **Sparkle 2** (industry standard) for secure automatic updates:
 - ✅ **One-click releases** - Fully automated via `./scripts/release.sh X.Y.Z`
 
 **For detailed setup and release process, see:**
-- 📖 [**RELEASE_GUIDE.md**](RELEASE_GUIDE.md) - Complete release and update guide (one-time setup + regular releases)
+- 📖 [**RELEASE_GUIDE.md**](RELEASE_GUIDE.md) - Complete release guide (setup, releases, updates, debugging, troubleshooting)
 - 📂 [**scripts/README.md**](scripts/README.md) - Release script documentation
 
 ### Release Process (One Command)
