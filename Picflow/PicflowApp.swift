@@ -158,11 +158,12 @@ struct PicflowApp: App {
             userDriverDelegate: nil
         )
         
-        // Log updater state
+        // Log updater state (capture controller locally to avoid capturing mutating self)
+        let controller = updaterController
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            logger.info("Sparkle updater can check for updates: \(updaterController.updater.canCheckForUpdates)")
-            logger.info("Sparkle updater automatically checks for updates: \(updaterController.updater.automaticallyChecksForUpdates)")
-            logger.info("Sparkle updater automatically downloads updates: \(updaterController.updater.automaticallyDownloadsUpdates)")
+            logger.info("Sparkle updater can check for updates: \(controller.updater.canCheckForUpdates)")
+            logger.info("Sparkle updater automatically checks for updates: \(controller.updater.automaticallyChecksForUpdates)")
+            logger.info("Sparkle updater automatically downloads updates: \(controller.updater.automaticallyDownloadsUpdates)")
             
             // Check if running in development mode
             #if DEBUG
