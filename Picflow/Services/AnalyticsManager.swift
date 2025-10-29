@@ -21,6 +21,20 @@ class AnalyticsManager: ObservableObject {
     
     private init() {}
     
+    // MARK: - User Agent
+    
+    /// Generate a custom user agent string for analytics requests
+    private var userAgent: String {
+        let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.0"
+        let buildNumber = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
+        
+        let osVersion = ProcessInfo.processInfo.operatingSystemVersion
+        let osVersionString = "\(osVersion.majorVersion).\(osVersion.minorVersion).\(osVersion.patchVersion)"
+        
+        // Format: Picflow/1.0.0 (build 123; macOS 14.0.0)
+        return "Picflow/\(appVersion) (build \(buildNumber); macOS \(osVersionString))"
+    }
+    
     // MARK: - Initialization
     
     /// Initialize analytics HTTP API
@@ -249,6 +263,7 @@ class AnalyticsManager: ObservableObject {
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
             request.timeoutInterval = 30
             
             // Add Basic Auth header
