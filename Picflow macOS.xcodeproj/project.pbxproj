@@ -292,7 +292,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 			COMBINE_HIDPI_IMAGES = YES;
-			CURRENT_PROJECT_VERSION = 9;
+			CURRENT_PROJECT_VERSION = 10;
 			DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"Picflow/Preview Content\"";
 				DEVELOPMENT_TEAM = 9Q9676B973;
@@ -308,7 +308,7 @@
 					"@executable_path/../Frameworks",
 				);
 			MACOSX_DEPLOYMENT_TARGET = 14.0;
-			MARKETING_VERSION = 0.1.9;
+			MARKETING_VERSION = 0.1.10;
 			PRODUCT_BUNDLE_IDENTIFIER = com.picflow.macos;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -327,7 +327,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 			COMBINE_HIDPI_IMAGES = YES;
-			CURRENT_PROJECT_VERSION = 9;
+			CURRENT_PROJECT_VERSION = 10;
 			DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"Picflow/Preview Content\"";
 				DEVELOPMENT_TEAM = 9Q9676B973;
@@ -343,7 +343,7 @@
 					"@executable_path/../Frameworks",
 				);
 			MACOSX_DEPLOYMENT_TARGET = 14.0;
-			MARKETING_VERSION = 0.1.9;
+			MARKETING_VERSION = 0.1.10;
 			PRODUCT_BUNDLE_IDENTIFIER = com.picflow.macos;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
