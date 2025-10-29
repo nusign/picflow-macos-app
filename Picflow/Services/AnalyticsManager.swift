@@ -218,7 +218,11 @@ class AnalyticsManager: ObservableObject {
             "properties": properties
         ]
         
-        print("📤 Sending track event: \(eventName) for user: \(userId)")
+        // Track event silently unless in DEBUG mode
+        #if DEBUG
+        // Uncomment for verbose analytics logging:
+        // print("📤 Sending track event: \(eventName) for user: \(userId)")
+        #endif
         sendRequest(to: endpoint, payload: payload, eventName: eventName)
     }
     
@@ -233,10 +237,13 @@ class AnalyticsManager: ObservableObject {
         do {
             jsonData = try JSONSerialization.data(withJSONObject: payload, options: .prettyPrinted)
             
+            // Only log in DEBUG mode
+            #if DEBUG
             if let jsonString = String(data: jsonData, encoding: .utf8) {
                 print("🌐 Sending \(eventName) to: \(endpoint)")
                 print("   Payload: \(jsonString)")
             }
+            #endif
         } catch {
             print("❌ Failed to serialize payload for \(eventName): \(error)")
             return
@@ -284,12 +291,12 @@ class AnalyticsManager: ObservableObject {
                 }
                 
                 if httpResponse.statusCode == 200 {
-                    let responseString = String(data: data, encoding: .utf8) ?? ""
-                    if attempt == 1 {
-                        print("✅ \(eventName) - HTTP 200 - \(responseString)")
-                    } else {
-                        print("✅ \(eventName) - HTTP 200 (succeeded on attempt \(attempt)) - \(responseString)")
+                    // Success - only log failures or retries
+                    #if DEBUG
+                    if attempt > 1 {
+                        print("✅ \(eventName) succeeded (attempt \(attempt))")
                     }
+                    #endif
                     return // Success!
                 } else if httpResponse.statusCode >= 500 {
                     // Server error - retry

@@ -67,10 +67,6 @@ class Endpoint {
     }
     
     func response<T: Decodable>() async throws -> T {
-        print("Making request to:", url)
-        print("Method:", httpMethod)
-        print("Token present:", Endpoint.token != nil)
-        
         var request = URLRequest(url: url)
         request.httpMethod = httpMethod.rawValue
         
@@ -81,12 +77,10 @@ class Endpoint {
         
         if let token = Endpoint.token {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            print("Authorization header set to: Bearer \(token.prefix(20))...")
         }
         
         if let tenantId = Endpoint.currentTenantId {
             request.setValue(tenantId, forHTTPHeaderField: "picflow-tenant")
-            print("Tenant ID header set to:", tenantId)
         }
         
         if let requestBody = requestBody {
@@ -94,25 +88,19 @@ class Endpoint {
             encoder.keyEncodingStrategy = .convertToSnakeCase
             let jsonData = try encoder.encode(requestBody)
             request.httpBody = jsonData
-            
-            // Debug: Print request body
-            if let jsonString = String(data: jsonData, encoding: .utf8) {
-                print("Request body:", jsonString)
-            }
         }
         
         let (data, response) = try await URLSession.shared.data(for: request)
         
         if let httpResponse = response as? HTTPURLResponse {
-            print("Response status code:", httpResponse.statusCode)
-            print("Response headers:", httpResponse.allHeaderFields)
-            
-            // Print response data as string to see what we're getting
-            if let responseString = String(data: data, encoding: .utf8) {
-                print("Response body:", responseString.prefix(2000))
-            }
-            
             guard 200...299 ~= httpResponse.statusCode else {
+                // Only log errors
+                #if DEBUG
+                print("❌ HTTP \(httpResponse.statusCode): \(httpMethod.rawValue) \(url)")
+                if let responseString = String(data: data, encoding: .utf8), !responseString.isEmpty {
+                    print("   Response: \(responseString.prefix(500))")
+                }
+                #endif
                 throw EndpointError.httpError(statusCode: httpResponse.statusCode)
             }
         }

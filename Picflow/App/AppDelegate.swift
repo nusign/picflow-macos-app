@@ -69,13 +69,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Sentry Setup
     
     /// Initialize Sentry error reporting (simple implementation following official guide)
+    /// Events are only sent from distributed apps (Release builds), not when running from Xcode
     private func setupSentry() {
         SentrySDK.start { options in
             options.dsn = Constants.sentryDSN
             
-            // Only enable debug in development
+            // Prevent sending events when running from Xcode (DEBUG builds)
+            // Still initializes SDK for consistent code paths, but discards all events
+            options.beforeSend = { event in
+                #if DEBUG
+                // Running from Xcode - discard event
+                return nil
+                #else
+                // Distributed app - send event
+                return event
+                #endif
+            }
+            
+            // Control Sentry logging verbosity
             #if DEBUG
-            options.debug = true
+            // Set to false for cleaner console output
+            // Set to true only when debugging Sentry integration issues
+            options.debug = false
+            
+            // Set diagnostic level to reduce verbose breadcrumb logs
+            // Options: .none, .error, .debug
+            options.diagnosticLevel = .error
             #endif
             
             // macOS-specific: Enable uncaught NSException reporting
@@ -91,6 +110,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 options.releaseName = "picflow-macos@\(version)+\(build)"
             }
         }
+        
+        #if DEBUG
+        print("🔧 Sentry initialized (events disabled for Xcode builds)")
+        #else
+        print("✅ Sentry initialized (events enabled for distributed app)")
+        #endif
     }
     
     /// Called when the user clicks the dock icon

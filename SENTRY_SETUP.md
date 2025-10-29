@@ -4,16 +4,31 @@ This document describes the simplified Sentry error reporting setup following th
 
 ## Initialization
 
-Sentry is initialized in `AppDelegate.applicationDidFinishLaunching()` as recommended by the official guide:
+Sentry is initialized in `AppDelegate.applicationDidFinishLaunching()` as recommended by the official guide.
+
+**Important:** Sentry SDK is **always initialized** for consistent code paths, but events are **only sent from distributed apps** (Release builds). When running from Xcode (DEBUG builds), the `beforeSend` callback discards all events to avoid cluttering error reports with development issues.
 
 ```swift
 private func setupSentry() {
     SentrySDK.start { options in
         options.dsn = Constants.sentryDSN
         
-        // Only enable debug in development
+        // Prevent sending events when running from Xcode (DEBUG builds)
+        // Still initializes SDK for consistent code paths, but discards all events
+        options.beforeSend = { event in
+            #if DEBUG
+            // Running from Xcode - discard event
+            return nil
+            #else
+            // Distributed app - send event
+            return event
+            #endif
+        }
+        
+        // Control Sentry logging verbosity
         #if DEBUG
-        options.debug = true
+        options.debug = false
+        options.diagnosticLevel = .error
         #endif
         
         // macOS-specific: Enable uncaught NSException reporting
@@ -35,10 +50,12 @@ private func setupSentry() {
 ### Key Changes from Previous Implementation
 
 1. **Moved initialization** from `PicflowApp.init()` to `AppDelegate.applicationDidFinishLaunching()` (official recommendation)
-2. **Debug mode is conditional** - only enabled in DEBUG builds, not in production
-3. **Added macOS-specific setting** - `enableUncaughtNSExceptionReporting = true` (required for macOS apps)
-4. **Removed complexity** - no performance monitoring, session tracking, or profiling
-5. **Kept essentials** - environment and release tracking for better error organization
+2. **Consistent initialization** - SDK always initialized in both DEBUG and Release builds for consistent code paths
+3. **Event filtering** - Uses `beforeSend` callback to discard events in DEBUG builds (cleaner than conditional initialization)
+4. **Production-only reporting** - Errors only sent from distributed apps (Release builds)
+5. **Added macOS-specific setting** - `enableUncaughtNSExceptionReporting = true` (required for macOS apps)
+6. **Removed complexity** - no performance monitoring, session tracking, or profiling
+7. **Kept essentials** - environment and release tracking for better error organization
 
 ## Using ErrorReportingManager
 

@@ -89,40 +89,165 @@ struct ManualUploadStatus: View {
     @ObservedObject var uploader: Uploader
     
     var body: some View {
-        let totalFiles = uploader.uploadQueue.count
-        let currentIndex = uploader.currentFileIndex + 1
-        
-        // Format speed in Mbps
-        let speedMbps = (uploader.uploadSpeed * 8) / 1_000_000
-        let speedText = String(format: "%.1f Mbit/s", speedMbps)
-        
-        // Format remaining time
-        let timeRemaining = Int(uploader.estimatedTimeRemaining)
-        let timeText = timeRemaining > 0 ? "\(timeRemaining)s remaining" : ""
-        
-        // Build description
-        let description: String
+        ZStack(alignment: .leading) {
+            // Background progress bar (hide when completed to avoid conflict with green icon)
+            if uploader.uploadState != .completed {
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        // Remaining part (10% opacity)
+                        Capsule()
+                            .fill(Color.accentColor.opacity(0.1))
+                        
+                        // Completed part (10% opacity)
+                        if uploader.uploadState == .uploading {
+                            Capsule()
+                                .fill(Color.accentColor.opacity(0.1))
+                                .frame(width: max(geometry.size.width * uploader.uploadProgress, geometry.size.height))
+                                .animation(.linear(duration: 0.3), value: uploader.uploadProgress)
+                        }
+                    }
+                }
+            }
+            
+            // Content (on top of progress bar)
+            HStack(spacing: 12) {
+                // Left side: Icon
+                ZStack {
+                    Circle()
+                        .fill(statusColor.opacity(0.1))
+                        .frame(width: 32, height: 32)
+                    
+                    Image(systemName: statusIcon)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(statusColor)
+                }
+                
+                // Middle: Title and Status
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(statusTitle)
+                        .font(.callout)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                    
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(statusColor)
+                            .frame(width: 8, height: 8)
+                        
+                        Text(statusDescription)
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
+                Spacer()
+                
+                // Right side: Progress percentage
+                if uploader.uploadState != .completed {
+                    Text("\(Int(uploader.uploadProgress * 100))%")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.secondary)
+                        .monospacedDigit()
+                }
+            }
+            .padding(12)
+        }
+        .frame(height: 60)
+    }
+    
+    private var totalFiles: Int {
+        uploader.uploadQueue.count
+    }
+    
+    private var currentIndex: Int {
+        uploader.currentFileIndex + 1
+    }
+    
+    private var statusTitle: String {
+        switch uploader.uploadState {
+        case .completed:
+            return "Completed"
+        default:
+            // Show file count in title for multiple files
+            if totalFiles > 1 {
+                return "Uploading \(currentIndex) of \(totalFiles)"
+            } else {
+                return "Uploading"
+            }
+        }
+    }
+    
+    private var statusIcon: String {
+        switch uploader.uploadState {
+        case .completed:
+            return "checkmark.circle.fill"
+        case .failed:
+            return "exclamationmark.triangle.fill"
+        default:
+            return "arrow.up.circle.fill"
+        }
+    }
+    
+    private var statusColor: Color {
+        switch uploader.uploadState {
+        case .completed:
+            return .green
+        case .failed:
+            return .red
+        default:
+            return .accentColor
+        }
+    }
+    
+    private var statusDescription: String {
         if uploader.uploadState == .completed {
-            description = "All files uploaded successfully"
-        } else if totalFiles > 1 {
-            var parts: [String] = []
-            parts.append("\(currentIndex) of \(totalFiles)")
-            if !timeText.isEmpty {
-                parts.append(timeText)
-            }
-            if speedMbps > 0 {
-                parts.append(speedText)
-            }
-            description = parts.joined(separator: ", ")
-        } else {
-            description = speedMbps > 0 ? speedText : "Uploading..."
+            return "All files uploaded successfully"
         }
         
-        return UploadStatusView(
-            state: uploader.uploadState,
-            description: description
-        )
+        var parts: [String] = []
+        
+        // Total file size
+        let totalSizeMB = Double(totalFileSize) / 1_000_000
+        parts.append(String(format: "%.1f MB", totalSizeMB))
+        
+        // Time remaining (always show MM:SS format)
+        let timeRemaining = uploader.estimatedTimeRemaining
+        if timeRemaining > 0 {
+            parts.append("\(formatTimeRemaining(timeRemaining)) remaining")
+        }
+        
+        // Speed in parentheses
+        let speedMbps = (uploader.uploadSpeed * 8) / 1_000_000
+        if speedMbps > 0 {
+            parts.append("(\(String(format: "%.1f Mbit/s", speedMbps)))")
+        }
+        
+        return parts.joined(separator: " · ")
+    }
+    
+    /// Calculate total size of all files in upload queue
+    private var totalFileSize: Int64 {
+        var total: Int64 = 0
+        for fileURL in uploader.uploadQueue {
+            if let attributes = try? FileManager.default.attributesOfItem(atPath: fileURL.path),
+               let fileSize = attributes[.size] as? Int64 {
+                total += fileSize
+            }
+        }
+        return total
+    }
+    
+    /// Format time remaining as MM:SS or H:MM:SS
+    private func formatTimeRemaining(_ seconds: TimeInterval) -> String {
+        let totalSeconds = Int(seconds)
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let secs = totalSeconds % 60
+        
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, secs)
+        } else {
+            return String(format: "%d:%02d", minutes, secs)
+        }
     }
 }
-
-
