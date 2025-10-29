@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Foundation
 
 // MARK: - Upload Status View
 
@@ -18,32 +19,21 @@ struct UploadStatusView: View {
     var body: some View {
         HStack(spacing: 12) {
             // Left side: Icon
-            ZStack {
-                Circle()
-                    .fill(statusColor.opacity(0.1))
-                    .frame(width: 32, height: 32)
-                
-                Image(systemName: statusIcon)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(statusColor)
-            }
+            Image(systemName: statusIcon)
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundStyle(statusColor)
+                .frame(width: 32, height: 32, alignment: .center)
             
             // Middle: Title and Status
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(statusTitle)
                     .font(.callout)
                     .fontWeight(.semibold)
-                    .foregroundColor(.primary)
+                    .foregroundStyle(.primary)
                 
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(statusColor)
-                        .frame(width: 8, height: 8)
-                    
-                    Text(description)
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
-                }
+                Text(description)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
             }
             
             Spacer()
@@ -90,15 +80,19 @@ struct ManualUploadStatus: View {
     
     var body: some View {
         ZStack(alignment: .leading) {
-            // Background progress bar (hide when completed to avoid conflict with green icon)
-            if uploader.uploadState != .completed {
-                GeometryReader { geometry in
-                    ZStack(alignment: .leading) {
-                        // Remaining part (10% opacity)
+            // Background capsule
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    if uploader.uploadState == .completed {
+                        // Green background when completed
+                        Capsule()
+                            .fill(Color.green.opacity(0.1))
+                    } else {
+                        // Progress bar background during upload
                         Capsule()
                             .fill(Color.accentColor.opacity(0.1))
                         
-                        // Completed part (10% opacity)
+                        // Animated progress indicator
                         if uploader.uploadState == .uploading {
                             Capsule()
                                 .fill(Color.accentColor.opacity(0.1))
@@ -112,32 +106,21 @@ struct ManualUploadStatus: View {
             // Content (on top of progress bar)
             HStack(spacing: 12) {
                 // Left side: Icon
-                ZStack {
-                    Circle()
-                        .fill(statusColor.opacity(0.1))
-                        .frame(width: 32, height: 32)
-                    
-                    Image(systemName: statusIcon)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(statusColor)
-                }
+                Image(systemName: statusIcon)
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(statusColor)
+                    .frame(width: 32, height: 32, alignment: .center)
                 
                 // Middle: Title and Status
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(statusTitle)
                         .font(.callout)
                         .fontWeight(.semibold)
-                        .foregroundColor(.primary)
+                        .foregroundStyle(.primary)
                     
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(statusColor)
-                            .frame(width: 8, height: 8)
-                        
-                        Text(statusDescription)
-                            .font(.system(size: 11))
-                            .foregroundColor(.secondary)
-                    }
+                    Text(statusDescription)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
                 }
                 
                 Spacer()
@@ -250,4 +233,95 @@ struct ManualUploadStatus: View {
             return String(format: "%d:%02d", minutes, secs)
         }
     }
+}
+
+#if DEBUG
+extension Uploader {
+    @MainActor
+    static func preview(
+        state: UploadState,
+        progress: Double = 0.55,
+        queueCount: Int = 3,
+        currentIndex: Int = 0,
+        speed: Double = 5_500_000,
+        timeRemaining: TimeInterval = 120
+    ) -> Uploader {
+        let uploader = Uploader()
+        uploader.uploadState = state
+        uploader.uploadProgress = progress
+        
+        if queueCount > 0 {
+            let tempDirectory = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+            
+            // Create temporary files with actual data for preview
+            uploader.uploadQueue = (0..<queueCount).compactMap { index in
+                let fileURL = tempDirectory.appendingPathComponent("preview-file-\(index + 1).jpg")
+                
+                // Create a small dummy file if it doesn't exist
+                if !FileManager.default.fileExists(atPath: fileURL.path) {
+                    // Create dummy data (10MB per file for realistic preview)
+                    let dummyData = Data(count: 10_000_000)
+                    try? dummyData.write(to: fileURL)
+                }
+                
+                return fileURL
+            }
+            uploader.currentFileIndex = min(max(currentIndex, 0), queueCount - 1)
+        } else {
+            uploader.uploadQueue = []
+            uploader.currentFileIndex = 0
+        }
+        
+        uploader.uploadSpeed = speed
+        uploader.estimatedTimeRemaining = timeRemaining
+        return uploader
+    }
+}
+#endif
+
+#Preview("Upload Status States", traits: .sizeThatFitsLayout) {
+    VStack(alignment: .leading, spacing: 16) {
+        UploadStatusView(state: .uploading, description: "Uploading 2 of 5 · 48%")
+        UploadStatusView(state: .completed, description: "All files uploaded successfully")
+        UploadStatusView(state: .failed, description: "Network connection lost. Please retry.")
+    }
+    .padding()
+    .frame(width: 360)
+}
+
+#Preview("Manual Upload Status States", traits: .sizeThatFitsLayout) {
+    VStack(alignment: .leading, spacing: 16) {
+        ManualUploadStatus(
+            uploader: .preview(
+                state: .uploading,
+                progress: 0.42,
+                queueCount: 4,
+                currentIndex: 1,
+                speed: 6_750_000,
+                timeRemaining: 95
+            )
+        )
+        ManualUploadStatus(
+            uploader: .preview(
+                state: .completed,
+                progress: 1.0,
+                queueCount: 2,
+                currentIndex: 1,
+                speed: 0,
+                timeRemaining: 0
+            )
+        )
+        ManualUploadStatus(
+            uploader: .preview(
+                state: .failed,
+                progress: 0.66,
+                queueCount: 3,
+                currentIndex: 2,
+                speed: 3_200_000,
+                timeRemaining: 180
+            )
+        )
+    }
+    .padding()
+    .frame(width: 460)
 }

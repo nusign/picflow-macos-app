@@ -32,6 +32,9 @@ class Uploader: ObservableObject {
 	private var uploadStartTime: Date?
 	private var totalBytesTransferred: Int64 = 0
 	private var totalFilesInQueue: Int = 0  // Track total files at queue start for progress calculation
+	private var totalBytesInQueue: Int64 = 0  // Total bytes across all files in queue
+	private var currentFileSize: Int64 = 0  // Size of the file currently being uploaded
+	private var currentFileBytesTransferred: Int64 = 0  // Bytes transferred for current file
 	
 	func selectGallery(_ gallery: GalleryDetails) {
 		selectedGallery = gallery
@@ -70,6 +73,15 @@ class Uploader: ObservableObject {
 		currentFileIndex = 0
 		totalFilesInQueue = uploadQueue.count  // Store total for progress calculation
 		uploadProgress = 0.0
+		
+		// Calculate total bytes in queue for accurate progress tracking
+		totalBytesInQueue = 0
+		for fileURL in uploadQueue {
+			if let attributes = try? FileManager.default.attributesOfItem(atPath: fileURL.path),
+			   let fileSize = attributes[.size] as? Int64 {
+				totalBytesInQueue += fileSize
+			}
+		}
 		
 		if uploadQueue.count > 1 {
 			print("\n🚀 UPLOAD QUEUE: \(uploadQueue.count) files")
@@ -146,6 +158,9 @@ class Uploader: ObservableObject {
 		currentFileIndex = 0
 		totalBytesTransferred = 0
 		totalFilesInQueue = 0
+		totalBytesInQueue = 0
+		currentFileSize = 0
+		currentFileBytesTransferred = 0
 		uploadSpeed = 0
 		estimatedTimeRemaining = 0
 	}
@@ -169,6 +184,10 @@ class Uploader: ObservableObject {
 		} catch {
 			throw UploadError.fileReadError(error)
 		}
+		
+		// Track current file for time remaining calculation
+		currentFileSize = fileSize
+		currentFileBytesTransferred = 0
 		
 		// Calculate overall queue progress
 		updateOverallProgress(fileProgress: 0.0)
@@ -221,6 +240,7 @@ class Uploader: ObservableObject {
 			// Update statistics for single-part uploads
 			// (multi-part uploads handle this incrementally)
 			totalBytesTransferred += fileSize
+			currentFileBytesTransferred = fileSize
 			updateUploadStatistics()
 		}
 		
@@ -266,17 +286,26 @@ class Uploader: ObservableObject {
 	/// Calculate overall progress across all files in queue
 	/// - Parameter fileProgress: Progress of current file (0.0 to 1.0)
 	private func updateOverallProgress(fileProgress: Double) {
-		guard totalFilesInQueue > 0 else {
+		guard totalBytesInQueue > 0 else {
 			uploadProgress = fileProgress
 			return
 		}
 		
-		// Calculate base progress from completed files
-		let filesCompleted = Double(currentFileIndex)
-		let fileWeight = 1.0 / Double(totalFilesInQueue)
+		// Calculate bytes transferred for completed files (before current file)
+		var completedBytes: Int64 = 0
+		for i in 0..<currentFileIndex {
+			if let attributes = try? FileManager.default.attributesOfItem(atPath: uploadQueue[i].path),
+			   let fileSize = attributes[.size] as? Int64 {
+				completedBytes += fileSize
+			}
+		}
 		
-		// Overall progress = completed files + current file progress
-		uploadProgress = (filesCompleted * fileWeight) + (fileProgress * fileWeight)
+		// Add current file's progress
+		let currentFileProgress = Double(currentFileSize) * fileProgress
+		let totalTransferred = Double(completedBytes) + currentFileProgress
+		
+		// Calculate overall progress based on bytes
+		uploadProgress = totalTransferred / Double(totalBytesInQueue)
 	}
 	
 	/// Update upload statistics (speed and time remaining)
@@ -289,13 +318,34 @@ class Uploader: ObservableObject {
 		// Calculate speed (bytes per second)
 		uploadSpeed = Double(totalBytesTransferred) / elapsedTime
 		
-		// Estimate remaining time based on remaining files
+		guard uploadSpeed > 0 else {
+			estimatedTimeRemaining = 0
+			return
+		}
+		
+		// Calculate remaining bytes in current file
+		let currentFileRemainingBytes = max(currentFileSize - currentFileBytesTransferred, 0)
+		
+		// Calculate remaining bytes in future files
 		let remainingFiles = uploadQueue.count - currentFileIndex - 1
-		if remainingFiles > 0, uploadSpeed > 0 {
-			// Rough estimate: assume similar file sizes
-			let avgBytesPerFile = Double(totalBytesTransferred) / Double(currentFileIndex + 1)
-			let remainingBytes = avgBytesPerFile * Double(remainingFiles)
-			estimatedTimeRemaining = remainingBytes / uploadSpeed
+		var futureFilesBytes: Int64 = 0
+		
+		if remainingFiles > 0 {
+			// Calculate total size of remaining files in queue
+			for i in (currentFileIndex + 1)..<uploadQueue.count {
+				if let attributes = try? FileManager.default.attributesOfItem(atPath: uploadQueue[i].path),
+				   let fileSize = attributes[.size] as? Int64 {
+					futureFilesBytes += fileSize
+				}
+			}
+		}
+		
+		// Total remaining bytes = current file + future files
+		let totalRemainingBytes = currentFileRemainingBytes + futureFilesBytes
+		
+		// Calculate time remaining
+		if totalRemainingBytes > 0 {
+			estimatedTimeRemaining = Double(totalRemainingBytes) / uploadSpeed
 		} else {
 			estimatedTimeRemaining = 0
 		}
@@ -396,6 +446,7 @@ class Uploader: ObservableObject {
 					// Update bytes transferred and statistics
 					await MainActor.run {
 						self.totalBytesTransferred += bytesUploaded
+						self.currentFileBytesTransferred += bytesUploaded
 						self.updateUploadStatistics()
 					}
 					
@@ -433,6 +484,7 @@ class Uploader: ObservableObject {
 				// Update bytes transferred and statistics
 				await MainActor.run {
 					self.totalBytesTransferred += bytesUploaded
+					self.currentFileBytesTransferred += bytesUploaded
 					self.updateUploadStatistics()
 				}
 				
