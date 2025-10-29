@@ -65,6 +65,16 @@ jobs:
           
           echo "✅ Uploaded appcast.xml (overwrites previous)"
       
+      - name: Clear CloudFront cache
+        env:
+          CACHE_CLEAR_SECRET: ${{ secrets.CACHE_CLEAR_SECRET }}
+        run: |
+          curl --location "https://su4v5km3pb.execute-api.eu-west-1.amazonaws.com/gd/clear-cache" \
+            --header 'Content-Type: application/json' \
+            --data "{\"secret\": \"$CACHE_CLEAR_SECRET\", \"paths\": [\"/download/macos/*\"]}"
+          
+          echo "✅ CloudFront cache cleared for /download/macos/*"
+      
       - name: Summary
         run: |
           echo "## 🎉 Release Synced to S3" >> $GITHUB_STEP_SUMMARY
@@ -75,6 +85,8 @@ jobs:
           echo "- ✅ \`Picflow-${{ steps.release.outputs.version }}.dmg\` (versioned, immutable)" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ \`Picflow.dmg\` (latest, overwrites)" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ \`appcast.xml\` (update feed)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**CloudFront Cache:** ✅ Cleared" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**S3 Location:** \`s3://picflow-webapp-prod/download/macos/\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
