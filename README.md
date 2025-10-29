@@ -341,62 +341,21 @@ Picflow uses **Sparkle 2** (industry standard) for secure automatic updates:
 - Feedback sync: Sync favorites and color labels back to photography software (Lightroom, Capture One, Photo Mechanic)
 - ~~Multipart uploads: For large files (>20MB)~~ ✅ Implemented with configurable chunk sizes
 
-## Recent Major Updates
+## Recent Major Updates (October 2025)
 
-### Release Automation & Updates (October 2025)
-- ✅ Sparkle 2 automatic updates with EdDSA signatures
-- ✅ Dual URL strategy (versioned for Sparkle, static for marketing)
-- ✅ Automated release script (`release.sh`) with one-command releases
-- ✅ GitHub Actions workflow for syncing releases to S3
-- ✅ Apple notarization and code signing integrated
-- ✅ Hardened Runtime enabled for security
-- ✅ Public URLs: https://picflow.com/download/macos/
-- ✅ Update feed: https://picflow.com/download/macos/appcast.xml
-- ✅ Release time: ~7-12 minutes (build, sign, notarize, upload)
+**Release Automation & Updates**
+- Sparkle 2 auto-updates with EdDSA signatures
+- Automated releases: `./scripts/release.sh X.Y.Z` → GitHub → S3 (~7-12 min)
+- Dual URL strategy (versioned + static) at https://picflow.com/download/macos/
 
-### Settings System (October 2025)
-- ✅ Comprehensive settings UI (600x500px window) with organized sections
-- ✅ Dual access: macOS menu bar (Cmd+,) and profile dropdown
-- ✅ `SettingsWindowManager` for separate NSWindow presentation
-- ✅ Toggle switches (not checkboxes) for all preferences
-- ✅ Menu bar icon show/hide toggle with live visibility control
-- ✅ Launch at startup with `SMAppService` (macOS 13+)
-- ✅ Auto-update toggle (UI ready for implementation)
-- ✅ Logs management with automatic 7-day retention
-- ✅ Disabled toggles for upcoming features (no opacity, "Soon" badges)
-- ✅ Finder extension and conflict behavior placeholders
+**Settings & Preferences**
+- Comprehensive settings window with organized sections
+- Launch at startup, menu bar visibility, auto-updates
+- Logs management with 7-day retention
 
-### UI/UX Improvements (October 2025)
-- ✅ Converted from menu bar-only app to regular dock app with menu bar icon for quick access
-- ✅ Modern SwiftUI window management: `.frame()` + `.windowResizability(.contentSize)` (no AppKit manipulation)
-- ✅ Window sizing: 480x400px minimum, 720x640px maximum, 480x400px default
-- ✅ Added profile dropdown in toolbar with workspace/account/settings management
-- ✅ Implemented workspace selection flow via notification-based navigation
-- ✅ Added rounded corners via hidden title bar style (no manual traffic light positioning)
-- ✅ Optimized gallery card layout with 4:3 preview images, centered 640px max width
-- ✅ Fixed gallery asset count display (removed CodingKeys conflict with snake_case decoder)
-- ✅ Added Live mode toggle with smooth status area transitions (300ms animations)
-- ✅ Integrated custom Picflow icons (PDFs with light/dark variants)
-- ✅ Global no-autofocus implementation via ContentView (single configuration point)
-- ✅ Improved gallery card hover effects with native .onHover and .onTapGesture
-- ✅ Live folder view shows selected folder path in button for better feedback
-- ✅ Centralized animation handling in ContentView and state-specific views
-- ✅ Added "Current Workspace" indicator in gallery selection view
-- ✅ Test token button repositioned to bottom-right overlay (dev mode only)
-- ✅ Debug keyboard shortcuts: D (feature borders), C (core structure borders)
-
-### Architecture Improvements (October 2025)
-- ✅ Migrated to pure SwiftUI WindowGroup architecture (removed AppKit window management)
-- ✅ Modern window constraints: `.frame()` in PicflowApp instead of AppKit `minSize`/`maxSize`
-- ✅ Extracted `MenuBarManager` from `AppDelegate` (single responsibility principle)
-- ✅ Extracted `SettingsWindowManager` for Settings presentation
-- ✅ Created `SettingsManager` singleton for app-wide preferences
-- ✅ Simplified AppDelegate to lightweight lifecycle coordinator
-- ✅ Removed complex window attach/detach logic in favor of standard behavior
-- ✅ Unified upload status components: `UploadStatusView` for all upload types
-- ✅ Reorganized views: Upload/ folder for all upload-related components
-- ✅ Improved visibility logic: status area only renders when needed (no empty VStack)
-- ✅ Global focus management: Single `.focusable(false)` in ContentView
-- ✅ Refactored GalleryCardView: Direct tap handling with onSelect callback, no button wrapper
-- ✅ Centralized animations: State-driven animations in AppView and ContentView
-- ✅ Organized views into logical folders: App/, Views/Gallery/, Views/Upload/, Views/Settings/, Views/Shared/, Views/Workspace/, Settings/
+**UI/UX & Architecture**
+- Regular dock app + menu bar icon (was menu bar-only)
+- Pure SwiftUI WindowGroup with modern window management
+- Profile dropdown, workspace selection, Live mode toggle
+- Extracted managers: `MenuBarManager`, `SettingsWindowManager`, `SettingsManager`
+- Custom Picflow icons with light/dark variants
