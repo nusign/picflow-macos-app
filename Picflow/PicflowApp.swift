@@ -192,9 +192,20 @@ struct PicflowApp: App {
                 authenticator: appDelegate.authenticator
             )
             .frame(minWidth: 480, maxWidth: 720, minHeight: 400, maxHeight: 640)
+            .toolbar(.hidden)
             .onNSWindow { window in
+
                 // Allow dragging the window by clicking and dragging in background areas
                 window.isMovableByWindowBackground = true
+
+                // System-aligned window configuration for macOS 26 look
+                window.titleVisibility = .hidden
+                window.titlebarAppearsTransparent = true
+                window.styleMask.insert(.fullSizeContentView)
+
+                // Ensure the window allows vibrancy/translucency
+                window.isOpaque = false
+                window.backgroundColor = .clear
             }
         }
         .windowStyle(.hiddenTitleBar)
@@ -216,3 +227,4 @@ struct PicflowApp: App {
         }
     }
 }
+
