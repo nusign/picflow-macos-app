@@ -4,6 +4,9 @@
 //
 //  Created by Michel Luarasi on 26.01.2025.
 //
+//  Uses macOS FSEventStream API for efficient folder monitoring with automatic
+//  event coalescing and low CPU usage.
+//
 
 import Foundation
 import Sentry
@@ -15,9 +18,8 @@ enum FileEvent {
 }
 
 class FolderMonitor {
-    private var fileDescriptor: Int32
-    private var source: DispatchSourceFileSystemObject?
-    private let queue = DispatchQueue(label: "FolderMonitor", attributes: .concurrent)
+    private var eventStream: FSEventStreamRef?
+    private let queue = DispatchQueue(label: "FolderMonitor", qos: .utility)
     private var knownFiles = Set<String>()
     private let url: URL
     let callback: (URL, FileEvent) -> Void
@@ -25,19 +27,21 @@ class FolderMonitor {
     init(folderURL: URL, callback: @escaping (URL, FileEvent) -> Void) {
         self.url = folderURL
         self.callback = callback
-        self.fileDescriptor = open(folderURL.path, O_EVTONLY)
     }
     
     deinit {
         stopMonitoring()
-        close(fileDescriptor)
     }
     
     func startMonitoring() {
         // Capture initial state without triggering callbacks
         do {
-            let contents = try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)
-            knownFiles = Set(contents.map { $0.lastPathComponent })
+            let contents = try FileManager.default.contentsOfDirectory(
+                at: url,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles]
+            )
+            knownFiles = Set(contents.filter { !isDirectory($0) }.map { $0.lastPathComponent })
             
             ErrorReportingManager.shared.addBreadcrumb(
                 "Folder monitoring started",
@@ -58,28 +62,82 @@ class FolderMonitor {
             )
         }
         
-        source = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: fileDescriptor,
-            eventMask: [.write, .extend, .delete, .rename],
-            queue: queue
+        // Create FSEventStream context
+        var context = FSEventStreamContext(
+            version: 0,
+            info: Unmanaged.passUnretained(self).toOpaque(),
+            retain: nil,
+            release: nil,
+            copyDescription: nil
         )
         
-        source?.setEventHandler { [weak self] in
-            self?.scanFolder()
-        }
+        let pathsToWatch = [url.path] as CFArray
+        let flags = FSEventStreamCreateFlags(
+            kFSEventStreamCreateFlagUseCFTypes |
+            kFSEventStreamCreateFlagFileEvents |
+            kFSEventStreamCreateFlagNoDefer
+        )
         
-        source?.resume()
+        // Create event stream with proper coalescing (1 second latency)
+        eventStream = FSEventStreamCreate(
+            kCFAllocatorDefault,
+            eventStreamCallback,
+            &context,
+            pathsToWatch,
+            FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
+            1.0, // 1 second latency for event coalescing - reduces CPU usage
+            flags
+        )
+        
+        if let stream = eventStream {
+            FSEventStreamSetDispatchQueue(stream, queue)
+            FSEventStreamStart(stream)
+            print("✅ FSEventStream monitoring started for: \(url.path)")
+        } else {
+            print("❌ Failed to create FSEventStream")
+        }
     }
     
     func stopMonitoring() {
-        source?.cancel()
-        source = nil
+        if let stream = eventStream {
+            FSEventStreamStop(stream)
+            FSEventStreamInvalidate(stream)
+            FSEventStreamRelease(stream)
+            eventStream = nil
+            print("🛑 FSEventStream monitoring stopped")
+        }
+    }
+    
+    fileprivate func handleEvents(eventPaths: [String], eventFlags: [FSEventStreamEventFlags]) {
+        // Only scan if there were actual file changes (not just metadata)
+        let relevantFlags: FSEventStreamEventFlags = UInt32(
+            kFSEventStreamEventFlagItemCreated |
+            kFSEventStreamEventFlagItemRemoved |
+            kFSEventStreamEventFlagItemRenamed
+        )
+        
+        let hasRelevantChanges = eventFlags.contains { flags in
+            flags & relevantFlags != 0
+        }
+        
+        guard hasRelevantChanges else {
+            return
+        }
+        
+        scanFolder()
     }
     
     private func scanFolder() {
         do {
-            let contents = try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)
-            let currentFiles = Set(contents.map { $0.lastPathComponent })
+            let contents = try FileManager.default.contentsOfDirectory(
+                at: url,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles]
+            )
+            
+            let currentFiles = Set(
+                contents.filter { !isDirectory($0) }.map { $0.lastPathComponent }
+            )
             
             // Detect new files
             let addedFiles = currentFiles.subtracting(knownFiles)
@@ -111,4 +169,29 @@ class FolderMonitor {
             )
         }
     }
+    
+    private func isDirectory(_ url: URL) -> Bool {
+        var isDir: ObjCBool = false
+        FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
+        return isDir.boolValue
+    }
+}
+
+// MARK: - FSEventStream Callback
+
+private func eventStreamCallback(
+    streamRef: ConstFSEventStreamRef,
+    clientCallBackInfo: UnsafeMutableRawPointer?,
+    numEvents: Int,
+    eventPaths: UnsafeMutableRawPointer,
+    eventFlags: UnsafePointer<FSEventStreamEventFlags>,
+    eventIds: UnsafePointer<FSEventStreamEventId>
+) {
+    guard let info = clientCallBackInfo else { return }
+    
+    let monitor = Unmanaged<FolderMonitor>.fromOpaque(info).takeUnretainedValue()
+    let paths = unsafeBitCast(eventPaths, to: NSArray.self) as! [String]
+    let flags = Array(UnsafeBufferPointer(start: eventFlags, count: numEvents))
+    
+    monitor.handleEvents(eventPaths: paths, eventFlags: flags)
 }
