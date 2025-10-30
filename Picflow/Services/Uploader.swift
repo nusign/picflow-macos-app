@@ -95,8 +95,34 @@ class Uploader: ObservableObject {
 			}
 		}
 		
+		// Sort queue: small files first, then large files
+		// This ensures small files upload concurrently before large files block with multipart lock
+		uploadQueue.sort { url1, url2 in
+			let size1 = fileSizes[url1] ?? 0
+			let size2 = fileSizes[url2] ?? 0
+			let isMultipart1 = MultiPartUploadConfig.shouldUseMultipart(fileSize: size1)
+			let isMultipart2 = MultiPartUploadConfig.shouldUseMultipart(fileSize: size2)
+			
+			// Small files (non-multipart) come before large files (multipart)
+			if isMultipart1 != isMultipart2 {
+				return !isMultipart1  // Small files first
+			}
+			
+			// Within same category, maintain original order
+			return false
+		}
+		
 		if uploadQueue.count > 1 {
-			print("\n🚀 UPLOAD QUEUE: \(uploadQueue.count) files (smart coordination)")
+			let smallFiles = uploadQueue.filter { url in
+				if let size = fileSizes[url] {
+					return !MultiPartUploadConfig.shouldUseMultipart(fileSize: size)
+				}
+				return true
+			}.count
+			let largeFiles = uploadQueue.count - smallFiles
+			print("\n🚀 UPLOAD QUEUE: \(uploadQueue.count) files (\(smallFiles) small, \(largeFiles) large)")
+			print("   Strategy: Small files first (concurrent), then large files (sequential)")
+			print("   Config: max \(UploadConcurrencyConfig.maxConcurrentSmallFiles) small files, \(UploadConcurrencyConfig.maxConcurrentChunks) chunks")
 		}
 		
 		// Track upload started
@@ -132,14 +158,20 @@ class Uploader: ObservableObject {
 					let canStart = await concurrencyCoordinator.isMultipartActive() == false
 					if !canStart {
 						// Another multipart is active, stop adding new tasks
+						print("   ⏸️ Skipping large file (multipart active): \(fileURL.lastPathComponent)")
 						break
 					}
 				}
 				
 				// Check concurrent small file limit
 				if !isMultipart && filesInProgress >= UploadConcurrencyConfig.maxConcurrentSmallFiles {
+					print("   ⏸️ At small file limit (\(filesInProgress)/\(UploadConcurrencyConfig.maxConcurrentSmallFiles))")
 					break
 				}
+				
+				// Log file start
+				let fileType = isMultipart ? "LARGE" : "SMALL"
+				print("\n   ▶️ Starting \(fileType) file: \(fileURL.lastPathComponent) (\(formatBytes(fileSize)))")
 				
 				// Start upload task
 				group.addTask { [weak self] in
@@ -188,6 +220,8 @@ class Uploader: ObservableObject {
 				filesInProgress -= 1
 				completedFilesCount += 1
 				
+				print("   ✅ File completed (\(completedFilesCount)/\(uploadQueue.count)), \(filesInProgress) still in progress")
+				
 				// Update current file index for display
 				await MainActor.run {
 					self.currentFileIndex = completedFilesCount
@@ -212,6 +246,10 @@ class Uploader: ObservableObject {
 					}
 					
 					if canStart {
+						// Log file start
+						let fileType = isMultipart ? "LARGE" : "SMALL"
+						print("\n   ▶️ Starting \(fileType) file: \(fileURL.lastPathComponent) (\(formatBytes(fileSize)))")
+						
 						group.addTask { [weak self] in
 							guard let self = self else { return (index, false) }
 							
@@ -326,7 +364,7 @@ class Uploader: ObservableObject {
 		print("   File: \(fileURL.lastPathComponent)")
 		print("   Size: \(formatBytes(fileSize))")
 		print("   Gallery: \(gallery.displayName)")
-		print("   Mode: \(uploadType == .multipart ? "Multi-part" : "Single-part")")
+		print("   Mode: \(uploadType == .multipart ? "Multi-part (will acquire lock)" : "Single-part (concurrent)")")
 		
 		do {
 			// Step 1: Create asset and get presigned URL(s)
@@ -352,6 +390,7 @@ class Uploader: ObservableObject {
 			
 		// Step 2: Upload file to S3 (single or multipart)
 		if createResponse.versionData.isMultiPart {
+			print("   📦 Starting multipart upload...")
 			// Multi-part uploads update totalBytesTransferred incrementally as chunks complete
 			try await uploadMultiPart(
 				fileURL: fileURL,
@@ -359,6 +398,7 @@ class Uploader: ObservableObject {
 				fileSize: fileSize
 			)
 		} else {
+			print("   📦 Starting single-part upload (no lock needed)...")
 			// Load file into memory for single-part upload
 			let fileData = try Data(contentsOf: fileURL)
 			try await uploadSinglePart(
@@ -366,13 +406,7 @@ class Uploader: ObservableObject {
 				uploadURL: createResponse.versionData.uploadUrl ?? "",
 				fields: createResponse.versionData.amzFields ?? [:]
 			)
-			
-			// Update statistics for single-part uploads
-			// (multi-part uploads handle this incrementally)
-			await MainActor.run {
-				self.totalBytesTransferred += fileSize
-				self.updateUploadStatistics()
-			}
+			// Note: totalBytesTransferred updated with actual request size (including HTTP overhead)
 		}
 		
 		await MainActor.run {
@@ -503,6 +537,12 @@ class Uploader: ObservableObject {
 		      200...299 ~= httpResponse.statusCode else {
 			throw UploadError.s3UploadFailed
 		}
+		
+		// Update statistics with actual request size (includes HTTP overhead)
+		await MainActor.run {
+			self.totalBytesTransferred += Int64(body.count)
+			self.updateUploadStatistics()
+		}
 	}
 	
 	/// Upload file using multipart upload (for large files)
@@ -541,7 +581,8 @@ class Uploader: ObservableObject {
 			partCount: uploadUrls.count
 		)
 		
-		print("   Uploading in \(uploadUrls.count) parts (\(formatBytes(chunkSize)) each)")
+		print("   📦 Uploading in \(uploadUrls.count) parts (\(formatBytes(chunkSize)) each)")
+		print("   📦 Config: max \(UploadConcurrencyConfig.maxConcurrentChunks) concurrent chunks")
 		
 		// Create file reader for streaming from disk
 		let reader = try ChunkedFileReader(fileURL: fileURL)
@@ -569,12 +610,11 @@ class Uploader: ObservableObject {
 		let tracker = UploadTracker()
 		
 		// Upload chunks with global concurrency management
-		try await withThrowingTaskGroup(of: (Int, String, Int64).self) { group in
+		try await withThrowingTaskGroup(of: (Int, String).self) { group in
 			// Start all chunk uploads (they'll coordinate through the global coordinator)
 			for (index, uploadURL) in uploadUrls.enumerated() {
 				// Read chunk from disk immediately
 				let chunkData = try reader.readChunk(at: index, chunkSize: chunkSize)
-				let chunkDataSize = Int64(chunkData.count)
 				
 				// Upload chunk using global concurrency coordinator
 				group.addTask {
@@ -594,12 +634,12 @@ class Uploader: ObservableObject {
 						partNumber: index + 1,
 						attempt: 0
 					)
-					return (index, etag, chunkDataSize)
+					return (index, etag)
 				}
 			}
 			
 			// Wait for all uploads to complete
-			for try await (completedIndex, etag, bytesUploaded) in group {
+			for try await (completedIndex, etag) in group {
 				// Store the completed part
 				await tracker.addPart(CompleteMultipartUploadRequest.Part(
 					etag: etag,
@@ -607,12 +647,6 @@ class Uploader: ObservableObject {
 				))
 				
 				let completedCount = await tracker.getCompletedCount()
-				
-				// Update bytes transferred and statistics
-				await MainActor.run {
-					self.totalBytesTransferred += bytesUploaded
-					self.updateUploadStatistics()
-				}
 				
 				// Update this file's progress (10% reserved for setup, 85% for uploads, 5% for completion)
 				let thisFileProgress = 0.1 + (0.85 * Double(completedCount) / Double(uploadUrls.count))
@@ -682,6 +716,12 @@ class Uploader: ObservableObject {
 			
 			// Remove quotes from ETag if present (S3 sometimes includes them)
 			let cleanETag = etag.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+			
+			// Update statistics with actual chunk size
+			await MainActor.run {
+				self.totalBytesTransferred += Int64(data.count)
+				self.updateUploadStatistics()
+			}
 			
 			return cleanETag
 			

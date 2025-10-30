@@ -39,16 +39,19 @@ actor ConcurrencyCoordinator {
     func acquireMultipartLock() async {
         // Wait if another multipart upload is active
         if isMultipartUploadActive {
+            print("   ⏸️ MULTIPART waiting for lock (\(waitingForMultipart.count) already waiting)")
             await withCheckedContinuation { continuation in
                 waitingForMultipart.append(continuation)
             }
         }
         isMultipartUploadActive = true
+        print("   🔒 MULTIPART lock acquired")
     }
     
     /// Release the multipart lock, allowing the next multipart upload to proceed
     func releaseMultipartLock() {
         isMultipartUploadActive = false
+        print("   🔓 MULTIPART lock released (\(waitingForMultipart.count) waiting)")
         
         // Resume the next waiting multipart upload if any
         if !waitingForMultipart.isEmpty {
@@ -67,15 +70,18 @@ actor ConcurrencyCoordinator {
     func acquireSlot() async {
         if activeOperations < maxConcurrent {
             activeOperations += 1
+            print("   🔵 Chunk slot acquired: \(activeOperations)/\(maxConcurrent) active")
             return
         }
         
         // Wait for a slot to become available
+        print("   ⏸️ Chunk waiting for slot (currently \(activeOperations)/\(maxConcurrent))")
         await withCheckedContinuation { continuation in
             waitingTasks.append(continuation)
         }
         
         activeOperations += 1
+        print("   🔵 Chunk slot acquired (was waiting): \(activeOperations)/\(maxConcurrent) active")
     }
     
     /// Try to acquire a slot without waiting
@@ -91,6 +97,7 @@ actor ConcurrencyCoordinator {
     /// Release a slot, allowing waiting operations to proceed
     func releaseSlot() {
         activeOperations -= 1
+        print("   🟢 Chunk slot released: \(activeOperations)/\(maxConcurrent) active, \(waitingTasks.count) waiting")
         
         // Resume the next waiting task if any
         if !waitingTasks.isEmpty {
