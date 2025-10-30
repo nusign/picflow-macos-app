@@ -527,9 +527,163 @@ class UploadManager {
 3. Ensure filesystem watcher is running
 4. Look for export errors in Capture One
 
+#### Different Capture One Versions (e.g., "Capture One 23")
+**Symptoms:** Detection and selection work, but export fails
+
+**Background:**
+- Capture One versions have different app names (e.g., "Capture One", "Capture One 23", "Capture One Pro")
+- However, they often share the same bundle ID (e.g., `com.captureone.captureone16`)
+- Picflow dynamically detects the running app name and uses it in all scripts
+
+**Debugging Steps:**
+
+1. **Check what Picflow detected:**
+   - Look in Xcode console for: `✅ Detected Capture One:`
+   - Should show both app name and bundle ID
+   - Example output:
+     ```
+     ✅ Detected Capture One:
+        App Name: 'Capture One 23'
+        Bundle ID: com.captureone.captureone16
+     ```
+
+2. **Verify bundle ID is in entitlements:**
+   - Check `Picflow.entitlements` file
+   - Ensure the detected bundle ID is in the `com.apple.security.temporary-exception.apple-events` array
+   - Already includes: `com.captureone.captureone16`, `com.captureone.captureone15`, etc.
+
+3. **Test AppleScript manually in Terminal:**
+   ```bash
+   # Replace "Capture One 23" with the exact app name from step 1
+   osascript -e 'tell application "Capture One 23" to tell document 1 to return (count of (variants whose selected is true))'
+   ```
+   - Should return the selection count
+   - If this fails, it's a permission or Capture One issue, not Picflow
+
+4. **Check export folder creation:**
+   ```bash
+   # Verify folder exists and is writable
+   ls -la ~/Library/Application\ Support/Picflow/CaptureOneExports/
+   ```
+   - Folder should exist with write permissions
+   - Look for error logs: `ERROR:Cannot convert path to alias`
+
+5. **Verify recipe was created:**
+   - Open Capture One
+   - Go to Recipes tool tab
+   - Look for "Picflow Upload" recipe
+   - Check its output location matches: `~/Library/Application Support/Picflow/CaptureOneExports/`
+
+6. **Check Picflow console logs:**
+   - Run from Xcode to see detailed logs
+   - Look for:
+     - `🎬 Exporting with 'Capture One 23' using recipe 'Picflow Upload'`
+     - `📋 Export result: SUCCESS:X` or `ERROR:...`
+   - Errors will show the specific failure reason
+
+**Common Fixes:**
+
+1. **Export folder doesn't exist:**
+   - Manually create: `mkdir -p ~/Library/Application\ Support/Picflow/CaptureOneExports/`
+   - Restart Picflow
+
+2. **Recipe has wrong output location:**
+   - Delete the "Picflow Upload" recipe in Capture One
+   - Let Picflow recreate it automatically on next export
+
+3. **Permission issue:**
+   - System Settings → Privacy & Security → Automation
+   - Ensure Picflow is listed and has permission for Capture One
+   - Remove and re-add if needed (uncheck, re-check)
+
+4. **AppleScript version mismatch:**
+   - Some Capture One versions have slightly different AppleScript APIs
+   - Check console for specific error codes
+   - Report error code in issue tracker
+
 ---
 
 ## Critical Bug Fixes & Learnings
+
+### Silent Failure When Files Don't Appear (October 2025)
+
+**Issue Discovered**: When recipe creation succeeded but exported files didn't appear in the expected folder, the app would fail silently with no user-facing error alert. Users would see no feedback, making it impossible to diagnose.
+
+#### Root Cause
+
+The code checked if files appeared after 10 seconds:
+```swift
+// BROKEN CODE:
+if detectedFiles.isEmpty {
+    print("⚠️ No files appeared...")
+    showRecipePathError = true  // Just sets a flag
+    return  // SILENTLY EXITS - NO USER ALERT!
+}
+```
+
+**Problem**: This was the most common failure mode for new users (especially with different Capture One versions), but it provided zero user feedback. The console would log the issue, but users running the app normally would see nothing.
+
+#### Why This Happened
+
+Common scenarios:
+1. **Recipe output location mismatch** - Recipe created but exports to wrong folder
+2. **Capture One version differences** - "Capture One 23" vs "Capture One 16" might handle paths differently
+3. **Permission issues** - Capture One can't write to `~/Library/Application Support/Picflow/`
+4. **Slow exports** - Files take longer than 10 seconds to appear
+
+#### Solution Implemented
+
+```swift
+// FIXED CODE:
+if detectedFiles.isEmpty {
+    print("⚠️ No files appeared...")
+    print("📁 Expected folder: \(exportFolder.path)")
+    
+    // Show clear user-facing error with actionable steps
+    ErrorAlertManager.shared.showCaptureOneError(
+        message: """
+        Export command succeeded, but no files appeared in the export folder.
+        This usually means the recipe's output location is incorrect.
+        
+        Expected location: \(exportFolder.path)
+        
+        Click "Recreate Recipe" below to fix this.
+        """,
+        error: nil
+    )
+    
+    showRecipePathError = true  // Also show in-app "Recreate Recipe" button
+    self.error = "No files appeared in export folder"
+    return
+}
+```
+
+#### Key Improvements
+
+1. **User-Facing Alert** ✅
+   - Clear error message explaining what happened
+   - Shows expected folder path for debugging
+   - Suggests actionable fix ("Recreate Recipe")
+
+2. **Enhanced Logging** ✅
+   - Logs detected app name and bundle ID
+   - Shows exact export folder path
+   - Logs AppleScript response for debugging
+
+3. **Multi-Level Feedback** ✅
+   - Native alert dialog (immediate)
+   - In-app error message (persistent)
+   - "Recreate Recipe" button (actionable)
+   - Console logs (for developers)
+
+#### Testing Recommendations
+
+- Test with different Capture One versions (16, 23, etc.)
+- Verify error appears when recipe has wrong output location
+- Check that "Recreate Recipe" button fixes the issue
+- Confirm logs show detected app name and paths
+
+---
 
 ### Race Condition in Upload Manager (October 2025)
 
@@ -783,6 +937,9 @@ GenericUploadProgressView(
 8. Concurrent uploads (3 at a time) dramatically improve performance with large batches
 9. Generic UI components with thin wrappers provide consistency and maintainability
 10. Test with 100+ files to catch race conditions that don't appear with small batches
+11. **NEVER fail silently** - Always show user-facing error alerts for critical failures, even if you log to console
+12. **Dynamic app detection works** - Don't hardcode app names, detect "Capture One 23" vs "Capture One 16" at runtime
+13. **Test cross-version compatibility** - Different Capture One versions (16, 23) may handle paths differently despite same bundle ID
 
 ---
 

@@ -267,6 +267,12 @@ class FolderMonitoringManager: ObservableObject {
                 await MainActor.run {
                     uploadState = .failed
                     statusDescription = "Failed to upload \(filename)"
+                    
+                    // Show error alert to user after max retries
+                    ErrorAlertManager.shared.showFolderMonitoringError(
+                        message: "Failed to upload \(filename) from live folder after \(maxRetries) attempts. The file will be skipped.",
+                        error: error
+                    )
                 }
                 
                 // Stay in error state for 5 seconds

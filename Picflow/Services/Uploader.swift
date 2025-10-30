@@ -33,8 +33,14 @@ class Uploader: ObservableObject {
 	private var totalBytesTransferred: Int64 = 0
 	private var totalFilesInQueue: Int = 0  // Track total files at queue start for progress calculation
 	private var totalBytesInQueue: Int64 = 0  // Total bytes across all files in queue
-	private var currentFileSize: Int64 = 0  // Size of the file currently being uploaded
-	private var currentFileBytesTransferred: Int64 = 0  // Bytes transferred for current file
+	private var completedFilesCount: Int = 0  // Number of files that have completed uploading
+	
+	// Concurrency coordinator for managing global upload operations
+	private let concurrencyCoordinator = ConcurrencyCoordinator()
+	
+	// Track per-file progress for concurrent uploads
+	private var fileProgress: [URL: Double] = [:]  // Maps file URL to progress (0.0 to 1.0)
+	private var fileSizes: [URL: Int64] = [:]  // Maps file URL to size in bytes
 	
 	func selectGallery(_ gallery: GalleryDetails) {
 		selectedGallery = gallery
@@ -62,7 +68,8 @@ class Uploader: ObservableObject {
 		}
 	}
 	
-	/// Process upload queue
+	/// Process upload queue with smart coordination
+	/// Small files upload concurrently, large files (multipart) upload one at a time
 	private func processQueue() async {
 		guard !uploadQueue.isEmpty, !isUploading else { return }
 		
@@ -70,21 +77,26 @@ class Uploader: ObservableObject {
 		uploadState = .uploading
 		uploadStartTime = Date()
 		totalBytesTransferred = 0
+		completedFilesCount = 0
 		currentFileIndex = 0
-		totalFilesInQueue = uploadQueue.count  // Store total for progress calculation
+		totalFilesInQueue = uploadQueue.count
 		uploadProgress = 0.0
+		fileProgress.removeAll()
+		fileSizes.removeAll()
 		
-		// Calculate total bytes in queue for accurate progress tracking
+		// Calculate total bytes in queue and initialize tracking dictionaries
 		totalBytesInQueue = 0
 		for fileURL in uploadQueue {
 			if let attributes = try? FileManager.default.attributesOfItem(atPath: fileURL.path),
 			   let fileSize = attributes[.size] as? Int64 {
 				totalBytesInQueue += fileSize
+				fileSizes[fileURL] = fileSize
+				fileProgress[fileURL] = 0.0
 			}
 		}
 		
 		if uploadQueue.count > 1 {
-			print("\n🚀 UPLOAD QUEUE: \(uploadQueue.count) files")
+			print("\n🚀 UPLOAD QUEUE: \(uploadQueue.count) files (smart coordination)")
 		}
 		
 		// Track upload started
@@ -103,29 +115,144 @@ class Uploader: ObservableObject {
 			]
 		)
 		
-		for (index, fileURL) in uploadQueue.enumerated() {
-			currentFileIndex = index
-			do {
-				try await upload(fileURL: fileURL)
-			} catch {
-				// Track upload failure
-				if let galleryId = selectedGallery?.id {
-					AnalyticsManager.shared.trackUploadFailed(
-						fileName: fileURL.lastPathComponent,
-						error: error.localizedDescription,
-						galleryId: galleryId
-					)
+		// Process files with smart coordination using TaskGroup
+		await withTaskGroup(of: (Int, Bool).self) { group in
+			var filesInProgress = 0
+			var queueIndex = 0
+			
+			// Start initial batch
+			while queueIndex < uploadQueue.count {
+				let fileURL = uploadQueue[queueIndex]
+				let index = queueIndex
+				let fileSize = fileSizes[fileURL] ?? 0
+				let isMultipart = MultiPartUploadConfig.shouldUseMultipart(fileSize: fileSize)
+				
+				// For multipart files, check if we can start (only if no other multipart is active)
+				if isMultipart {
+					let canStart = await concurrencyCoordinator.isMultipartActive() == false
+					if !canStart {
+						// Another multipart is active, stop adding new tasks
+						break
+					}
 				}
 				
-				// Capture error to Sentry
-				reportUploadError(
-					error,
-					fileName: fileURL.lastPathComponent,
-					fileIndex: index,
-					additionalContext: ["file_path": fileURL.path]
-				)
+				// Check concurrent small file limit
+				if !isMultipart && filesInProgress >= UploadConcurrencyConfig.maxConcurrentSmallFiles {
+					break
+				}
 				
-				// Continue with next file even if one fails
+				// Start upload task
+				group.addTask { [weak self] in
+					guard let self = self else { return (index, false) }
+					
+					do {
+						try await self.upload(fileURL: fileURL, fileIndex: index)
+						return (index, true)
+					} catch {
+						await MainActor.run {
+							if let galleryId = self.selectedGallery?.id {
+								AnalyticsManager.shared.trackUploadFailed(
+									fileName: fileURL.lastPathComponent,
+									error: error.localizedDescription,
+									galleryId: galleryId
+								)
+							}
+							
+							self.reportUploadError(
+								error,
+								fileName: fileURL.lastPathComponent,
+								fileIndex: index,
+								additionalContext: ["file_path": fileURL.path]
+							)
+							
+							ErrorAlertManager.shared.showUploadError(
+								fileName: fileURL.lastPathComponent,
+								error: error
+							)
+						}
+						return (index, false)
+					}
+				}
+				
+				filesInProgress += 1
+				queueIndex += 1
+				
+				// If this is a multipart, don't start any more files until it completes
+				if isMultipart {
+					break
+				}
+			}
+			
+			// Process results and start new uploads as slots become available
+			while let (_, _) = await group.next() {
+				filesInProgress -= 1
+				completedFilesCount += 1
+				
+				// Update current file index for display
+				await MainActor.run {
+					self.currentFileIndex = completedFilesCount
+				}
+				
+				// Start next file if available
+				if queueIndex < uploadQueue.count {
+					let fileURL = uploadQueue[queueIndex]
+					let index = queueIndex
+					let fileSize = fileSizes[fileURL] ?? 0
+					let isMultipart = MultiPartUploadConfig.shouldUseMultipart(fileSize: fileSize)
+					
+					// Check if we can start this file
+					var canStart = true
+					
+					if isMultipart {
+						// For multipart, check if another multipart is active
+						canStart = await concurrencyCoordinator.isMultipartActive() == false
+					} else {
+						// For small files, check concurrent limit
+						canStart = filesInProgress < UploadConcurrencyConfig.maxConcurrentSmallFiles
+					}
+					
+					if canStart {
+						group.addTask { [weak self] in
+							guard let self = self else { return (index, false) }
+							
+							do {
+								try await self.upload(fileURL: fileURL, fileIndex: index)
+								return (index, true)
+							} catch {
+								await MainActor.run {
+									if let galleryId = self.selectedGallery?.id {
+										AnalyticsManager.shared.trackUploadFailed(
+											fileName: fileURL.lastPathComponent,
+											error: error.localizedDescription,
+											galleryId: galleryId
+										)
+									}
+									
+									self.reportUploadError(
+										error,
+										fileName: fileURL.lastPathComponent,
+										fileIndex: index,
+										additionalContext: ["file_path": fileURL.path]
+									)
+									
+									ErrorAlertManager.shared.showUploadError(
+										fileName: fileURL.lastPathComponent,
+										error: error
+									)
+								}
+								return (index, false)
+							}
+						}
+						
+						filesInProgress += 1
+						queueIndex += 1
+						
+						// If this is a multipart, don't add more until it completes
+						if isMultipart {
+							// No more files until this multipart completes
+						}
+					}
+				}
 			}
 		}
 		
@@ -156,17 +283,18 @@ class Uploader: ObservableObject {
 		uploadState = .idle
 		uploadStartTime = nil
 		currentFileIndex = 0
+		completedFilesCount = 0
 		totalBytesTransferred = 0
 		totalFilesInQueue = 0
 		totalBytesInQueue = 0
-		currentFileSize = 0
-		currentFileBytesTransferred = 0
+		fileProgress.removeAll()
+		fileSizes.removeAll()
 		uploadSpeed = 0
 		estimatedTimeRemaining = 0
 	}
 	
 	/// Upload a file to the selected gallery
-	func upload(fileURL: URL) async throws {
+	func upload(fileURL: URL, fileIndex: Int = 0) async throws {
 		guard let gallery = selectedGallery else {
 			throw UploadError.noGallerySelected
 		}
@@ -185,12 +313,11 @@ class Uploader: ObservableObject {
 			throw UploadError.fileReadError(error)
 		}
 		
-		// Track current file for time remaining calculation
-		currentFileSize = fileSize
-		currentFileBytesTransferred = 0
-		
-		// Calculate overall queue progress
-		updateOverallProgress(fileProgress: 0.0)
+		// Initialize progress for this file
+		await MainActor.run {
+			self.fileProgress[fileURL] = 0.0
+			self.updateOverallProgress()
+		}
 		
 		// Determine upload type based on file size
 		let uploadType: CreateAssetRequest.UploadType = MultiPartUploadConfig.shouldUseMultipart(fileSize: fileSize) ? .multipart : .post
@@ -218,7 +345,10 @@ class Uploader: ObservableObject {
 			
 			let createResponse: CreateAssetResponse = try await endpoint.response()
 			
-			updateOverallProgress(fileProgress: 0.1)
+			await MainActor.run {
+				self.fileProgress[fileURL] = 0.1
+				self.updateOverallProgress()
+			}
 			
 		// Step 2: Upload file to S3 (single or multipart)
 		if createResponse.versionData.isMultiPart {
@@ -239,12 +369,16 @@ class Uploader: ObservableObject {
 			
 			// Update statistics for single-part uploads
 			// (multi-part uploads handle this incrementally)
-			totalBytesTransferred += fileSize
-			currentFileBytesTransferred = fileSize
-			updateUploadStatistics()
+			await MainActor.run {
+				self.totalBytesTransferred += fileSize
+				self.updateUploadStatistics()
+			}
 		}
 		
-		updateOverallProgress(fileProgress: 1.0)
+		await MainActor.run {
+			self.fileProgress[fileURL] = 1.0
+			self.updateOverallProgress()
+		}
 		
 		// Track individual file upload
 		AnalyticsManager.shared.trackFileUploaded(
@@ -284,31 +418,29 @@ class Uploader: ObservableObject {
 	}
 	
 	/// Calculate overall progress across all files in queue
-	/// - Parameter fileProgress: Progress of current file (0.0 to 1.0)
-	private func updateOverallProgress(fileProgress: Double) {
+	/// Uses per-file progress tracking to support concurrent uploads
+	private func updateOverallProgress() {
 		guard totalBytesInQueue > 0 else {
-			uploadProgress = fileProgress
+			uploadProgress = 0.0
 			return
 		}
 		
-		// Calculate bytes transferred for completed files (before current file)
-		var completedBytes: Int64 = 0
-		for i in 0..<currentFileIndex {
-			if let attributes = try? FileManager.default.attributesOfItem(atPath: uploadQueue[i].path),
-			   let fileSize = attributes[.size] as? Int64 {
-				completedBytes += fileSize
+		// Calculate weighted progress based on file sizes
+		var totalWeightedProgress: Double = 0.0
+		
+		for (fileURL, progress) in fileProgress {
+			if let fileSize = fileSizes[fileURL] {
+				// Each file contributes to total progress proportional to its size
+				let fileWeight = Double(fileSize) / Double(totalBytesInQueue)
+				totalWeightedProgress += fileWeight * progress
 			}
 		}
 		
-		// Add current file's progress
-		let currentFileProgress = Double(currentFileSize) * fileProgress
-		let totalTransferred = Double(completedBytes) + currentFileProgress
-		
-		// Calculate overall progress based on bytes
-		uploadProgress = totalTransferred / Double(totalBytesInQueue)
+		uploadProgress = totalWeightedProgress
 	}
 	
 	/// Update upload statistics (speed and time remaining)
+	/// Works with concurrent uploads by tracking total bytes transferred
 	private func updateUploadStatistics() {
 		guard let startTime = uploadStartTime else { return }
 		
@@ -323,29 +455,12 @@ class Uploader: ObservableObject {
 			return
 		}
 		
-		// Calculate remaining bytes in current file
-		let currentFileRemainingBytes = max(currentFileSize - currentFileBytesTransferred, 0)
-		
-		// Calculate remaining bytes in future files
-		let remainingFiles = uploadQueue.count - currentFileIndex - 1
-		var futureFilesBytes: Int64 = 0
-		
-		if remainingFiles > 0 {
-			// Calculate total size of remaining files in queue
-			for i in (currentFileIndex + 1)..<uploadQueue.count {
-				if let attributes = try? FileManager.default.attributesOfItem(atPath: uploadQueue[i].path),
-				   let fileSize = attributes[.size] as? Int64 {
-					futureFilesBytes += fileSize
-				}
-			}
-		}
-		
-		// Total remaining bytes = current file + future files
-		let totalRemainingBytes = currentFileRemainingBytes + futureFilesBytes
+		// Calculate remaining bytes across all files based on their progress
+		let remainingBytes = totalBytesInQueue - totalBytesTransferred
 		
 		// Calculate time remaining
-		if totalRemainingBytes > 0 {
-			estimatedTimeRemaining = Double(totalRemainingBytes) / uploadSpeed
+		if remainingBytes > 0 {
+			estimatedTimeRemaining = Double(remainingBytes) / uploadSpeed
 		} else {
 			estimatedTimeRemaining = 0
 		}
@@ -388,11 +503,10 @@ class Uploader: ObservableObject {
 		      200...299 ~= httpResponse.statusCode else {
 			throw UploadError.s3UploadFailed
 		}
-		
-		updateOverallProgress(fileProgress: 0.9)
 	}
 	
 	/// Upload file using multipart upload (for large files)
+	/// Acquires exclusive multipart lock to prevent concurrent multipart uploads
 	private func uploadMultiPart(
 		fileURL: URL,
 		versionData: CreateAssetResponse.VersionData,
@@ -411,6 +525,16 @@ class Uploader: ObservableObject {
 			throw UploadError.missingOriginalKey
 		}
 		
+		// Acquire exclusive multipart lock (only one multipart upload at a time)
+		await concurrencyCoordinator.acquireMultipartLock()
+		
+		defer {
+			// Always release the lock when done
+			Task {
+				await concurrencyCoordinator.releaseMultipartLock()
+			}
+		}
+		
 		// Calculate chunk size based on file size and part count
 		let chunkSize = MultiPartUploadConfig.calculateChunkSize(
 			fileSize: fileSize,
@@ -423,46 +547,47 @@ class Uploader: ObservableObject {
 		let reader = try ChunkedFileReader(fileURL: fileURL)
 		defer { reader.close() }
 		
-		// Track uploaded parts with their ETags
-		var uploadedParts: [CompleteMultipartUploadRequest.Part] = []
-		
-		// Upload chunks with limited concurrency
-		try await withThrowingTaskGroup(of: (Int, String, Int64).self) { group in
-			var activeUploads = 0
-			let maxConcurrent = MultiPartUploadConfig.maxConcurrentUploads
+		// Track uploaded parts with their ETags (thread-safe using actor)
+		actor UploadTracker {
+			var uploadedParts: [CompleteMultipartUploadRequest.Part] = []
+			var completedCount: Int = 0
 			
+			func addPart(_ part: CompleteMultipartUploadRequest.Part) {
+				uploadedParts.append(part)
+				completedCount += 1
+			}
+			
+			func getCompletedCount() -> Int {
+				return completedCount
+			}
+			
+			func getSortedParts() -> [CompleteMultipartUploadRequest.Part] {
+				return uploadedParts.sorted { $0.partNumber < $1.partNumber }
+			}
+		}
+		
+		let tracker = UploadTracker()
+		
+		// Upload chunks with global concurrency management
+		try await withThrowingTaskGroup(of: (Int, String, Int64).self) { group in
+			// Start all chunk uploads (they'll coordinate through the global coordinator)
 			for (index, uploadURL) in uploadUrls.enumerated() {
-				// Wait if we've reached max concurrent uploads
-				while activeUploads >= maxConcurrent {
-					let (completedIndex, etag, bytesUploaded) = try await group.next()!
-					activeUploads -= 1
-					
-					// Store the completed part
-					uploadedParts.append(CompleteMultipartUploadRequest.Part(
-						etag: etag,
-						partNumber: completedIndex + 1  // S3 part numbers are 1-based
-					))
-					
-					// Update bytes transferred and statistics
-					await MainActor.run {
-						self.totalBytesTransferred += bytesUploaded
-						self.currentFileBytesTransferred += bytesUploaded
-						self.updateUploadStatistics()
-					}
-					
-					// Update progress (10% reserved for initial setup, 85% for uploads, 5% for completion)
-					let fileProgress = 0.1 + (0.85 * Double(uploadedParts.count) / Double(uploadUrls.count))
-					await MainActor.run {
-						self.updateOverallProgress(fileProgress: fileProgress)
-					}
-				}
-				
-				// Read chunk from disk
+				// Read chunk from disk immediately
 				let chunkData = try reader.readChunk(at: index, chunkSize: chunkSize)
 				let chunkDataSize = Int64(chunkData.count)
 				
-				// Upload chunk in background
+				// Upload chunk using global concurrency coordinator
 				group.addTask {
+					// Acquire slot from global coordinator (may wait if limit reached)
+					await self.concurrencyCoordinator.acquireSlot()
+					
+					defer {
+						// Release slot when done
+						Task {
+							await self.concurrencyCoordinator.releaseSlot()
+						}
+					}
+					
 					let etag = try await self.uploadChunk(
 						data: chunkData,
 						uploadURL: uploadURL,
@@ -471,41 +596,45 @@ class Uploader: ObservableObject {
 					)
 					return (index, etag, chunkDataSize)
 				}
-				activeUploads += 1
 			}
 			
-			// Wait for remaining uploads to complete
-			while let (completedIndex, etag, bytesUploaded) = try await group.next() {
-				uploadedParts.append(CompleteMultipartUploadRequest.Part(
+			// Wait for all uploads to complete
+			for try await (completedIndex, etag, bytesUploaded) in group {
+				// Store the completed part
+				await tracker.addPart(CompleteMultipartUploadRequest.Part(
 					etag: etag,
-					partNumber: completedIndex + 1
+					partNumber: completedIndex + 1  // S3 part numbers are 1-based
 				))
+				
+				let completedCount = await tracker.getCompletedCount()
 				
 				// Update bytes transferred and statistics
 				await MainActor.run {
 					self.totalBytesTransferred += bytesUploaded
-					self.currentFileBytesTransferred += bytesUploaded
 					self.updateUploadStatistics()
 				}
 				
-				let fileProgress = 0.1 + (0.85 * Double(uploadedParts.count) / Double(uploadUrls.count))
+				// Update this file's progress (10% reserved for setup, 85% for uploads, 5% for completion)
+				let thisFileProgress = 0.1 + (0.85 * Double(completedCount) / Double(uploadUrls.count))
 				await MainActor.run {
-					self.updateOverallProgress(fileProgress: fileProgress)
+					self.fileProgress[fileURL] = thisFileProgress
+					self.updateOverallProgress()
 				}
 				
 				// Log progress every 10% or on last chunk
-				if completedIndex == 0 || uploadedParts.count % max(uploadUrls.count / 10, 1) == 0 || completedIndex == uploadUrls.count - 1 {
-					print("   Progress: \(uploadedParts.count)/\(uploadUrls.count) parts (\(Int(fileProgress * 100))%)")
+				if completedIndex == 0 || completedCount % max(uploadUrls.count / 10, 1) == 0 || completedIndex == uploadUrls.count - 1 {
+					print("   Progress: \(completedCount)/\(uploadUrls.count) parts (\(Int(thisFileProgress * 100))%)")
 				}
 			}
 		}
 		
-		// Sort parts by part number (required by S3)
-		uploadedParts.sort { $0.partNumber < $1.partNumber }
+		// Get sorted parts
+		let uploadedParts = await tracker.getSortedParts()
 		
 		// Update progress to show all chunks uploaded
 		await MainActor.run {
-			self.updateOverallProgress(fileProgress: 0.95)
+			self.fileProgress[fileURL] = 0.95
+			self.updateOverallProgress()
 		}
 		
 		print("   Finalizing upload...")
@@ -516,11 +645,6 @@ class Uploader: ObservableObject {
 			uploadId: uploadId,
 			parts: uploadedParts
 		)
-		
-		// Show 100% briefly before completion
-		await MainActor.run {
-			self.updateOverallProgress(fileProgress: 1.0)
-		}
 	}
 	
 	/// Upload a single chunk to S3

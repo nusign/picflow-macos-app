@@ -17,17 +17,65 @@ extension Notification.Name {
 struct AvatarToolbarButton: View {
     @ObservedObject var authenticator: Authenticator
     @State private var showProfileMenu = false
+    @State private var avatarImage: NSImage?
+    
+    private var profile: Profile? {
+        if case .authorized(_, let profile) = authenticator.state {
+            return profile
+        }
+        return nil
+    }
     
     var body: some View {
         Button {
             showProfileMenu.toggle()
-        } label: {
-            Image(systemName: "person.crop.circle")
+        } 
+        label: {
+            if let avatarImage = avatarImage {
+                Image(nsImage: avatarImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 36, height: 36)
+                    .clipShape(Circle())
+            } else {
+                Image(systemName: "person.crop.circle.fill")
+                    .resizable()
+                    .frame(width: 36, height: 36)
+                    .foregroundStyle(.secondary)
+            }
         }
-        .help("Profile Menu")
-        .popover(isPresented: $showProfileMenu) {
+        .buttonStyle(.plain)
+        .help("Account")
+        .accessibilityLabel("Account")
+        .popover(isPresented: $showProfileMenu, arrowEdge: .bottom) {
             if case .authorized(_, let profile) = authenticator.state {
                 ProfileDropdownContent(profile: profile, authenticator: authenticator)
+            }
+        }
+        .task(id: profile?.avatarUrl) {
+            await loadAvatar()
+        }
+    }
+    
+    private func loadAvatar() async {
+        guard let profile = profile,
+              let avatarUrlString = profile.avatarUrl,
+              let url = URL(string: avatarUrlString) else {
+            avatarImage = nil
+            return
+        }
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            if let nsImage = NSImage(data: data) {
+                await MainActor.run {
+                    avatarImage = nsImage
+                }
+            }
+        } catch {
+            // Failed to load avatar, keep using placeholder
+            await MainActor.run {
+                avatarImage = nil
             }
         }
     }

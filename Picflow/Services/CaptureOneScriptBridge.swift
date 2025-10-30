@@ -46,15 +46,19 @@ class CaptureOneScriptBridge {
                 app.bundleIdentifier == cachedId
             }
             if stillRunning {
+                print("🔍 Using cached: '\(cachedName)' (bundle ID: \(cachedId))")
                 return (cachedId, cachedName)
             } else {
                 // App quit, clear cache
                 detectedBundleId = nil
                 detectedAppName = nil
+                print("🔍 Cache cleared - app is no longer running")
             }
         }
         
         let runningApps = NSWorkspace.shared.runningApplications
+        
+        print("🔍 Searching for Capture One in \(runningApps.count) running apps...")
         
         // Try to find Capture One by bundle identifier
         let captureOneApp = runningApps.first { app in
@@ -65,12 +69,15 @@ class CaptureOneScriptBridge {
         guard let app = captureOneApp,
               let bundleId = app.bundleIdentifier,
               let appName = app.localizedName else {
+            print("❌ Capture One not found in running apps")
             return nil
         }
         
         detectedBundleId = bundleId
         detectedAppName = appName
-        print("✅ Found: '\(appName)' (bundle ID: \(bundleId))")
+        print("✅ Detected Capture One:")
+        print("   App Name: '\(appName)'")
+        print("   Bundle ID: \(bundleId)")
         return (bundleId, appName)
     }
     
@@ -394,7 +401,12 @@ class CaptureOneScriptBridge {
                     set newRecipe to make new recipe with properties {name:"\(recipeName)"}
                     
                     -- Convert path to alias (required for custom location to work)
-                    set exportPath to POSIX file "\(outputFolder.path)" as alias
+                    -- Note: The folder MUST exist before converting to alias
+                    try
+                        set exportPath to POSIX file "\(outputFolder.path)" as alias
+                    on error pathErr number pathErrNum
+                        return "ERROR:Cannot convert path to alias: " & pathErr & " (code: " & pathErrNum & "). Folder may not exist: \(outputFolder.path)"
+                    end try
                     
                     -- CRITICAL: Set location BEFORE type, and use alias not string
                     tell newRecipe
@@ -413,6 +425,9 @@ class CaptureOneScriptBridge {
             end try
         end tell
         """
+        
+        print("📋 Force creating recipe with app: '\(appInfo.appName)'")
+        print("📁 Recipe output folder: \(outputFolder.path)")
         
         let createResult = try await executeAppleScript(createScript)
         
@@ -476,7 +491,12 @@ class CaptureOneScriptBridge {
                     set newRecipe to make new recipe with properties {name:"\(recipeName)"}
                     
                     -- Convert path to alias (required for custom location to work)
-                    set exportPath to POSIX file "\(outputFolder.path)" as alias
+                    -- Note: The folder MUST exist before converting to alias
+                    try
+                        set exportPath to POSIX file "\(outputFolder.path)" as alias
+                    on error pathErr number pathErrNum
+                        return "ERROR:Cannot convert path to alias: " & pathErr & " (code: " & pathErrNum & "). Folder may not exist: \(outputFolder.path)"
+                    end try
                     
                     -- CRITICAL: Set location BEFORE type, and use alias not string
                     tell newRecipe
@@ -495,6 +515,9 @@ class CaptureOneScriptBridge {
             end try
         end tell
         """
+        
+        print("📋 Creating recipe with app: '\(appInfo.appName)'")
+        print("📁 Recipe output folder: \(outputFolder.path)")
         
         let createResult = try await executeAppleScript(createScript)
         
@@ -633,6 +656,11 @@ class CaptureOneScriptBridge {
                         return "ERROR:No variants selected"
                     end if
                     
+                    -- Verify recipe exists before trying to use it
+                    if not (exists recipe "\(recipeName)") then
+                        return "ERROR:Recipe '\(recipeName)' not found. Please check if it was created correctly."
+                    end if
+                    
                     -- Process using recipe (Capture One's standard export command)
                     repeat with v in selectedVariants
                         process v recipe "\(recipeName)"
@@ -646,34 +674,46 @@ class CaptureOneScriptBridge {
         end tell
         """
         
-        print("🎬 Exporting using '\(recipeName)' recipe to: \(outputFolder.path)")
+        print("🎬 Exporting with '\(appInfo.appName)' using recipe '\(recipeName)'")
+        print("📁 Export destination: \(outputFolder.path)")
         
         do {
             let result = try await executeAppleScript(script)
-            print("📋 Export result: \(result)")
+            print("📋 Export script result: '\(result)'")
+            print("📋 Export initiated for output: \(outputFolder.path)")
             
             if result.hasPrefix("ERROR:") {
                 let errorMessage = String(result.dropFirst(6))
-                print("❌ Export script error: \(errorMessage)")
+                print("❌ Export script returned error: \(errorMessage)")
                 throw CaptureOneError.scriptExecutionFailed(errorMessage)
             } else if result.hasPrefix("SUCCESS:") {
                 let countString = String(result.dropFirst(8))
                 let exportedCount = Int(countString) ?? 0
-                print("✅ Export command completed successfully - exported \(exportedCount) variants")
+                print("✅ Export command completed successfully")
+                print("   - Variants exported: \(exportedCount)")
+                print("   - Expected output folder: \(outputFolder.path)")
+                print("   - App used: '\(appInfo.appName)'")
                 return (folder: outputFolder, count: exportedCount)
             } else if result == "SUCCESS" {
                 // Backwards compatibility - assume 1 variant if no count provided
-                print("✅ Export command completed successfully")
+                print("✅ Export command completed successfully (no count)")
+                print("   - Expected output folder: \(outputFolder.path)")
+                print("   - App used: '\(appInfo.appName)'")
                 return (folder: outputFolder, count: 1)
             } else {
-                print("⚠️ Unexpected export response: \(result)")
+                print("⚠️ Unexpected export response: '\(result)'")
+                print("⚠️ This might indicate an AppleScript version mismatch")
                 throw CaptureOneError.scriptExecutionFailed("Unexpected response: \(result)")
             }
         } catch let error as CaptureOneError {
             print("❌ CaptureOne error during export: \(error)")
+            print("   - App: '\(appInfo.appName)'")
+            print("   - Bundle ID: \(appInfo.bundleId)")
+            print("   - Output folder: \(outputFolder.path)")
             throw error
         } catch {
             print("❌ Unexpected error during export: \(error)")
+            print("❌ Error type: \(type(of: error))")
             print("❌ Error details: \(error.localizedDescription)")
             throw CaptureOneError.scriptExecutionFailed("Export failed: \(error.localizedDescription)")
         }

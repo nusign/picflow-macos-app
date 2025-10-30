@@ -113,6 +113,13 @@ class CaptureOneUploadManager: ObservableObject {
             let errorMessage = error.localizedDescription
             self.error = "Failed to get file paths: \(errorMessage)"
             print("❌ Get file paths error: \(errorMessage)")
+            
+            // Show error alert to user
+            ErrorAlertManager.shared.showCaptureOneError(
+                message: "Failed to get file paths from Capture One. Make sure variants are selected.",
+                error: error
+            )
+            
             isExporting = false
         }
     }
@@ -170,8 +177,26 @@ class CaptureOneUploadManager: ObservableObject {
             
             if detectedFiles.isEmpty {
                 print("⚠️ No files appeared in expected folder after 10 seconds")
+                print("📁 Expected folder: \(exportFolder.path)")
+                
+                // Show user-facing error
+                let errorMsg = """
+                Export command succeeded, but no files appeared in the export folder. \
+                This usually means the recipe's output location is incorrect.
+                
+                Expected location: \(exportFolder.path)
+                
+                Click "Recreate Recipe" below to fix this, or check the recipe manually in Capture One.
+                """
+                
+                ErrorAlertManager.shared.showCaptureOneError(
+                    message: errorMsg,
+                    error: nil
+                )
+                
                 isExporting = false
                 showRecipePathError = true
+                self.error = "No files appeared in export folder"
                 completionCheckTask?.cancel()
                 return
             }
@@ -180,6 +205,13 @@ class CaptureOneUploadManager: ObservableObject {
             let errorMessage = error.localizedDescription
             self.error = "Export failed: \(errorMessage)"
             print("❌ Export error: \(errorMessage)")
+            
+            // Show error alert to user
+            ErrorAlertManager.shared.showCaptureOneError(
+                message: "Export from Capture One failed. \(errorMessage)",
+                error: error
+            )
+            
             isExporting = false
             exportMonitor?.stopMonitoring()
             exportMonitor = nil
@@ -298,6 +330,9 @@ class CaptureOneUploadManager: ObservableObject {
         } catch {
             self.error = "Upload failed for \(fileName): \(error.localizedDescription)"
             print("❌ Upload failed: \(fileName) - \(error)")
+            
+            // Show error alert to user
+            ErrorAlertManager.shared.showUploadError(fileName: fileName, error: error)
         }
     }
     
@@ -325,6 +360,12 @@ class CaptureOneUploadManager: ObservableObject {
         } catch {
             self.error = "Failed to recreate recipe: \(error.localizedDescription)"
             print("❌ Recipe recreation failed: \(error)")
+            
+            // Show error alert to user
+            ErrorAlertManager.shared.showCaptureOneError(
+                message: "Failed to recreate Capture One recipe. Please check Capture One settings.",
+                error: error
+            )
         }
     }
     

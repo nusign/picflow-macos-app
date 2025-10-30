@@ -23,7 +23,9 @@ struct MultiPartUploadConfig {
         multipartThresholdMB * 1024 * 1024
     }
     
-    /// Maximum number of concurrent chunk uploads
+    /// Deprecated: Moved to UploadConcurrencyConfig.maxConcurrentOperations
+    /// Kept for backward compatibility
+    @available(*, deprecated, message: "Use UploadConcurrencyConfig.maxConcurrentOperations instead")
     static let maxConcurrentUploads = 3
     
     /// Number of retry attempts for failed chunk uploads

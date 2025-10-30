@@ -59,6 +59,7 @@ struct AppView: View {
                 .transition(.identity) // No transition animation
             }
         }
+        .errorAlert() // Show error alerts from ErrorAlertManager
         .onAppear {
             setupNotificationObservers()
             

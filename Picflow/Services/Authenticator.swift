@@ -132,6 +132,9 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
                 level: .warning,
                 data: ["error": error.localizedDescription]
             )
+            
+            // Note: We don't show an alert for session restoration failure
+            // because it's expected when tokens expire - user just needs to log in again
         }
     }
     
@@ -352,6 +355,12 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
                     "has_code": true,
                     "has_verifier": self.codeVerifier != nil
                 ]
+            )
+            
+            // Show error alert to user
+            ErrorAlertManager.shared.showAuthenticationError(
+                message: "Failed to complete authentication. Please try again.",
+                error: error
             )
             
             state = .unauthorized
