@@ -50,7 +50,6 @@ struct LiveFolderView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(24)
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .strokeBorder(

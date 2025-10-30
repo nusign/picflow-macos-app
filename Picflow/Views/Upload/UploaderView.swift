@@ -151,7 +151,7 @@ struct UploaderView: View {
     private var uploadStatusView: some View {
         // Prioritize Capture One if it's uploading
         if captureOneUploadManager.isExporting || captureOneUploadManager.uploadState == .uploading {
-            UploadStatusView(
+            CaptureOneUploadStatus(
                 state: captureOneUploadManager.uploadState,
                 description: captureOneUploadManager.statusDescription
             )

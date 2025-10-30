@@ -2,85 +2,25 @@
 //  UploadStatusView.swift
 //  Picflow
 //
-//  Unified upload status display for all upload types
+//  Upload status components for different upload sources (ordered by priority):
+//  1. ManualUploadStatus - Manual uploads with progress bar & Cancel button
+//  2. LiveFolderUploadStatus - Live mode with progress bar & pulsing animation
+//  3. CaptureOneUploadStatus - Basic display for Capture One (no progress bar)
 //
 
 import SwiftUI
 import Foundation
 
-// MARK: - Upload Status View
+// MARK: - Manual Upload Status (Drag & Drop / File Picker)
 
-/// Unified reusable upload status component
-/// Used by manual uploads, Capture One integration, and live folder watching
-struct UploadStatusView: View {
-    let state: UploadState
-    let description: String
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            // Left side: Icon
-            Image(systemName: statusIcon)
-                .font(.system(size: 24, weight: .semibold))
-                .foregroundStyle(statusColor)
-                .frame(width: 32, height: 32, alignment: .center)
-            
-            // Middle: Title and Status
-            VStack(alignment: .leading, spacing: 4) {
-                Text(statusTitle)
-                    .font(.callout)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.primary)
-                
-                Text(description)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-            }
-            
-            Spacer()
-        }
-    }
-    
-    private var statusTitle: String {
-        switch state {
-        case .completed:
-            return "Completed"
-        default:
-            return "Uploading"
-        }
-    }
-    
-    private var statusIcon: String {
-        switch state {
-        case .completed:
-            return "checkmark.circle.fill"
-        case .failed:
-            return "exclamationmark.triangle.fill"
-        default:
-            return "arrow.up.circle.fill"
-        }
-    }
-    
-    private var statusColor: Color {
-        switch state {
-        case .completed:
-            return .green
-        case .failed:
-            return .red
-        default:
-            return .accentColor
-        }
-    }
-}
-
-// MARK: - Manual Upload Status
-
-/// Wrapper for manual file uploads (drag & drop / choose files)
+/// Full-featured upload status for manual file uploads
+/// Features: Animated progress bar background, percentage display, Cancel button
 struct ManualUploadStatus: View {
     @ObservedObject var uploader: Uploader
     
     var body: some View {
         ZStack(alignment: .leading) {
-            // Background capsule
+            // BACKGROUND: Animated progress bar (fills left-to-right as upload progresses)
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     if uploader.uploadState == .completed {
@@ -104,7 +44,7 @@ struct ManualUploadStatus: View {
             }
             
             // Content (on top of progress bar)
-            HStack(spacing: 12) {
+            HStack(spacing: 8) {
                 // Left side: Icon
                 Image(systemName: statusIcon)
                     .font(.system(size: 24, weight: .semibold))
@@ -112,7 +52,7 @@ struct ManualUploadStatus: View {
                     .frame(width: 32, height: 32, alignment: .center)
                 
                 // Middle: Title and Status
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 0) {
                     Text(statusTitle)
                         .font(.callout)
                         .fontWeight(.semibold)
@@ -141,6 +81,8 @@ struct ManualUploadStatus: View {
                             )
                     }
                     .buttonStyle(.plain)
+                    .padding(.trailing, 8)
+
                 } else if uploader.uploadState == .uploading {
                     // Show progress percentage while uploading
                     Text("\(Int(uploader.uploadProgress * 100))%")
@@ -251,16 +193,17 @@ struct ManualUploadStatus: View {
     }
 }
 
-// MARK: - Live Folder Upload Status
+// MARK: - Live Folder Upload Status (Live Mode)
 
-/// Wrapper for live folder monitoring uploads
+/// Full-featured upload status for live folder monitoring
+/// Features: Animated progress bar background, pulsing red dot, upload counter
 struct LiveFolderUploadStatus: View {
     @ObservedObject var folderManager: FolderMonitoringManager
     @State private var isPulsing = false
     
     var body: some View {
         ZStack(alignment: .leading) {
-            // Background capsule with animated progress
+            // BACKGROUND: Animated progress bar (fills left-to-right as upload progresses)
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     if folderManager.uploadState == .completed {
@@ -292,7 +235,7 @@ struct LiveFolderUploadStatus: View {
             }
             
             // Content (on top of background)
-            HStack(spacing: 12) {
+            HStack(spacing: 8) {
                 // Left side: Icon with pulsing animation for live mode
                 Image(systemName: statusIcon)
                     .font(.system(size: 24, weight: .semibold))
@@ -313,7 +256,7 @@ struct LiveFolderUploadStatus: View {
                     }
                 
                 // Middle: Title and Status
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 0) {
                     Text(statusTitle)
                         .font(.callout)
                         .fontWeight(.semibold)
@@ -335,17 +278,18 @@ struct LiveFolderUploadStatus: View {
                         .monospacedDigit()
                 } else {
                     // Show upload counter when idle/completed
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text("\(folderManager.totalUploaded)")
-                            .font(.system(size: 20, weight: .bold))
-                            .foregroundColor(.primary)
-                            .monospacedDigit()
-                        
+                    HStack(spacing: 4) {
                         Text(folderManager.totalUploaded == 1 ? "uploaded" : "uploaded")
                             .font(.system(size: 9))
                             .foregroundColor(.secondary)
                             .textCase(.uppercase)
+
+                        Text("\(folderManager.totalUploaded) \(folderManager.totalUploaded == 1 ? "file" : "files")")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundColor(.primary)
+                            .monospacedDigit()
                     }
+                    .padding(.trailing, 8)
                 }
             }
             .padding(12)
@@ -393,6 +337,70 @@ struct LiveFolderUploadStatus: View {
             return .green
         case .failed:
             return .red
+        }
+    }
+}
+
+// MARK: - Basic Upload Status (Capture One)
+
+/// Basic upload status component - icon, title, description only
+/// Used ONLY for Capture One integration (no progress bar, no cancel button)
+struct CaptureOneUploadStatus: View {
+    let state: UploadState
+    let description: String
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            // Left side: Icon
+            Image(systemName: statusIcon)
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundStyle(statusColor)
+                .frame(width: 32, height: 32, alignment: .center)
+            
+            // Middle: Title and Status
+            VStack(alignment: .leading, spacing: 0) {
+                Text(statusTitle)
+                    .font(.callout)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.primary)
+                
+                Text(description)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+            
+            Spacer()
+        }
+    }
+    
+    private var statusTitle: String {
+        switch state {
+        case .completed:
+            return "Completed"
+        default:
+            return "Uploading"
+        }
+    }
+    
+    private var statusIcon: String {
+        switch state {
+        case .completed:
+            return "checkmark.circle.fill"
+        case .failed:
+            return "exclamationmark.triangle.fill"
+        default:
+            return "arrow.up.circle.fill"
+        }
+    }
+    
+    private var statusColor: Color {
+        switch state {
+        case .completed:
+            return .green
+        case .failed:
+            return .red
+        default:
+            return .accentColor
         }
     }
 }
