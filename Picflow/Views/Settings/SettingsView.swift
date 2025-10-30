@@ -115,29 +115,6 @@ struct SettingsView: View {
         }
         .frame(width: 600, height: 500)
     }
-    
-    // MARK: - Helper Functions
-    
-    private func testSentry() {
-        // Send a simple test message
-        ErrorReportingManager.shared.captureMessage(
-            "Test event from Picflow Settings",
-            level: .info
-        )
-        
-        // Send a test error
-        let testError = NSError(
-            domain: "com.picflow.test",
-            code: 999,
-            userInfo: [NSLocalizedDescriptionKey: "Test error to verify Sentry"]
-        )
-        ErrorReportingManager.shared.reportError(
-            testError,
-            tags: ["source": "settings_test"]
-        )
-        
-        print("✅ Test events sent to Sentry")
-    }
 }
 
 // MARK: - Settings Section

@@ -279,12 +279,11 @@ struct LiveFolderUploadStatus: View {
                 } else {
                     // Show upload counter when idle/completed
                     HStack(spacing: 4) {
-                        Text(folderManager.totalUploaded == 1 ? "uploaded" : "uploaded")
-                            .font(.system(size: 9))
+                        Text("Uploaded")
+                            .font(.system(size: 11))
                             .foregroundColor(.secondary)
-                            .textCase(.uppercase)
 
-                        Text("\(folderManager.totalUploaded) \(folderManager.totalUploaded == 1 ? "file" : "files")")
+                        Text("\(folderManager.totalUploaded)")
                             .font(.system(size: 20, weight: .bold))
                             .foregroundColor(.primary)
                             .monospacedDigit()
