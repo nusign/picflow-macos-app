@@ -18,15 +18,10 @@ struct MultiPartUploadConfig {
     
     /// File size threshold for using multipart upload (configurable)
     /// Files larger than this will use multipart upload
-    static let multipartThresholdMB: Int64 = 40
+    static let multipartThresholdMB: Int64 = 25
     static var multipartThreshold: Int64 {
         multipartThresholdMB * 1024 * 1024
     }
-    
-    /// Deprecated: Moved to UploadConcurrencyConfig.maxConcurrentOperations
-    /// Kept for backward compatibility
-    @available(*, deprecated, message: "Use UploadConcurrencyConfig.maxConcurrentOperations instead")
-    static let maxConcurrentUploads = 3
     
     /// Number of retry attempts for failed chunk uploads
     static let maxRetryAttempts = 3
@@ -59,12 +54,6 @@ struct MultiPartUploadConfig {
         // Fallback to largest size if no exact match
         // This handles edge cases and potential future backend changes
         return possibleChunkSizes.last!
-    }
-    
-    /// Format bytes into human-readable string
-    private static func formatBytes(_ bytes: Int64) -> String {
-        let mb = Double(bytes) / (1024 * 1024)
-        return String(format: "%.2f MB", mb)
     }
     
     /// Determine if a file should use multipart upload based on size

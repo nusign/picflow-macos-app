@@ -12,7 +12,7 @@ import Foundation
 struct UploadConcurrencyConfig {
     /// Maximum number of concurrent small file uploads
     /// Small files (single-part) can upload simultaneously
-    static let maxConcurrentSmallFiles = 3
+    static let maxConcurrentSmallFiles = 4
     
     /// Maximum number of concurrent chunk uploads within a large file
     /// Only one large file (multipart) uploads at a time, but chunks within it upload concurrently
@@ -39,19 +39,16 @@ actor ConcurrencyCoordinator {
     func acquireMultipartLock() async {
         // Wait if another multipart upload is active
         if isMultipartUploadActive {
-            print("   ⏸️ MULTIPART waiting for lock (\(waitingForMultipart.count) already waiting)")
             await withCheckedContinuation { continuation in
                 waitingForMultipart.append(continuation)
             }
         }
         isMultipartUploadActive = true
-        print("   🔒 MULTIPART lock acquired")
     }
     
     /// Release the multipart lock, allowing the next multipart upload to proceed
     func releaseMultipartLock() {
         isMultipartUploadActive = false
-        print("   🔓 MULTIPART lock released (\(waitingForMultipart.count) waiting)")
         
         // Resume the next waiting multipart upload if any
         if !waitingForMultipart.isEmpty {
@@ -70,34 +67,20 @@ actor ConcurrencyCoordinator {
     func acquireSlot() async {
         if activeOperations < maxConcurrent {
             activeOperations += 1
-            print("   🔵 Chunk slot acquired: \(activeOperations)/\(maxConcurrent) active")
             return
         }
         
         // Wait for a slot to become available
-        print("   ⏸️ Chunk waiting for slot (currently \(activeOperations)/\(maxConcurrent))")
         await withCheckedContinuation { continuation in
             waitingTasks.append(continuation)
         }
         
         activeOperations += 1
-        print("   🔵 Chunk slot acquired (was waiting): \(activeOperations)/\(maxConcurrent) active")
-    }
-    
-    /// Try to acquire a slot without waiting
-    /// Returns true if slot was acquired, false otherwise
-    func tryAcquireSlot() -> Bool {
-        if activeOperations < maxConcurrent {
-            activeOperations += 1
-            return true
-        }
-        return false
     }
     
     /// Release a slot, allowing waiting operations to proceed
     func releaseSlot() {
         activeOperations -= 1
-        print("   🟢 Chunk slot released: \(activeOperations)/\(maxConcurrent) active, \(waitingTasks.count) waiting")
         
         // Resume the next waiting task if any
         if !waitingTasks.isEmpty {
@@ -105,39 +88,5 @@ actor ConcurrencyCoordinator {
             continuation.resume()
         }
     }
-    
-    /// Get the current number of active operations
-    func getActiveCount() -> Int {
-        return activeOperations
-    }
-    
-    /// Get the number of operations waiting for a slot
-    func getWaitingCount() -> Int {
-        return waitingTasks.count
-    }
-    
-    /// Reset the coordinator (useful for testing or cleanup)
-    func reset() {
-        // Resume all waiting tasks
-        for continuation in waitingTasks {
-            continuation.resume()
-        }
-        waitingTasks.removeAll()
-        activeOperations = 0
-    }
-}
-
-/// Helper to automatically release slot when operation completes
-func withConcurrencySlot<T>(
-    coordinator: ConcurrencyCoordinator,
-    operation: () async throws -> T
-) async rethrows -> T {
-    await coordinator.acquireSlot()
-    defer {
-        Task {
-            await coordinator.releaseSlot()
-        }
-    }
-    return try await operation()
 }
 
