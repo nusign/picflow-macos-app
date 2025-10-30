@@ -34,7 +34,6 @@ struct UploaderView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Gallery Title (centered, minimal)
             HStack {
                 Spacer()
                 Text(uploader.selectedGallery?.displayName ?? "Gallery")
@@ -76,7 +75,7 @@ struct UploaderView: View {
                 VStack(spacing: 0) {
                     // Live Folder Status (always show when folder is selected in live mode)
                     if shouldShowLiveFolder {
-                        LiveFolderUploadStatus(manager: folderMonitoringManager)
+                        LiveFolderUploadStatus(folderManager: folderMonitoringManager)
                     }
                     
                     // Upload Status
@@ -176,75 +175,6 @@ struct UploaderView: View {
         if !enabled {
             // Stop watching and reset everything
             folderMonitoringManager.stopMonitoring()
-        }
-    }
-}
-
-// MARK: - Live Folder Upload Status
-
-/// Wrapper for live folder uploads using the existing UploadStatusView
-struct LiveFolderUploadStatus: View {
-    @ObservedObject var manager: FolderMonitoringManager
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            // Left side: Folder icon and status
-            ZStack {
-                Circle()
-                    .fill(statusColor.opacity(0.1))
-                    .frame(width: 32, height: 32)
-                
-                Image(systemName: "folder.badge.plus")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(statusColor)
-            }
-            
-            // Middle: Folder name and status
-            VStack(alignment: .leading, spacing: 2) {
-                if let folderName = manager.folderName {
-                    Text(folderName)
-                        .font(.callout)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.primary)
-                }
-                
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(statusColor)
-                        .frame(width: 8, height: 8)
-                    
-                    Text(manager.statusDescription)
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
-                }
-            }
-            
-            Spacer()
-            
-            // Right side: Upload count
-            VStack(alignment: .trailing, spacing: 2) {
-                Text("\(manager.totalUploaded)")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(.primary)
-                
-                Text("uploaded")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-        }
-    }
-    
-    private var statusColor: Color {
-        switch manager.uploadState {
-        case .completed:
-            return .green
-        case .failed:
-            return .red
-        case .uploading:
-            return .blue
-        default:
-            return .green
         }
     }
 }

@@ -38,7 +38,6 @@ struct DropAreaView: View {
                 .frame(maxWidth: 180)
                 .padding(.bottom, 16)
                 
-
                 // Choose Files Button
                 Button("Choose Files") {
                     selectFiles()

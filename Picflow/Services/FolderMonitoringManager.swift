@@ -13,6 +13,7 @@
 import Foundation
 import UserNotifications
 
+@MainActor
 class FolderMonitoringManager: ObservableObject {
     // MARK: - Published Properties
     
@@ -317,5 +318,10 @@ class FolderMonitoringManager: ObservableObject {
     
     var isUploading: Bool {
         uploadState == .uploading
+    }
+    
+    /// Expose uploader's progress for UI (0.0 to 1.0)
+    var uploadProgress: Double {
+        uploader.uploadProgress
     }
 } 

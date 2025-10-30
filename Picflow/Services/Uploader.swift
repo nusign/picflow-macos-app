@@ -28,8 +28,10 @@ class Uploader: ObservableObject {
 	@Published var currentFileIndex: Int = 0
 	@Published var uploadSpeed: Double = 0.0  // bytes per second
 	@Published var estimatedTimeRemaining: TimeInterval = 0
+	@Published var isCancelling: Bool = false
 	
 	private var uploadStartTime: Date?
+	private var uploadTask: Task<Void, Never>?  // Track the main upload task for cancellation
 	private var totalBytesTransferred: Int64 = 0
 	private var totalFilesInQueue: Int = 0  // Track total files at queue start for progress calculation
 	private var totalBytesInQueue: Int64 = 0  // Total bytes across all files in queue
@@ -62,16 +64,51 @@ class Uploader: ObservableObject {
 		
 		// Start processing if not already running
 		if !isUploading {
-			Task {
+			uploadTask = Task {
 				await processQueue()
 			}
 		}
+	}
+	
+	/// Cancel all ongoing uploads and clear the queue
+	func cancelAllUploads() {
+		print("🛑 Cancelling all uploads...")
+		
+		isCancelling = true
+		
+		// Cancel the main upload task
+		uploadTask?.cancel()
+		uploadTask = nil
+		
+		// Clear the queue
+		uploadQueue.removeAll()
+		
+		// Reset all state
+		isUploading = false
+		uploadState = .idle
+		uploadProgress = 0.0
+		uploadStartTime = nil
+		currentFileIndex = 0
+		completedFilesCount = 0
+		totalBytesTransferred = 0
+		totalFilesInQueue = 0
+		totalBytesInQueue = 0
+		fileProgress.removeAll()
+		fileSizes.removeAll()
+		uploadSpeed = 0
+		estimatedTimeRemaining = 0
+		isCancelling = false
+		
+		print("✅ All uploads cancelled")
 	}
 	
 	/// Process upload queue with smart coordination
 	/// Small files upload concurrently, large files (multipart) upload one at a time
 	private func processQueue() async {
 		guard !uploadQueue.isEmpty, !isUploading else { return }
+		
+		// Reset cancellation flag at start
+		isCancelling = false
 		
 		isUploading = true
 		uploadState = .uploading
@@ -147,7 +184,7 @@ class Uploader: ObservableObject {
 			var queueIndex = 0
 			
 			// Start initial batch
-			while queueIndex < uploadQueue.count {
+			while queueIndex < uploadQueue.count && !isCancelling {
 				let fileURL = uploadQueue[queueIndex]
 				let index = queueIndex
 				let fileSize = fileSizes[fileURL] ?? 0
@@ -181,26 +218,34 @@ class Uploader: ObservableObject {
 						try await self.upload(fileURL: fileURL, fileIndex: index)
 						return (index, true)
 					} catch {
+						// Check if this is a cancellation error
+						let isCancellation = error is CancellationError || (error as NSError).code == NSURLErrorCancelled
+						
 						await MainActor.run {
-							if let galleryId = self.selectedGallery?.id {
-								AnalyticsManager.shared.trackUploadFailed(
+							// Only report actual errors, not user-initiated cancellations
+							if !isCancellation && !self.isCancelling {
+								if let galleryId = self.selectedGallery?.id {
+									AnalyticsManager.shared.trackUploadFailed(
+										fileName: fileURL.lastPathComponent,
+										error: error.localizedDescription,
+										galleryId: galleryId
+									)
+								}
+								
+								self.reportUploadError(
+									error,
 									fileName: fileURL.lastPathComponent,
-									error: error.localizedDescription,
-									galleryId: galleryId
+									fileIndex: index,
+									additionalContext: ["file_path": fileURL.path]
 								)
+								
+								ErrorAlertManager.shared.showUploadError(
+									fileName: fileURL.lastPathComponent,
+									error: error
+								)
+							} else {
+								print("   🛑 File upload cancelled: \(fileURL.lastPathComponent)")
 							}
-							
-							self.reportUploadError(
-								error,
-								fileName: fileURL.lastPathComponent,
-								fileIndex: index,
-								additionalContext: ["file_path": fileURL.path]
-							)
-							
-							ErrorAlertManager.shared.showUploadError(
-								fileName: fileURL.lastPathComponent,
-								error: error
-							)
 						}
 						return (index, false)
 					}
@@ -216,11 +261,21 @@ class Uploader: ObservableObject {
 			}
 			
 			// Process results and start new uploads as slots become available
-			while let (_, _) = await group.next() {
-				filesInProgress -= 1
-				completedFilesCount += 1
+			while let (_, success) = await group.next() {
+				// Check for cancellation
+				if isCancelling {
+					print("   🛑 Upload cancelled, stopping queue processing")
+					group.cancelAll()
+					break
+				}
 				
-				print("   ✅ File completed (\(completedFilesCount)/\(uploadQueue.count)), \(filesInProgress) still in progress")
+				filesInProgress -= 1
+				
+				// Only count successful completions
+				if success {
+					completedFilesCount += 1
+					print("   ✅ File completed (\(completedFilesCount)/\(totalFilesInQueue)), \(filesInProgress) still in progress")
+				}
 				
 				// Update current file index for display
 				await MainActor.run {
@@ -257,26 +312,34 @@ class Uploader: ObservableObject {
 								try await self.upload(fileURL: fileURL, fileIndex: index)
 								return (index, true)
 							} catch {
+								// Check if this is a cancellation error
+								let isCancellation = error is CancellationError || (error as NSError).code == NSURLErrorCancelled
+								
 								await MainActor.run {
-									if let galleryId = self.selectedGallery?.id {
-										AnalyticsManager.shared.trackUploadFailed(
+									// Only report actual errors, not user-initiated cancellations
+									if !isCancellation && !self.isCancelling {
+										if let galleryId = self.selectedGallery?.id {
+											AnalyticsManager.shared.trackUploadFailed(
+												fileName: fileURL.lastPathComponent,
+												error: error.localizedDescription,
+												galleryId: galleryId
+											)
+										}
+										
+										self.reportUploadError(
+											error,
 											fileName: fileURL.lastPathComponent,
-											error: error.localizedDescription,
-											galleryId: galleryId
+											fileIndex: index,
+											additionalContext: ["file_path": fileURL.path]
 										)
+										
+										ErrorAlertManager.shared.showUploadError(
+											fileName: fileURL.lastPathComponent,
+											error: error
+										)
+									} else {
+										print("   🛑 File upload cancelled: \(fileURL.lastPathComponent)")
 									}
-									
-									self.reportUploadError(
-										error,
-										fileName: fileURL.lastPathComponent,
-										fileIndex: index,
-										additionalContext: ["file_path": fileURL.path]
-									)
-									
-									ErrorAlertManager.shared.showUploadError(
-										fileName: fileURL.lastPathComponent,
-										error: error
-									)
 								}
 								return (index, false)
 							}
@@ -292,6 +355,13 @@ class Uploader: ObservableObject {
 					}
 				}
 			}
+		}
+		
+		// Check if cancelled
+		if isCancelling {
+			print("\n🛑 UPLOAD CANCELLED\n")
+			// Already cleaned up by cancelAllUploads(), just return
+			return
 		}
 		
 		if uploadQueue.count > 1 {
@@ -333,6 +403,9 @@ class Uploader: ObservableObject {
 	
 	/// Upload a file to the selected gallery
 	func upload(fileURL: URL, fileIndex: Int = 0) async throws {
+		// Check for cancellation before starting
+		try Task.checkCancellation()
+		
 		guard let gallery = selectedGallery else {
 			throw UploadError.noGallerySelected
 		}
@@ -367,6 +440,9 @@ class Uploader: ObservableObject {
 		print("   Mode: \(uploadType == .multipart ? "Multi-part (will acquire lock)" : "Single-part (concurrent)")")
 		
 		do {
+			// Check for cancellation before network call
+			try Task.checkCancellation()
+			
 			// Step 1: Create asset and get presigned URL(s)
 			let createAssetRequest = CreateAssetRequest(
 				gallery: gallery.id,
@@ -387,6 +463,9 @@ class Uploader: ObservableObject {
 				self.fileProgress[fileURL] = 0.1
 				self.updateOverallProgress()
 			}
+			
+			// Check for cancellation before uploading to S3
+			try Task.checkCancellation()
 			
 		// Step 2: Upload file to S3 (single or multipart)
 		if createResponse.versionData.isMultiPart {

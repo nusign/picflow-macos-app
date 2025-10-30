@@ -19,8 +19,8 @@ struct LiveModeAnimation: View {
                 .strokeBorder(
                     RadialGradient(
                         colors: [
-                            Color.accentColor.opacity(0.3),
-                            Color.accentColor.opacity(0.0)
+                            Color.red.opacity(0.3),
+                            Color.red.opacity(0.0)
                         ],
                         center: .center,
                         startRadius: 0,
@@ -36,8 +36,8 @@ struct LiveModeAnimation: View {
                 .strokeBorder(
                     LinearGradient(
                         colors: [
-                            Color.accentColor.opacity(0.5),
-                            Color.accentColor.opacity(0.3)
+                            Color.red.opacity(0.5),
+                            Color.red.opacity(0.3)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -86,51 +86,31 @@ extension View {
 // MARK: - Preview
 
 #Preview("Live Mode Animation") {
-    ZStack {
-        // Mock content
-        VStack(spacing: 20) {
-            Image(systemName: "folder.badge.plus")
-                .font(.system(size: 48))
-                .foregroundColor(.blue)
-            
-            Text("Live Folder Monitoring")
+    VStack(spacing: 24) {
+        Image("Folder-Sync-Connect")
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .frame(width: 80, height: 80)
+        
+        VStack(spacing: 8) {
+            Text("Picflow Live")
                 .font(.title)
                 .fontWeight(.bold)
             
-            Text("Watching ~/Desktop/exports")
+            Text("The fullscreen pulsing border indicates")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
             
-            HStack(spacing: 20) {
-                VStack {
-                    Text("5")
-                        .font(.title)
-                        .fontWeight(.bold)
-                    Text("uploaded")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                
-                Divider()
-                    .frame(height: 40)
-                
-                VStack {
-                    Circle()
-                        .fill(Color.green)
-                        .frame(width: 8, height: 8)
-                    Text("Waiting for files...")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-            .padding()
-            .background(Color(nsColor: .controlBackgroundColor))
-            .cornerRadius(8)
+            Text("live folder monitoring is active")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
         }
-        .frame(width: 400, height: 300)
-        .padding(40)
+        .multilineTextAlignment(.center)
     }
+    .frame(width: 400, height: 300)
+    .padding(40)
     .liveModeAnimation(isActive: true)
-    .frame(width: 480, height: 400)
+    .frame(width: 500, height: 400)
 }
+
 

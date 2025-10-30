@@ -125,8 +125,24 @@ struct ManualUploadStatus: View {
                 
                 Spacer()
                 
-                // Right side: Progress percentage
-                if uploader.uploadState != .completed {
+                // Right side: Cancel button or Progress percentage
+                if uploader.uploadState == .uploading && !uploader.isCancelling {
+                    Button {
+                        uploader.cancelAllUploads()
+                    } label: {
+                        Text("Cancel")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.primary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                Capsule()
+                                    .fill(Color.primary.opacity(0.1))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                } else if uploader.uploadState == .uploading {
+                    // Show progress percentage while uploading
                     Text("\(Int(uploader.uploadProgress * 100))%")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.secondary)
@@ -231,6 +247,152 @@ struct ManualUploadStatus: View {
             return String(format: "%d:%02d:%02d", hours, minutes, secs)
         } else {
             return String(format: "%d:%02d", minutes, secs)
+        }
+    }
+}
+
+// MARK: - Live Folder Upload Status
+
+/// Wrapper for live folder monitoring uploads
+struct LiveFolderUploadStatus: View {
+    @ObservedObject var folderManager: FolderMonitoringManager
+    @State private var isPulsing = false
+    
+    var body: some View {
+        ZStack(alignment: .leading) {
+            // Background capsule with animated progress
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    if folderManager.uploadState == .completed {
+                        // Green background when completed
+                        Capsule()
+                            .fill(Color.green.opacity(0.1))
+                    } else if folderManager.uploadState == .failed {
+                        // Red background when failed
+                        Capsule()
+                            .fill(Color.red.opacity(0.1))
+                    } else if folderManager.uploadState == .idle {
+                        // Light red background for live streaming active
+                        Capsule()
+                            .fill(Color.red.opacity(0.1))
+                    } else {
+                        // Base background for uploading
+                        Capsule()
+                            .fill(Color.accentColor.opacity(0.1))
+                        
+                        // Animated progress indicator (only when uploading)
+                        if folderManager.uploadState == .uploading {
+                            Capsule()
+                                .fill(Color.accentColor.opacity(0.2))
+                                .frame(width: max(geometry.size.width * folderManager.uploadProgress, geometry.size.height))
+                                .animation(.linear(duration: 0.3), value: folderManager.uploadProgress)
+                        }
+                    }
+                }
+            }
+            
+            // Content (on top of background)
+            HStack(spacing: 12) {
+                // Left side: Icon with pulsing animation for live mode
+                Image(systemName: statusIcon)
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(statusColor)
+                    .frame(width: 32, height: 32, alignment: .center)
+                    .opacity(isLiveModeActive ? (isPulsing ? 0.4 : 1.0) : 1.0)
+                    .animation(
+                        isLiveModeActive ? .easeInOut(duration: 1.0).repeatForever(autoreverses: true) : .default,
+                        value: isPulsing
+                    )
+                    .onAppear {
+                        if isLiveModeActive {
+                            isPulsing = true
+                        }
+                    }
+                    .onChange(of: folderManager.uploadState) { _, _ in
+                        isPulsing = isLiveModeActive
+                    }
+                
+                // Middle: Title and Status
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(statusTitle)
+                        .font(.callout)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.primary)
+                    
+                    Text(folderManager.statusDescription)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                
+                Spacer()
+                
+                // Right side: Upload counter or progress percentage
+                if folderManager.uploadState == .uploading && folderManager.uploadProgress > 0 {
+                    // Show progress percentage while uploading
+                    Text("\(Int(folderManager.uploadProgress * 100))%")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.secondary)
+                        .monospacedDigit()
+                } else {
+                    // Show upload counter when idle/completed
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("\(folderManager.totalUploaded)")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundColor(.primary)
+                            .monospacedDigit()
+                        
+                        Text(folderManager.totalUploaded == 1 ? "uploaded" : "uploaded")
+                            .font(.system(size: 9))
+                            .foregroundColor(.secondary)
+                            .textCase(.uppercase)
+                    }
+                }
+            }
+            .padding(12)
+        }
+        .frame(height: 60)
+    }
+    
+    private var isLiveModeActive: Bool {
+        folderManager.uploadState == .idle
+    }
+    
+    private var statusTitle: String {
+        switch folderManager.uploadState {
+        case .idle:
+            return "Live Mode Active"
+        case .uploading:
+            return "Uploading"
+        case .completed:
+            return "Completed"
+        case .failed:
+            return "Failed"
+        }
+    }
+    
+    private var statusIcon: String {
+        switch folderManager.uploadState {
+        case .idle:
+            return "circle.fill"
+        case .uploading:
+            return "arrow.up.circle.fill"
+        case .completed:
+            return "checkmark.circle.fill"
+        case .failed:
+            return "exclamationmark.triangle.fill"
+        }
+    }
+    
+    private var statusColor: Color {
+        switch folderManager.uploadState {
+        case .idle:
+            return .red  // Red for active live streaming
+        case .uploading:
+            return .accentColor
+        case .completed:
+            return .green
+        case .failed:
+            return .red
         }
     }
 }
