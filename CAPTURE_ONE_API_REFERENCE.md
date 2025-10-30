@@ -24,34 +24,39 @@ Capture One has extensive AppleScript support defined in `CaptureOne.sdef`. This
 - Error -2753 ("variable not defined") indicates incorrect access pattern
 
 ### Recipe Output Location Properties
-**CRITICAL: Use `root folder` properties, NOT `output location`**:
 
-The correct properties for setting a recipe's export location are:
-- `root folder type` - Must be set to `custom location` (enum value)
-- `root folder location` - String path to output folder
+**⚠️ CRITICAL: Set Document `output` Property FIRST (Required for Catalogs)**
 
-❌ **WRONG** (causes error -1723 "Access not allowed"):
-```applescript
-set output location of newRecipe to POSIX file "/path/to/folder"
-```
+Capture One has TWO levels of output location:
 
-✅ **CORRECT**:
+1. **Document-level `output` property** - The catalog's default output folder (**REQUIRED for catalogs**)
+2. **Recipe-level `root folder location`** - Where individual recipes export to
+
+#### Why This Matters
+- **Sessions**: Have `output` implicitly set (to session folder), so recipes work immediately
+- **Catalogs**: Start with `output` UNSET, causing all exports to fail with error -43 until it's set
+- **Error message**: "An output folder has not yet been chosen for this catalog"
+
+#### The Solution: Set BOTH Properties
+
+✅ **CORRECT** (works for both sessions and catalogs):
 ```applescript
 tell application "Capture One"
-    tell document 1
-        -- Create recipe
-        set newRecipe to make new recipe with properties {name:"My Recipe"}
+    tell front document
+        -- STEP 1: Set document-level output (catalog requirement)
+        set output to POSIX file "/Users/username/exports" as alias
         
-        -- CRITICAL: Convert path to alias first
+        -- STEP 2: Create recipe with custom output location
+        set newRecipe to make new recipe with properties {name:"My Recipe"}
         set exportPath to POSIX file "/Users/username/exports" as alias
         
-        -- Set output location (ORDER MATTERS!)
+        -- Set recipe output (ORDER MATTERS!)
         tell newRecipe
             set root folder location to exportPath  -- Set location FIRST
             set root folder type to custom location  -- Then set type
         end tell
         
-        -- Optional: Set format (note: "output format" not "format")
+        -- Optional: Set format
         set output format of newRecipe to JPEG
         set JPEG quality of newRecipe to 90
     end tell
@@ -59,11 +64,11 @@ end tell
 ```
 
 **Critical Points**:
-1. **Convert to alias**: Path MUST be converted with `POSIX file "/path" as alias`
-2. **Order matters**: Set `root folder location` BEFORE `root folder type`
-3. **Property names**: Use `output format` and `JPEG quality`, not `format` and `quality`
-4. **The property is called `root folder location`, not `output location`**
-5. Error -1723 indicates you're using the wrong property name or wrong order
+1. **Set document `output` first** - Required for catalogs, harmless for sessions
+2. **Convert to alias**: Path MUST be converted with `POSIX file "/path" as alias`
+3. **Order matters**: Set `root folder location` BEFORE `root folder type`
+4. **Both paths can be the same** - Document `output` and recipe `root folder location`
+5. Error -43 "Invalid process output folder" = document `output` not set
 6. Setting type before location causes it to revert to "Session Default"
 
 ---
@@ -245,6 +250,8 @@ Full variant class with:
 ### Recipe
 - Process recipe settings
 - Can be referenced by name for `process` command
+- **Can READ all properties**: `root folder location`, `output format`, `JPEG quality`, `sharpening`, `watermark`, etc.
+- **Cannot UPDATE properties directly**: Must delete and recreate recipe to change settings
 
 ---
 
@@ -335,7 +342,7 @@ end tell
 
 ### ⚠️ LIMITED
 1. **Real-time selection monitoring** - Must poll, no event notifications
-2. **Recipe reading** - Can't read recipe properties like `output location` (error -1723), but CAN write them using `root folder location`
+2. **Recipe property updates** - Can READ all recipe properties including `root folder location`, but must delete and recreate to change settings (no direct property updates)
 
 ### ❌ NO - Not Available
 1. **Direct file export with custom path** - Must use recipes (but can programmatically create/configure recipes)

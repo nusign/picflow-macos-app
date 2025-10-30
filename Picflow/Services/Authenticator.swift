@@ -31,6 +31,7 @@ private struct OAuthTokenResponse: Decodable {
 @MainActor
 class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentationContextProviding {
     @Published private(set) var isAuthenticated = false
+    @Published private(set) var isCheckingSession = true
     @Published private(set) var tenant: Tenant?
     @Published private(set) var availableTenants: [Tenant] = []
     private var token: String?
@@ -76,6 +77,9 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
         
         guard let accessToken = accessToken else {
             print("ℹ️ No stored tokens found")
+            await MainActor.run {
+                isCheckingSession = false
+            }
             return
         }
         
@@ -113,6 +117,11 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
                 }
             }
             
+            // Session restored successfully
+            await MainActor.run {
+                isCheckingSession = false
+            }
+            
         } catch {
             print("❌ Failed to restore session, token may be expired:", error)
             
@@ -123,6 +132,7 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
                 self.token = nil
                 state = .unauthorized
                 isAuthenticated = false
+                isCheckingSession = false
             }
             
             // Add breadcrumb
@@ -176,6 +186,7 @@ class Authenticator: NSObject, ObservableObject, ASWebAuthenticationPresentation
     
     func startLogin() {
         state = .authenticating
+        isCheckingSession = false  // Ensure LoginView stays visible during OAuth flow
         
         // Build the OAuth authorization URL using Clerk's endpoint
         var components = URLComponents()

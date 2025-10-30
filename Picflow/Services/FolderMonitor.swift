@@ -4,8 +4,8 @@
 //
 //  Created by Michel Luarasi on 26.01.2025.
 //
-//  Uses macOS FSEventStream API for efficient folder monitoring with automatic
-//  event coalescing and low CPU usage.
+//  Simple FSEventStream-based folder monitoring that processes individual
+//  file events directly without expensive directory scans.
 //
 
 import Foundation
@@ -20,7 +20,6 @@ enum FileEvent {
 class FolderMonitor {
     private var eventStream: FSEventStreamRef?
     private let queue = DispatchQueue(label: "FolderMonitor", qos: .utility)
-    private var knownFiles = Set<String>()
     private let url: URL
     let callback: (URL, FileEvent) -> Void
     
@@ -34,35 +33,13 @@ class FolderMonitor {
     }
     
     func startMonitoring() {
-        // Capture initial state without triggering callbacks
-        do {
-            let contents = try FileManager.default.contentsOfDirectory(
-                at: url,
-                includingPropertiesForKeys: [.isDirectoryKey],
-                options: [.skipsHiddenFiles]
-            )
-            knownFiles = Set(contents.filter { !isDirectory($0) }.map { $0.lastPathComponent })
-            
-            ErrorReportingManager.shared.addBreadcrumb(
-                "Folder monitoring started",
-                category: "folder_monitor",
-                level: .info,
-                data: [
-                    "folder_path": url.path,
-                    "initial_file_count": contents.count
-                ]
-            )
-        } catch {
-            print("⚠️ Failed to read initial folder contents:", error)
-            
-            ErrorReportingManager.shared.reportError(
-                error,
-                context: ["folder_path": self.url.path],
-                tags: ["operation": "folder_monitor"]
-            )
-        }
+        ErrorReportingManager.shared.addBreadcrumb(
+            "Folder monitoring started",
+            category: "folder_monitor",
+            level: .info,
+            data: ["folder_path": url.path]
+        )
         
-        // Create FSEventStream context
         var context = FSEventStreamContext(
             version: 0,
             info: Unmanaged.passUnretained(self).toOpaque(),
@@ -78,23 +55,21 @@ class FolderMonitor {
             kFSEventStreamCreateFlagNoDefer
         )
         
-        // Create event stream with proper coalescing (1 second latency)
+        // 2-second latency for better event coalescing
         eventStream = FSEventStreamCreate(
             kCFAllocatorDefault,
             eventStreamCallback,
             &context,
             pathsToWatch,
             FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
-            1.0, // 1 second latency for event coalescing - reduces CPU usage
+            2.0, // 2 seconds - coalesce events aggressively
             flags
         )
         
         if let stream = eventStream {
             FSEventStreamSetDispatchQueue(stream, queue)
             FSEventStreamStart(stream)
-            print("✅ FSEventStream monitoring started for: \(url.path)")
-        } else {
-            print("❌ Failed to create FSEventStream")
+            print("✅ FSEventStream started: \(url.path)")
         }
     }
     
@@ -104,76 +79,71 @@ class FolderMonitor {
             FSEventStreamInvalidate(stream)
             FSEventStreamRelease(stream)
             eventStream = nil
-            print("🛑 FSEventStream monitoring stopped")
         }
     }
     
     fileprivate func handleEvents(eventPaths: [String], eventFlags: [FSEventStreamEventFlags]) {
-        // Only scan if there were actual file changes (not just metadata)
-        let relevantFlags: FSEventStreamEventFlags = UInt32(
-            kFSEventStreamEventFlagItemCreated |
-            kFSEventStreamEventFlagItemRemoved |
-            kFSEventStreamEventFlagItemRenamed
-        )
+        let startTime = CFAbsoluteTimeGetCurrent()
         
-        let hasRelevantChanges = eventFlags.contains { flags in
-            flags & relevantFlags != 0
-        }
+        print("📊 FSEvent callback: \(eventPaths.count) events")
         
-        guard hasRelevantChanges else {
-            return
-        }
-        
-        scanFolder()
-    }
-    
-    private func scanFolder() {
-        do {
-            let contents = try FileManager.default.contentsOfDirectory(
-                at: url,
-                includingPropertiesForKeys: [.isDirectoryKey],
-                options: [.skipsHiddenFiles]
-            )
+        // Process each file event individually - no directory scanning
+        for (index, path) in eventPaths.enumerated() {
+            let flags = eventFlags[index]
+            let fileURL = URL(fileURLWithPath: path)
             
-            let currentFiles = Set(
-                contents.filter { !isDirectory($0) }.map { $0.lastPathComponent }
-            )
+            // Log what events we're seeing
+            let flagNames = describeFSEventFlags(flags)
+            print("  Event \(index): \(fileURL.lastPathComponent) - \(flagNames)")
             
-            // Detect new files
-            let addedFiles = currentFiles.subtracting(knownFiles)
-            for file in addedFiles {
-                callback(url.appendingPathComponent(file), .added)
+            // Skip if not in our monitored folder
+            guard fileURL.deletingLastPathComponent().path == url.path else { 
+                print("  ↳ Skipped: not in monitored folder")
+                continue 
+            }
+            
+            // Skip hidden files and directories
+            let filename = fileURL.lastPathComponent
+            guard !filename.hasPrefix(".") else { 
+                print("  ↳ Skipped: hidden file")
+                continue 
+            }
+            
+            var isDir: ObjCBool = false
+            let exists = FileManager.default.fileExists(atPath: path, isDirectory: &isDir)
+            guard !isDir.boolValue else { 
+                print("  ↳ Skipped: directory")
+                continue 
+            }
+            
+            // Only handle file creation events
+            if flags & UInt32(kFSEventStreamEventFlagItemCreated) != 0 && exists {
+                print("  ↳ ✅ Processing file creation")
+                callback(fileURL, .added)
                 
                 ErrorReportingManager.shared.addBreadcrumb(
-                    "File added to monitored folder",
+                    "File added",
                     category: "folder_monitor",
                     level: .info,
-                    data: ["file_name": file]
+                    data: ["file_name": filename]
                 )
+            } else {
+                print("  ↳ Skipped: not a creation event or doesn't exist")
             }
-            
-            // Detect removed files
-            let removedFiles = knownFiles.subtracting(currentFiles)
-            for file in removedFiles {
-                callback(url.appendingPathComponent(file), .removed)
-            }
-            
-            knownFiles = currentFiles
-        } catch {
-            print("⚠️ Failed to scan folder:", error)
-            
-            ErrorReportingManager.shared.reportError(
-                error,
-                context: ["folder_path": self.url.path],
-                tags: ["operation": "folder_monitor"]
-            )
         }
+        
+        let elapsed = (CFAbsoluteTimeGetCurrent() - startTime) * 1000
+        print("📊 FSEvent processing took: \(String(format: "%.2f", elapsed))ms")
     }
     
-    private func isDirectory(_ url: URL) -> Bool {
-        var isDir: ObjCBool = false
-        FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
-        return isDir.boolValue
+    private func describeFSEventFlags(_ flags: FSEventStreamEventFlags) -> String {
+        var parts: [String] = []
+        if flags & UInt32(kFSEventStreamEventFlagItemCreated) != 0 { parts.append("Created") }
+        if flags & UInt32(kFSEventStreamEventFlagItemRemoved) != 0 { parts.append("Removed") }
+        if flags & UInt32(kFSEventStreamEventFlagItemRenamed) != 0 { parts.append("Renamed") }
+        if flags & UInt32(kFSEventStreamEventFlagItemModified) != 0 { parts.append("Modified") }
+        if flags & UInt32(kFSEventStreamEventFlagItemInodeMetaMod) != 0 { parts.append("MetaMod") }
+        return parts.isEmpty ? "Unknown(\(flags))" : parts.joined(separator: ", ")
     }
 }
 
@@ -195,3 +165,4 @@ private func eventStreamCallback(
     
     monitor.handleEvents(eventPaths: paths, eventFlags: flags)
 }
+

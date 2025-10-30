@@ -10,6 +10,7 @@ import SwiftUI
 struct LoginView: View {
     @ObservedObject var authenticator: Authenticator
     @StateObject private var environmentManager = EnvironmentManager.shared
+    @State private var isViewReady = false
     
     // Show dev button in DEBUG builds OR when developer mode is enabled
     private var showDevButton: Bool {
@@ -71,6 +72,15 @@ struct LoginView: View {
         .frame(maxWidth: 220)
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .opacity(authenticator.isCheckingSession ? 0 : 1)
+        .animation(isViewReady ? .easeIn(duration: 0.3) : nil, value: authenticator.isCheckingSession)
+        .onAppear {
+            // Allow layout to stabilize before enabling animations
+            // This prevents layout recursion warnings during initial window setup
+            DispatchQueue.main.async {
+                isViewReady = true
+            }
+        }
     }
 }
 

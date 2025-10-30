@@ -187,19 +187,22 @@ Original implementation used `DispatchSource` with `.write` events which caused:
 - Full directory scan on every single filesystem event
 - No debouncing or throttling mechanism
 
-### Solution
-Replaced with macOS native `FSEventStream` API which provides:
-- **Automatic event coalescing** - Multiple events batched together with 1-second latency
-- **Selective event monitoring** - Only monitors relevant events (created, removed, renamed)
-- **OS-level optimization** - macOS handles the heavy lifting efficiently
+### Solution - Simple & Direct
+Replaced with macOS native `FSEventStream` API that processes individual file events:
+- **No directory scanning** - Process only the specific files that changed
+- **Event coalescing** - 2-second batching reduces callback frequency
+- **Direct event handling** - FSEventStream tells us exactly which files changed
+- **Minimal processing** - Just check if file is a creation event, not a directory, and not hidden
 - **~1% CPU usage** - 60x improvement in performance
 
-### Implementation Details
-- Uses `FSEventStreamCreate` with file-level events
-- 1-second latency for event coalescing (configurable)
-- Filters for relevant flags before scanning
-- `.skipsHiddenFiles` option to avoid unnecessary processing
-- `.utility` QoS for background processing
+### Why This Works
+The key insight: FSEventStream with file-level events gives us the exact file paths that changed, so we don't need to scan the entire directory and compare sets. We just:
+1. Get the file path from the event
+2. Check if it's a creation event
+3. Verify it's not a directory or hidden file
+4. Pass it to the callback
+
+That's it. No Sets, no scanning, no diffing.
 
 ## Testing
 

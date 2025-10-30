@@ -104,148 +104,11 @@ class CaptureOneScriptBridge {
         
         // Ready to access Capture One
         
-        // AppleScript to get selection count and details
-        // Using single-line format that works in Terminal
+        // AppleScript to get selection count from the active catalog window
         let script = """
-        tell application "\(appInfo.appName)" to tell document 1 to return (count of (variants whose selected is true))
+        tell application "\(appInfo.appName)" to tell front document to return (count of (variants whose selected is true))
         """
         
-        // MORE COMPLEX VERSION WITH DATA (disabled for now)
-        let _ = """
-        tell application "\(appInfo.appName)"
-            try
-                set selectedVariants to (get variants whose selected is true)
-                set selectionCount to count of selectedVariants
-                
-                if selectionCount is 0 then
-                    return "0"
-                end if
-                
-                -- Build result with selection data
-                set resultList to {}
-                
-                repeat with v in selectedVariants
-                    set variantData to {}
-                    
-                    -- Basic info
-                    try
-                        set end of variantData to "NAME:" & (name of v as text)
-                    on error
-                        set end of variantData to "NAME:Unknown"
-                    end try
-                    
-                    try
-                        set end of variantData to "ID:" & (id of v as text)
-                    on error
-                        set end of variantData to "ID:unknown"
-                    end try
-                    
-                    -- Rating
-                    try
-                        set end of variantData to "RATING:" & (rating of v as text)
-                    on error
-                        set end of variantData to "RATING:-1"
-                    end try
-                    
-                    -- Color tag
-                    try
-                        set end of variantData to "COLORTAG:" & (color tag of v as text)
-                    on error
-                        set end of variantData to "COLORTAG:-1"
-                    end try
-                    
-                    -- File path (from parent image)
-                    try
-                        set parentImg to parent image of v
-                        set imgFile to file of parentImg
-                        set end of variantData to "FILE:" & (POSIX path of imgFile)
-                    on error
-                        set end of variantData to "FILE:"
-                    end try
-                    
-                    -- Crop dimensions
-                    try
-                        set end of variantData to "CROPWIDTH:" & (crop width of v as text)
-                    on error
-                        set end of variantData to "CROPWIDTH:-1"
-                    end try
-                    
-                    try
-                        set end of variantData to "CROPHEIGHT:" & (crop height of v as text)
-                    on error
-                        set end of variantData to "CROPHEIGHT:-1"
-                    end try
-                    
-                    -- EXIF from parent image
-                    try
-                        set parentImg to parent image of v
-                        set end of variantData to "CAMERAMAKE:" & (EXIF camera make of parentImg as text)
-                    on error
-                        set end of variantData to "CAMERAMAKE:"
-                    end try
-                    
-                    try
-                        set parentImg to parent image of v
-                        set end of variantData to "CAMERAMODEL:" & (EXIF camera model of parentImg as text)
-                    on error
-                        set end of variantData to "CAMERAMODEL:"
-                    end try
-                    
-                    try
-                        set parentImg to parent image of v
-                        set end of variantData to "ISO:" & (EXIF ISO of parentImg as text)
-                    on error
-                        set end of variantData to "ISO:"
-                    end try
-                    
-                    try
-                        set parentImg to parent image of v
-                        set end of variantData to "SHUTTER:" & (EXIF shutter speed of parentImg as text)
-                    on error
-                        set end of variantData to "SHUTTER:"
-                    end try
-                    
-                    try
-                        set parentImg to parent image of v
-                        set end of variantData to "APERTURE:" & (EXIF aperture of parentImg as text)
-                    on error
-                        set end of variantData to "APERTURE:"
-                    end try
-                    
-                    try
-                        set parentImg to parent image of v
-                        set end of variantData to "FOCAL:" & (EXIF focal length of parentImg as text)
-                    on error
-                        set end of variantData to "FOCAL:"
-                    end try
-                    
-                    -- Join variant data with delimiter
-                    set variantString to my joinList(variantData, "|")
-                    set end of resultList to variantString
-                end repeat
-                
-                -- Join all variants with double delimiter
-                return my joinList(resultList, "||")
-            on error errMsg number errNum
-                -- Check if it's because there's no document/session open
-                if errNum is -1728 or errMsg contains "document" or errMsg contains "object" then
-                    return "NO_DOCUMENT"
-                else
-                    return "ERROR_IN_SCRIPT:" & errMsg & ":" & errNum
-                end if
-            end try
-        end tell
-        
-        on joinList(theList, theDelimiter)
-            set oldDelimiters to AppleScript's text item delimiters
-            set AppleScript's text item delimiters to theDelimiter
-            set theString to theList as string
-            set AppleScript's text item delimiters to oldDelimiters
-            return theString
-        end joinList
-        """
-        
-        // Execute AppleScript
         let result = try await executeAppleScript(script)
         
         // Parse result - should be just a number
@@ -307,47 +170,39 @@ class CaptureOneScriptBridge {
         }
     }
     
-    /// Parse the variant data string into CaptureOneVariant objects
-    private func parseVariantData(_ data: String) throws -> [CaptureOneVariant] {
-        let variantStrings = data.components(separatedBy: "||")
-        var variants: [CaptureOneVariant] = []
-        
-        for variantString in variantStrings {
-            guard !variantString.isEmpty else { continue }
-            
-            let fields = variantString.components(separatedBy: "|")
-            var fieldDict: [String: String] = [:]
-            
-            for field in fields {
-                let parts = field.components(separatedBy: ":")
-                if parts.count >= 2 {
-                    let key = parts[0]
-                    let value = parts.dropFirst().joined(separator: ":")
-                    fieldDict[key] = value
-                }
-            }
-            
-            let variant = CaptureOneVariant(
-                id: fieldDict["ID"] ?? UUID().uuidString,
-                name: fieldDict["NAME"] ?? "Unknown",
-                rating: Int(fieldDict["RATING"] ?? "-1").flatMap { $0 >= 0 ? $0 : nil },
-                colorTag: Int(fieldDict["COLORTAG"] ?? "-1").flatMap { $0 >= 0 ? $0 : nil },
-                filePath: fieldDict["FILE"]?.isEmpty == false ? fieldDict["FILE"] : nil,
-                cropWidth: Int(fieldDict["CROPWIDTH"] ?? "-1").flatMap { $0 >= 0 ? $0 : nil },
-                cropHeight: Int(fieldDict["CROPHEIGHT"] ?? "-1").flatMap { $0 >= 0 ? $0 : nil },
-                cameraMake: fieldDict["CAMERAMAKE"]?.isEmpty == false ? fieldDict["CAMERAMAKE"] : nil,
-                cameraModel: fieldDict["CAMERAMODEL"]?.isEmpty == false ? fieldDict["CAMERAMODEL"] : nil,
-                iso: fieldDict["ISO"]?.isEmpty == false ? fieldDict["ISO"] : nil,
-                shutterSpeed: fieldDict["SHUTTER"]?.isEmpty == false ? fieldDict["SHUTTER"] : nil,
-                aperture: fieldDict["APERTURE"]?.isEmpty == false ? fieldDict["APERTURE"] : nil,
-                focalLength: fieldDict["FOCAL"]?.isEmpty == false ? fieldDict["FOCAL"] : nil,
-                captureDate: nil // Would need date parsing
-            )
-            
-            variants.append(variant)
-        }
-        
-        return variants
+    /// Generate AppleScript to create a recipe with the specified settings
+    private func recipeCreationScript(appName: String, recipeName: String, outputFolder: URL) -> String {
+        return """
+        tell application "\(appName)"
+            try
+                tell front document
+                    -- Create new recipe
+                    set newRecipe to make new recipe with properties {name:"\(recipeName)"}
+                    
+                    -- Convert path to alias (required for custom location to work)
+                    try
+                        set exportPath to POSIX file "\(outputFolder.path)" as alias
+                    on error pathErr number pathErrNum
+                        return "ERROR:Cannot convert path to alias: " & pathErr & " (code: " & pathErrNum & "). Folder may not exist: \(outputFolder.path)"
+                    end try
+                    
+                    -- CRITICAL: Set location BEFORE type, and use alias not string
+                    tell newRecipe
+                        set root folder location to exportPath
+                        set root folder type to custom location
+                    end tell
+                    
+                    -- Set basic format defaults (users can customize later)
+                    set output format of newRecipe to JPEG
+                    set JPEG quality of newRecipe to 90
+                    
+                    return "SUCCESS"
+                end tell
+            on error errMsg number errNum
+                return "ERROR:" & errMsg & " (code: " & errNum & ")"
+            end try
+        end tell
+        """
     }
     
     /// Force delete and recreate a recipe with the correct output location
@@ -363,11 +218,11 @@ class CaptureOneScriptBridge {
         
         print("🔄 Force recreating recipe '\(recipeName)'...")
         
-        // Delete existing recipe
+        // Delete existing recipe from the active catalog
         let deleteScript = """
         tell application "\(appInfo.appName)"
             try
-                tell document 1
+                tell front document
                     if (exists recipe "\(recipeName)") then
                         delete recipe "\(recipeName)"
                         return "DELETED"
@@ -392,43 +247,11 @@ class CaptureOneScriptBridge {
             // Continue anyway - try to create it
         }
         
-        // Create new recipe with correct settings
-        let createScript = """
-        tell application "\(appInfo.appName)"
-            try
-                tell document 1
-                    -- Create new recipe
-                    set newRecipe to make new recipe with properties {name:"\(recipeName)"}
-                    
-                    -- Convert path to alias (required for custom location to work)
-                    -- Note: The folder MUST exist before converting to alias
-                    try
-                        set exportPath to POSIX file "\(outputFolder.path)" as alias
-                    on error pathErr number pathErrNum
-                        return "ERROR:Cannot convert path to alias: " & pathErr & " (code: " & pathErrNum & "). Folder may not exist: \(outputFolder.path)"
-                    end try
-                    
-                    -- CRITICAL: Set location BEFORE type, and use alias not string
-                    tell newRecipe
-                        set root folder location to exportPath
-                        set root folder type to custom location
-                    end tell
-                    
-                    -- Set basic format defaults (users can customize later)
-                    set output format of newRecipe to JPEG
-                    set JPEG quality of newRecipe to 90
-                    
-                    return "SUCCESS"
-                end tell
-            on error errMsg number errNum
-                return "ERROR:" & errMsg & " (code: " & errNum & ")"
-            end try
-        end tell
-        """
-        
+        // Create new recipe using shared script generator
         print("📋 Force creating recipe with app: '\(appInfo.appName)'")
         print("📁 Recipe output folder: \(outputFolder.path)")
         
+        let createScript = recipeCreationScript(appName: appInfo.appName, recipeName: recipeName, outputFolder: outputFolder)
         let createResult = try await executeAppleScript(createScript)
         
         if createResult.hasPrefix("ERROR:") {
@@ -440,24 +263,29 @@ class CaptureOneScriptBridge {
         }
     }
     
-    /// Ensures recipe exists - only creates if missing (respects user customization)
-    /// We cannot read or update existing recipe settings due to AppleScript limitations
+    /// Ensures recipe exists with correct and valid output folder
+    /// - If recipe exists with correct path: Refreshes alias by setting location+type (preserves quality/watermark)
+    /// - If recipe exists with wrong path: Deletes and recreates
+    /// - If recipe doesn't exist: Creates new recipe
     /// - Parameters:
     ///   - recipeName: Name of the recipe
     ///   - outputFolder: Desired output folder
     /// - Throws: CaptureOneError if creation fails
+    /// - Note: Sets both location AND type (in that order) to properly refresh stale aliases
     private func createOrRecreateRecipe(recipeName: String, outputFolder: URL) async throws {
         guard let appInfo = detectCaptureOneApp() else {
             throw CaptureOneError.notRunning
         }
         
-        // Check if recipe already exists
+        // Check if recipe exists and read its output location
         let checkScript = """
         tell application "\(appInfo.appName)"
             try
-                tell document 1
+                tell front document
                     if (exists recipe "\(recipeName)") then
-                        return "EXISTS"
+                        -- Recipe exists, get its output path
+                        set recipeLoc to root folder location of recipe "\(recipeName)"
+                        return "EXISTS:" & (POSIX path of recipeLoc)
                     else
                         return "NOT_EXISTS"
                     end if
@@ -468,65 +296,98 @@ class CaptureOneScriptBridge {
         end tell
         """
         
+        print("📋 Checking if recipe '\(recipeName)' exists...")
         let checkResult = try await executeAppleScript(checkScript)
+        print("📋 Result: '\(checkResult)'")
         
-        if checkResult == "EXISTS" {
-            print("✅ Recipe '\(recipeName)' already exists (using existing settings)")
-            print("ℹ️  If export fails, please check the recipe's output location in Capture One:")
-            print("    Expected: \(outputFolder.path)")
-            return // Don't recreate - respect user's custom settings
+        if checkResult.hasPrefix("EXISTS:") {
+            let existingPath = String(checkResult.dropFirst(7)).trimmingCharacters(in: .whitespacesAndNewlines)
+            let expectedPath = outputFolder.path.hasSuffix("/") ? outputFolder.path : outputFolder.path + "/"
+            let normalizedExistingPath = existingPath.hasSuffix("/") ? existingPath : existingPath + "/"
+            
+            print("📊 Path comparison:")
+            print("   Raw existing path from recipe: '\(existingPath)'")
+            print("   Normalized existing path:      '\(normalizedExistingPath)'")
+            print("   Expected path:                 '\(expectedPath)'")
+            print("   Paths match: \(normalizedExistingPath == expectedPath)")
+            
+            if normalizedExistingPath == expectedPath {
+                print("✅ Recipe '\(recipeName)' exists with correct output path (as string)")
+                print("🔄 Refreshing alias by resetting location AND type (preserves quality settings)...")
+                
+                // Alias might be stale. Set location THEN type (order matters per API docs)
+                let updateScript = """
+                tell application "\(appInfo.appName)"
+                    try
+                        tell front document
+                            set targetRecipe to recipe "\(recipeName)"
+                            set newPath to POSIX file "\(outputFolder.path)" as alias
+                            tell targetRecipe
+                                set root folder location to newPath
+                                set root folder type to custom location
+                            end tell
+                            return "UPDATED"
+                        end tell
+                    on error errMsg number errNum
+                        return "ERROR:" & errMsg & " (code: " & errNum & ")"
+                    end try
+                end tell
+                """
+                
+                let updateResult = try await executeAppleScript(updateScript)
+                print("📋 Update result: '\(updateResult)'")
+                
+                if updateResult == "UPDATED" {
+                    print("✅ Recipe alias refreshed (location + type set)")
+                    return // Recipe is now ready
+                } else {
+                    print("⚠️  Update failed: \(updateResult)")
+                    print("🔄 Will delete and recreate instead...")
+                }
+            }
+            
+            // If we reach here, either path was wrong or update failed - delete and recreate
+            if checkResult.hasPrefix("EXISTS:") {
+                print("🔄 Deleting existing recipe to recreate with fresh settings...")
+                let deleteScript = """
+                tell application "\(appInfo.appName)"
+                    try
+                        tell front document
+                            delete recipe "\(recipeName)"
+                            return "DELETED"
+                        end tell
+                    on error errMsg number errNum
+                        return "ERROR:" & errMsg & " (code: " & errNum & ")"
+                    end try
+                end tell
+                """
+                
+                let deleteResult = try await executeAppleScript(deleteScript)
+                print("📋 Delete result: '\(deleteResult)'")
+            }
         } else if checkResult == "NOT_EXISTS" {
-            print("ℹ️  Recipe '\(recipeName)' doesn't exist, creating...")
+            print("ℹ️  Recipe '\(recipeName)' doesn't exist, creating new recipe...")
         } else if checkResult.hasPrefix("ERROR:") {
             print("⚠️  Could not check recipe: \(checkResult)")
-            // Continue anyway - try to create it
+            print("⚠️  Will attempt to create recipe anyway...")
         }
         
-        // Create new recipe with default settings
-        let createScript = """
-        tell application "\(appInfo.appName)"
-            try
-                tell document 1
-                    -- Create new recipe
-                    set newRecipe to make new recipe with properties {name:"\(recipeName)"}
-                    
-                    -- Convert path to alias (required for custom location to work)
-                    -- Note: The folder MUST exist before converting to alias
-                    try
-                        set exportPath to POSIX file "\(outputFolder.path)" as alias
-                    on error pathErr number pathErrNum
-                        return "ERROR:Cannot convert path to alias: " & pathErr & " (code: " & pathErrNum & "). Folder may not exist: \(outputFolder.path)"
-                    end try
-                    
-                    -- CRITICAL: Set location BEFORE type, and use alias not string
-                    tell newRecipe
-                        set root folder location to exportPath
-                        set root folder type to custom location
-                    end tell
-                    
-                    -- Set basic format defaults (users can customize later)
-                    set output format of newRecipe to JPEG
-                    set JPEG quality of newRecipe to 90
-                    
-                    return "SUCCESS"
-                end tell
-            on error errMsg number errNum
-                return "ERROR:" & errMsg & " (code: " & errNum & ")"
-            end try
-        end tell
-        """
+        // Create new recipe using shared script generator
+        print("🔨 Creating recipe '\(recipeName)' with output: \(outputFolder.path)")
         
-        print("📋 Creating recipe with app: '\(appInfo.appName)'")
-        print("📁 Recipe output folder: \(outputFolder.path)")
-        
+        let createScript = recipeCreationScript(appName: appInfo.appName, recipeName: recipeName, outputFolder: outputFolder)
         let createResult = try await executeAppleScript(createScript)
+        print("📋 Result: '\(createResult)'")
         
         if createResult.hasPrefix("ERROR:") {
             let errorMsg = String(createResult.dropFirst(6))
+            print("❌ Recipe creation failed: \(errorMsg)")
             throw CaptureOneError.scriptExecutionFailed("Failed to create recipe: \(errorMsg)")
         } else if createResult == "SUCCESS" {
             print("✅ Created recipe '\(recipeName)' with output: \(outputFolder.path)")
             print("ℹ️  You can customize quality, watermarks, and metadata in Capture One")
+        } else {
+            print("⚠️  Unexpected create result: '\(createResult)'")
         }
     }
     
@@ -550,11 +411,11 @@ class CaptureOneScriptBridge {
             throw CaptureOneError.notRunning
         }
         
-        // AppleScript to get file paths of selected variants
+        // AppleScript to get file paths of selected variants from the active catalog
         let script = """
         tell application "\(appInfo.appName)"
             try
-                tell document 1
+                tell front document
                     set selectedVariants to (variants whose selected is true)
                     set variantCount to count of selectedVariants
                     
@@ -631,8 +492,33 @@ class CaptureOneScriptBridge {
         // Ensure output folder exists
         try FileManager.default.createDirectory(at: outputFolder, withIntermediateDirectories: true)
         
-        // Try to create/recreate the recipe with correct settings
-        // Note: We can't read or update existing recipes due to AppleScript limitations
+        // CRITICAL: Set document-level output property (required for catalogs)
+        // Sessions have this implicitly set, but catalogs need it explicitly configured
+        // This is the "default output location" for the catalog that all recipes validate against
+        print("📁 Setting document-level output property...")
+        let setOutputScript = """
+        tell application "\(appInfo.appName)"
+            try
+                tell front document
+                    set output to POSIX file "\(outputFolder.path)" as alias
+                    return "OUTPUT_SET"
+                end tell
+            on error errMsg number errNum
+                return "ERROR:" & errMsg & " (code: " & errNum & ")"
+            end try
+        end tell
+        """
+        
+        let outputResult = try await executeAppleScript(setOutputScript)
+        if outputResult == "OUTPUT_SET" {
+            print("✅ Document output location set successfully")
+        } else {
+            print("⚠️ Could not set document output: \(outputResult)")
+            // Continue anyway - sessions might not need/allow this
+        }
+        
+        // Ensure recipe exists with correct output path
+        // Only recreates if missing or has wrong path (preserves user customizations)
         print("📋 Setting up recipe '\(recipeName)'...")
         do {
             try await createOrRecreateRecipe(recipeName: recipeName, outputFolder: outputFolder)
@@ -641,14 +527,14 @@ class CaptureOneScriptBridge {
             print("⚠️ Could not setup recipe automatically: \(error)")
             print("⚠️ Please manually check the '\(recipeName)' recipe in Capture One")
             print("⚠️ Make sure its output location is set to: \(outputFolder.path)")
-            // Continue anyway - maybe the recipe is already correct
+            throw error // Don't continue if recipe setup failed
         }
         
-        // AppleScript to process (export) selected variants using the recipe
+        // AppleScript to process (export) selected variants using the recipe from the active catalog
         let script = """
         tell application "\(appInfo.appName)"
             try
-                tell document 1
+                tell front document
                     set selectedVariants to (variants whose selected is true)
                     set variantCount to count of selectedVariants
                     
