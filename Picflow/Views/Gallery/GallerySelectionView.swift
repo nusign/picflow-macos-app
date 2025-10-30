@@ -18,9 +18,7 @@ struct GallerySelectionView: View {
     var body: some View {
         VStack(spacing: 0) {
             if isLoading {
-                Spacer()
-                ProgressView("Loading galleries...")
-                Spacer()
+                loadingView
             } else if let error = error {
                 Spacer()
                 VStack {
@@ -100,6 +98,19 @@ struct GallerySelectionView: View {
         .task {
             await loadGalleries()
         }
+    }
+    
+    // MARK: - View Components
+    
+    private var loadingView: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+                .scaleEffect(1.5)
+            Text("Loading Galleries")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+        .frame(maxHeight: .infinity)
     }
     
     private func loadGalleries() async {

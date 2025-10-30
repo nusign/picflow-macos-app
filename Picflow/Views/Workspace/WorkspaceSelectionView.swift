@@ -39,7 +39,7 @@ struct WorkspaceSelectionView: View {
         VStack(spacing: 16) {
             ProgressView()
                 .scaleEffect(1.5)
-            Text("Loading workspaces...")
+            Text("Loading Workspaces")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }
