@@ -114,7 +114,6 @@ struct SettingsView: View {
             }
         }
         .frame(width: 600, height: 500)
-        .background(.regularMaterial)
     }
     
     // MARK: - Helper Functions
@@ -162,8 +161,6 @@ struct SettingsSection<Content: View>: View {
             VStack(spacing: 0) {
                 content
             }
-            .background(.thickMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
         }
     }
 }
@@ -504,3 +501,4 @@ class DeveloperModeManager {
         return newUUID
     }
 }
+

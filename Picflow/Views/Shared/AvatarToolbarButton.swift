@@ -133,7 +133,7 @@ struct ProfileDropdownContent: View {
             .padding(.vertical, 4)
         }
         .frame(width: 240)
-        .background(.regularMaterial)
+        // .background(.regularMaterial)
         .focusable(false) // Disable autofocus in popover
     }
 }
