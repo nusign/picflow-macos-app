@@ -192,7 +192,6 @@ struct PicflowApp: App {
                 authenticator: appDelegate.authenticator
             )
             .frame(minWidth: 480, maxWidth: 720, minHeight: 400, maxHeight: 640)
-            .toolbar(.hidden)
             .onNSWindow { window in
 
                 // Allow dragging the window by clicking and dragging in background areas

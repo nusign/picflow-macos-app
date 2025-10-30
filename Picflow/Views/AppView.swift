@@ -59,12 +59,6 @@ struct AppView: View {
                 .transition(.identity) // No transition animation
             }
         }
-        .overlay(alignment: .topTrailing) {
-            // Avatar button stays fixed in top-right corner across all views
-            AvatarToolbarButton(authenticator: authenticator)
-                .padding(.top, 12)
-                .padding(.trailing, 12)
-        }
         .onAppear {
             setupNotificationObservers()
             

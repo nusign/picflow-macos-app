@@ -19,42 +19,15 @@ struct AvatarToolbarButton: View {
     @State private var showProfileMenu = false
     
     var body: some View {
-        Group {
+        Button {
+            showProfileMenu.toggle()
+        } label: {
+            Image(systemName: "person.crop.circle")
+        }
+        .help("Profile Menu")
+        .popover(isPresented: $showProfileMenu) {
             if case .authorized(_, let profile) = authenticator.state {
-                Button(action: {
-                    showProfileMenu.toggle()
-                }) {
-                    AsyncImage(url: URL(string: profile.avatarUrl ?? "")) { phase in
-                        switch phase {
-                        case .empty:
-                            ProgressView()
-                                .frame(width: 32, height: 32)
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: 32, height: 32)
-                                .clipShape(Circle())
-                        case .failure:
-                            Image(systemName: "person.circle.fill")
-                                .resizable()
-                                .frame(width: 32, height: 32)
-                                .foregroundColor(.gray)
-                        @unknown default:
-                            Image(systemName: "person.circle.fill")
-                                .resizable()
-                                .frame(width: 32, height: 32)
-                                .foregroundColor(.gray)
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
-                .popover(isPresented: $showProfileMenu, arrowEdge: .bottom) {
-                    ProfileDropdownContent(profile: profile, authenticator: authenticator)
-                }
-            } else {
-                // Hide button completely when not authenticated (e.g., on login view)
-                EmptyView()
+                ProfileDropdownContent(profile: profile, authenticator: authenticator)
             }
         }
     }
@@ -171,4 +144,5 @@ struct ProfileMenuItem: View {
         }
     }
 }
+
 

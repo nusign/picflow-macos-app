@@ -101,6 +101,7 @@ struct WorkspaceSelectionView: View {
             .frame(maxWidth: 480)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 48)
+            .padding(.horizontal, 24)
         }
         .scrollIndicators(.automatic)
     }

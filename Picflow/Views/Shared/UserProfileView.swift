@@ -142,7 +142,7 @@ struct UserDropdownView: View {
             .padding(.vertical, 8)
         }
         .frame(width: 260)
-        .background(.regularMaterial)
+        // .background(.regularMaterial)
     }
     
     private var avatarURL: URL? {

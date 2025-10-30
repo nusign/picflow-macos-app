@@ -90,6 +90,7 @@ struct GallerySelectionView: View {
                     }
                     .frame(maxWidth: 480)
                     .padding(.vertical, 48)
+                    .padding(.horizontal, 24)
                     .frame(maxWidth: .infinity) // Center the container
                 }
                 .scrollIndicators(.automatic)
