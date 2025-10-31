@@ -4,6 +4,7 @@ struct GalleryCardView: View {
     let gallery: GalleryDetails
     let onSelect: () -> Void
     @State private var isHovered = false
+    @State private var isPressed = false
     
     var body: some View {
         HStack(spacing: 8) {
@@ -13,18 +14,18 @@ struct GalleryCardView: View {
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fill)
-                        .frame(width: 64, height: 48)
+                        .frame(width: 96, height: 64)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                 } placeholder: {
                     Rectangle()
                         .fill(Color(nsColor: .separatorColor))
-                        .frame(width: 64, height: 48)
+                        .frame(width: 96, height: 64)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
             } else {
                 Rectangle()
                     .fill(Color(nsColor: .separatorColor))
-                    .frame(width: 64, height: 48)
+                    .frame(width: 96, height: 64)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
             }
             
@@ -48,18 +49,27 @@ struct GalleryCardView: View {
                 .foregroundColor(.secondary)
                 .font(.system(size: 16, weight: .semibold))
         }
-        .padding()
+        .padding(.vertical, 8)
+        .padding(.leading, 8)
+        .padding(.trailing, 16)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(nsColor: .controlBackgroundColor))
-                .opacity(isHovered ? 1.0 : 0.5)
+                .fill(.primary)
+                .opacity(isPressed ? 0.1 : (isHovered ? 0.05 : 0))
         )
         .contentShape(Rectangle())
         .onHover { hovering in
             isHovered = hovering
         }
-        .onTapGesture {
-            onSelect()
-        }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    isPressed = true
+                }
+                .onEnded { _ in
+                    isPressed = false
+                    onSelect()
+                }
+        )
     }
 }

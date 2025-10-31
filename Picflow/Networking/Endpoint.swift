@@ -66,7 +66,9 @@ class Endpoint {
         return components.url!
     }
     
-    func response<T: Decodable>() async throws -> T {
+    // MARK: - Private Helpers
+    
+    private func executeRequest() async throws -> Data {
         var request = URLRequest(url: url)
         request.httpMethod = httpMethod.rawValue
         
@@ -105,6 +107,13 @@ class Endpoint {
             }
         }
         
+        return data
+    }
+    
+    // MARK: - Public API
+    
+    func response<T: Decodable>() async throws -> T {
+        let data = try await executeRequest()
         return try Self.decoder.decode(T.self, from: data)
     }
     
@@ -123,5 +132,9 @@ class Endpoint {
         }
         
         return data
+    }
+    
+    func performRequest() async throws {
+        _ = try await executeRequest()
     }
 } 

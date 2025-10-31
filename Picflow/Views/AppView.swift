@@ -21,6 +21,28 @@ struct AppView: View {
     @State private var navigationState: AppNavigationState = .workspaceSelection
     @State private var forceShowWorkspaceSelection: Bool = false // True when user explicitly clicks "Switch Workspace"
     
+    private var navigationTitle: String {
+        switch navigationState {
+        case .workspaceSelection:
+            return "Picflow"
+        case .gallerySelection:
+            return "Picflow"
+        case .uploader:
+            return uploader.selectedGallery?.displayName ?? "Gallery"
+        }
+    }
+    
+    private var navigationSubtitle: String {
+        switch navigationState {
+        case .workspaceSelection:
+            return "Workspaces"
+        case .gallerySelection:
+            return authenticator.tenant?.name ?? "Workspace"
+        case .uploader:
+            return authenticator.tenant?.name ?? "Workspace"
+        }
+    }
+    
     var body: some View {
         // Main Navigation Content
         // Avatar is overlaid at top-right, stays fixed during navigation
@@ -59,6 +81,8 @@ struct AppView: View {
                 .transition(.identity) // No transition animation
             }
         }
+        .navigationTitle(navigationTitle)
+        .navigationSubtitle(navigationSubtitle)
         .errorAlert() // Show error alerts from ErrorAlertManager
         .onAppear {
             setupNotificationObservers()

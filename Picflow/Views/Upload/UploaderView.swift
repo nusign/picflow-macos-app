@@ -6,13 +6,22 @@
 //
 
 import SwiftUI
+import AppKit
+
+enum UploaderTab: String, CaseIterable {
+    case upload = "Upload"
+    case stream = "Stream"
+}
 
 struct UploaderView: View {
     @ObservedObject var uploader: Uploader
     @ObservedObject var authenticator: Authenticator
     let onBack: () -> Void
     @State private var isDragging = false
-    @State private var isLiveModeEnabled = false
+    @State private var selectedTab: UploaderTab = .upload
+    @State private var showGalleryMenu = false
+    @State private var showDeleteAlert = false
+    @State private var isDeleting = false
     
     // Access Capture One upload manager for unified visibility logic
     @StateObject private var captureOneMonitor = CaptureOneMonitor()
@@ -34,38 +43,14 @@ struct UploaderView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Spacer()
-                Text(uploader.selectedGallery?.displayName ?? "Gallery")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundColor(.primary)
-                Spacer()
-            }
-            .padding(.top, 8)
-            .padding(.bottom, 24)
-            
-            // Content Area (back button, toggle, and main content)
-            VStack(spacing: 16) {
-                // Back Button and Live Toggle
-                HStack {
-                    BackButton(action: onBack)
-                    
-                    Spacer()
-                    
-                    // Live Mode Toggle
-                    Toggle("Live", isOn: $isLiveModeEnabled)
-                        .toggleStyle(.switch)
-                        .onChange(of: isLiveModeEnabled) { _, newValue in
-                            handleLiveModeToggle(newValue)
-                        }
-                }
-                
-                // Main Content Area (fills available vertical space)
-                if isLiveModeEnabled {
-                    LiveFolderView(folderManager: folderMonitoringManager)
-                        .frame(maxHeight: .infinity)
-                } else {
+            // Main Content Area (fills available vertical space)
+            Group {
+                switch selectedTab {
+                case .upload:
                     DropAreaView(isDragging: $isDragging, onFilesSelected: handleFilesSelected)
+                        .frame(maxHeight: .infinity)
+                case .stream:
+                    LiveFolderView(folderManager: folderMonitoringManager)
                         .frame(maxHeight: .infinity)
                 }
             }
@@ -95,10 +80,65 @@ struct UploaderView: View {
             }
 
         }
-        .padding(.top, 24)
+        .padding(.top, 56)
         .padding(.horizontal, 24)
         .padding(.bottom, 12)
         .animation(.easeInOut(duration: 0.3), value: shouldShowStatusArea)
+        .toolbar {
+            ToolbarItem(placement: .navigation) {
+                Button(action: onBack) {
+                    Image(systemName: "chevron.left")
+                }
+                .help("Back to Gallery Selection")
+            }
+
+            ToolbarItem(placement: .principal) {Spacer()} // Spacer to push the picker to the right
+
+            ToolbarItem(placement: .automatic) {
+                Picker("", selection: $selectedTab) {
+                    ForEach(UploaderTab.allCases, id: \.self) { tab in
+                        Text(tab.rawValue).tag(tab)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .onChange(of: selectedTab) { _, newValue in
+                    handleTabChange(newValue)
+                }
+            }
+
+            ToolbarItem(placement: .automatic) {
+                Button(action: {
+                    showGalleryMenu.toggle()
+                }) {
+                    Image(systemName: "ellipsis")
+                }
+                .help("More Options")
+                .popover(isPresented: $showGalleryMenu, arrowEdge: .bottom) {
+                    GalleryMenuContent(
+                        uploader: uploader,
+                        authenticator: authenticator,
+                        onCopyLink: copyGalleryLink,
+                        onOpenInPicflow: openGalleryInPicflow,
+                        onDeleteGallery: deleteGallery
+                    )
+                }
+            }
+
+        }
+        .alert("Delete Gallery", isPresented: $showDeleteAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                Task {
+                    await confirmDeleteGallery()
+                }
+            }
+        } message: {
+            if isDeleting {
+                Text("Deleting gallery...")
+            } else {
+                Text("Are you sure you want to delete \"\(uploader.selectedGallery?.displayName ?? "this gallery")\"? This action cannot be undone.")
+            }
+        }
     }
     
     // MARK: - Status Visibility Logic
@@ -111,17 +151,17 @@ struct UploaderView: View {
     
     /// Determines if live folder status should be shown
     private var shouldShowLiveFolder: Bool {
-        // Show when live mode is enabled AND folder is selected
-        isLiveModeEnabled && folderMonitoringManager.selectedFolder != nil
+        // Show when stream tab is active AND folder is selected
+        selectedTab == .stream && folderMonitoringManager.selectedFolder != nil
     }
     
     /// Determines if Capture One status should be shown
     private var shouldShowCaptureOne: Bool {
         // Only show when:
-        // - Not in live mode
+        // - In upload tab (not stream)
         // - Capture One is actually running
         // - No uploads are active (uploads take priority)
-        !isLiveModeEnabled && captureOneMonitor.isRunning && !isAnyUploadActive
+        selectedTab == .upload && captureOneMonitor.isRunning && !isAnyUploadActive
     }
     
     /// Check if any upload is active from any source
@@ -158,39 +198,141 @@ struct UploaderView: View {
         uploader.queueFiles(urls)
     }
     
-    // MARK: - Live Mode Handling
+    // MARK: - Tab Handling
     
-    private func handleLiveModeToggle(_ enabled: Bool) {
-        if !enabled {
-            // Stop watching and reset everything
+    private func handleTabChange(_ newTab: UploaderTab) {
+        if newTab == .upload {
+            // Stop watching and reset when switching away from stream tab
             folderMonitoringManager.stopMonitoring()
+        }
+    }
+    
+    // MARK: - Gallery Menu Actions
+    
+    private func copyGalleryLink() {
+        guard let gallery = uploader.selectedGallery,
+              let tenant = authenticator.tenant else { return }
+        
+        // Shareable link format: tenant-slug.picflow.com/gallery-path
+        let tenantSlug = tenant.path.replacingOccurrences(of: "/t/", with: "")
+        let domain = EnvironmentManager.shared.current == .development ? "dev.picflow.com" : "picflow.com"
+        // Ensure gallery path starts with / if not already present
+        let galleryPath = gallery.path.hasPrefix("/") ? gallery.path : "/\(gallery.path)"
+        let galleryUrl = "https://\(tenantSlug).\(domain)\(galleryPath)"
+        
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(galleryUrl, forType: .string)
+        
+        showGalleryMenu = false
+    }
+    
+    private func openGalleryInPicflow() {
+        guard let gallery = uploader.selectedGallery else { return }
+        
+        // Internal app link format: picflow.com/a/gallery/{galleryId}/
+        let domain = EnvironmentManager.shared.current == .development ? "dev.picflow.com" : "picflow.com"
+        let galleryUrl = "https://\(domain)/a/gallery/\(gallery.id)/"
+        if let url = URL(string: galleryUrl) {
+            NSWorkspace.shared.open(url)
+        }
+        
+        showGalleryMenu = false
+    }
+    
+    private func deleteGallery() {
+        showGalleryMenu = false
+        showDeleteAlert = true
+    }
+    
+    private func confirmDeleteGallery() async {
+        guard let gallery = uploader.selectedGallery else { return }
+        
+        isDeleting = true
+        
+        do {
+            let deleteRequest = DeleteGalleryRequest(galleryId: gallery.id)
+            try await deleteRequest.endpoint().performRequest()
+            
+            // Success - navigate back to gallery selection
+            await MainActor.run {
+                isDeleting = false
+                uploader.selectedGallery = nil
+                onBack()
+            }
+        } catch {
+            // Handle error
+            await MainActor.run {
+                isDeleting = false
+                // Show error alert
+                ErrorAlertManager.shared.showError(
+                    title: "Delete Failed",
+                    message: "Could not delete gallery: \(error.localizedDescription)"
+                )
+            }
         }
     }
 }
 
-// MARK: - Back Button
+// MARK: - Gallery Menu
 
-struct BackButton: View {
+struct GalleryMenuContent: View {
+    @ObservedObject var uploader: Uploader
+    @ObservedObject var authenticator: Authenticator
+    let onCopyLink: () -> Void
+    let onOpenInPicflow: () -> Void
+    let onDeleteGallery: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            GalleryMenuItem(icon: "link", title: "Copy Link") {
+                onCopyLink()
+            }
+            
+            GalleryMenuItem(icon: "arrow.up.forward.app", title: "Open in Picflow") {
+                onOpenInPicflow()
+            }
+            
+            Divider()
+                .padding(.vertical, 4)
+            
+            GalleryMenuItem(icon: "trash", title: "Delete Gallery", isDestructive: true) {
+                onDeleteGallery()
+            }
+        }
+        .padding(.vertical, 4)
+        .frame(width: 200)
+        .focusable(false)
+    }
+}
+
+struct GalleryMenuItem: View {
+    let icon: String
+    let title: String
+    var isDestructive: Bool = false
     let action: () -> Void
+    
     @State private var isHovered = false
     
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 4) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 14, weight: .semibold))
-                Text("Galleries")
-                    .font(.system(size: 14, weight: .medium))
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .frame(width: 16, height: 16)
+                    .foregroundColor(isDestructive ? .red : .primary)
+                
+                Text(title)
+                    .font(.system(size: 13))
+                    .foregroundColor(isDestructive ? .red : .primary)
+                
+                Spacer()
             }
-            .foregroundColor(.primary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(
-                Capsule()
-                    .fill(isHovered ? Color.primary.opacity(0.1) : Color.clear)
-            )
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(isHovered ? Color.accentColor.opacity(0.1) : Color.clear)
         }
         .buttonStyle(.plain)
+        .focusable(false)
         .onHover { hovering in
             isHovered = hovering
         }

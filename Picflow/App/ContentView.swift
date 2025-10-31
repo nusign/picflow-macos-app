@@ -27,19 +27,15 @@ struct ContentView: View {
                     )
                 }
             }
-            .background(.regularMaterial)
+            .background(.ultraThinMaterial)
             .ignoresSafeArea() // Extend content into title bar area
             // Only animate the authentication state transition, not initial render
             .animation(.easeInOut(duration: 0.3), value: authenticator.isAuthenticated)
             .focusable(false) // Globally disable focus for entire content view hierarchy
+            .navigationTitle("") // Use to avoid the default "Picflow" title
             .toolbar {
                 ToolbarItem(placement: .automatic) {
-                    Spacer() // Needed to avoid empty toolbar and show rounded corners and pushes the avatar to the right
-                }
-                if authenticator.isAuthenticated {
-                    ToolbarItem(placement: .automatic) {
-                        AvatarToolbarButton(authenticator: authenticator)
-                    }
+                    Spacer() // Needed to avoid empty toolbar and show rounded corners
                 }
             }
         }

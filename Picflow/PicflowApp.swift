@@ -191,23 +191,21 @@ struct PicflowApp: App {
                 uploader: appDelegate.uploader,
                 authenticator: appDelegate.authenticator
             )
-            .frame(minWidth: 480, maxWidth: 720, minHeight: 400, maxHeight: 640)
+            .frame(minWidth: 560, maxWidth: 960, minHeight: 400, maxHeight: 960)
             .onNSWindow { window in
-
                 // Allow dragging the window by clicking and dragging in background areas
                 window.isMovableByWindowBackground = true
 
-                // System-aligned window configuration for macOS 26 look
-                window.titleVisibility = .hidden
+                // Keep transparent titlebar and full size content
                 window.titlebarAppearsTransparent = true
                 window.styleMask.insert(.fullSizeContentView)
 
-                // Ensure the window allows vibrancy/translucency
+                // Clear window background to allow SwiftUI material effects
                 window.isOpaque = false
                 window.backgroundColor = .clear
             }
         }
-        .windowStyle(.hiddenTitleBar)
+        .windowToolbarStyle(.unified)
         .defaultSize(width: 480, height: 400)
         .windowResizability(.contentSize)
         .commands {

@@ -4,10 +4,15 @@
 
 The uploader uses **smart coordination** to handle concurrent uploads efficiently while preventing resource contention from multiple large file uploads.
 
+**All upload sources use the same system:**
+- ✅ Manual uploads (drag & drop, file picker)
+- ✅ Capture One exports (queued as files appear)
+- ✅ Live folder monitoring (watched folder changes)
+
 ## Upload Strategy
 
 ### Small Files (Single-Part Upload)
-- ✅ Upload **concurrently** (up to 3 at once)
+- ✅ Upload **concurrently** (up to 4 at once)
 - ✅ Fast and efficient for multiple small files
 - ✅ Each file is a single operation
 
@@ -22,7 +27,7 @@ The uploader uses **smart coordination** to handle concurrent uploads efficientl
 ```swift
 struct UploadConcurrencyConfig {
     // Maximum number of concurrent small file uploads
-    static let maxConcurrentSmallFiles = 3
+    static let maxConcurrentSmallFiles = 4
     
     // Maximum number of concurrent chunks within a large file
     static let maxConcurrentChunks = 5
@@ -36,14 +41,12 @@ struct UploadConcurrencyConfig {
 Queue: 5 small files (10 MB each)
 
 Execution:
-File1, File2, File3 → Upload concurrently
+File1, File2, File3, File4 → Upload concurrently
   ↓ (File1 completes)
-File4 starts uploading
-  ↓ (File2 completes)
 File5 starts uploading
   ↓ All complete
 
-Result: 3 files uploading at any time, fast completion
+Result: 4 files uploading at any time, fast completion
 ```
 
 ### Scenario 2: One Large File
@@ -74,9 +77,7 @@ Sorted Queue (automatic):
 - 1 large file (150 MB, 15 chunks)  ← Moved to back
 
 Execution:
-Small1, Small2, Small3 → Upload concurrently
-  ↓ (File1 completes)
-Small4 starts
+Small1, Small2, Small3, Small4 → Upload concurrently (all 4 at once)
   ↓ (all small files complete)
 Large1 → Acquires multipart lock
   → Uploads 5 chunks at a time concurrently
@@ -320,10 +321,10 @@ func updateOverallProgress() {
 
 ### Tuning `maxConcurrentSmallFiles`
 - **Low (1-2)**: Conservative, sequential-like
-- **Medium (3)**: Balanced (default)
-- **High (5+)**: Aggressive, more API calls
+- **Medium (4)**: Balanced (default)
+- **High (6+)**: Aggressive, more API calls
 
-**Recommendation**: 3 for most cases
+**Recommendation**: 4 for most cases
 
 ### Tuning `maxConcurrentChunks`
 - **Low (2-3)**: Conservative bandwidth
@@ -348,9 +349,9 @@ func updateOverallProgress() {
 
 ### Test 3: Mixed (3 Small + 1 Large + 2 Small)
 ```swift
-// Expected: Small files first (3 concurrent)
+// Expected: Small files first (4 concurrent, 1 waits)
 //          Large file next (exclusive, 5 chunks)
-//          Small files last (2 concurrent)
+//          Small files last (1 remaining)
 // Verify: No blocking, smooth progression
 ```
 
@@ -385,12 +386,12 @@ All logs appear in the Xcode console during development:
 ```swift
 🚀 UPLOAD QUEUE: 5 files (3 small, 2 large)
    Strategy: Small files first (concurrent), then large files (sequential)
-   Config: max 3 small files, 5 chunks
+   Config: max 4 small files, 5 chunks
 
    ▶️ Starting SMALL file: photo1.jpg (428 KB)
    ▶️ Starting SMALL file: photo2.jpg (415 KB)
    ▶️ Starting SMALL file: photo3.jpg (30.2 MB)
-   ⏸️ At small file limit (3/3)
+   ⏸️ At small file limit (4/4)
 
    ✅ File completed (1/5), 2 still in progress
    ▶️ Starting LARGE file: video.mp4 (107.8 MB)
@@ -420,7 +421,7 @@ All logs appear in the Xcode console during development:
 **✅ Concurrency Working**:
 - Multiple "Starting SMALL file" appear together
 - "5/5 active" for chunks
-- "X still in progress" shows 2-3 for small files
+- "X still in progress" shows 2-4 for small files
 - Only ONE multipart lock at a time
 
 **❌ Potential Issues**:
@@ -430,7 +431,7 @@ All logs appear in the Xcode console during development:
 - Large files start before small files (should be sorted)
 
 ### Metrics to Track
-- "X still in progress" → Should be 2-3 for small files
+- "X still in progress" → Should be 2-4 for small files
 - "X/5 active" in chunks → Should be 5 during multipart
 - Multipart lock count → Only 1 at a time
 - Total upload time → Compare with/without concurrency
@@ -438,12 +439,23 @@ All logs appear in the Xcode console during development:
 ## Related Files
 
 - `Picflow/Services/ConcurrencyCoordinator.swift` - Coordinator & config
-- `Picflow/Services/Uploader.swift` - Upload logic
+- `Picflow/Services/Uploader.swift` - Upload logic (used by all sources)
+- `Picflow/Services/CaptureOneUploadManager.swift` - Capture One export integration
+- `Picflow/Services/FolderMonitoringManager.swift` - Live folder monitoring
 - `Picflow/Services/MultiPartUploadConfig.swift` - Multipart settings
 - `Picflow/Services/ChunkedFileReader.swift` - File streaming
 - `Picflow/Views/Upload/UploadStatusView.swift` - Progress UI
 
 ## Changelog
+
+### Version 3.0 (October 31, 2025) - Unified Upload System
+- ✅ **All upload sources use the same system**
+- ✅ Capture One exports now queue through standard Uploader
+- ✅ Same concurrency settings for all sources (manual, Capture One, live folder)
+- ✅ Same progress tracking (speed, time remaining, file counter)
+- ✅ Increased concurrent small files from 3 → 4
+- ✅ Capture One exports benefit from smart coordination
+- ✅ Files from exports stream into queue as they're detected
 
 ### Version 2.1 (October 2025) - Queue Sorting Fix
 - 🐛 **Fixed**: Queue now automatically sorts small files before large files
@@ -461,7 +473,7 @@ All logs appear in the Xcode console during development:
 
 ---
 
-**Last Updated**: October 30, 2025  
+**Last Updated**: October 31, 2025  
 **Author**: AI Assistant  
-**Status**: ✅ Complete - Smart Coordination Active with Queue Sorting
+**Status**: ✅ Complete - Unified System with Smart Coordination
 
