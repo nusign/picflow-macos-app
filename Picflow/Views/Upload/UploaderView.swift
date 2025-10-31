@@ -97,14 +97,6 @@ struct UploaderView: View {
         }
         .padding(24)
         .animation(.easeInOut(duration: 0.3), value: shouldShowStatusArea)
-        .liveModeAnimation(isActive: isLiveModeActive)
-    }
-    
-    // MARK: - Live Mode State
-    
-    /// Check if live mode is actively monitoring a folder
-    private var isLiveModeActive: Bool {
-        isLiveModeEnabled && folderMonitoringManager.isWatching
     }
     
     // MARK: - Status Visibility Logic
