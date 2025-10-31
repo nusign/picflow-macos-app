@@ -69,8 +69,9 @@ struct UploaderView: View {
                         .frame(maxHeight: .infinity)
                 }
             }
+            .padding(.bottom, 12)
             
-            // Status Components (Upload progress or Capture One Integration)
+            // Status Components (Upload progress and Capture One Integration)
             if shouldShowStatusArea {
                 VStack(spacing: 0) {
                     // Live Folder Status (always show when folder is selected in live mode)
@@ -90,12 +91,13 @@ struct UploaderView: View {
                             .environmentObject(captureOneUploadManager)
                     }
                 }
-                .padding(.top, 16)
-                .padding(.horizontal, 8)
+                .padding(0)
             }
 
         }
-        .padding(24)
+        .padding(.top, 24)
+        .padding(.horizontal, 24)
+        .padding(.bottom, 12)
         .animation(.easeInOut(duration: 0.3), value: shouldShowStatusArea)
     }
     
