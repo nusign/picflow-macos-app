@@ -11,48 +11,16 @@ import AppKit
 @MainActor
 class CaptureOneUploadManager: ObservableObject {
     @Published var isExporting: Bool = false
-    @Published var isUploading: Bool = false
     @Published var exportProgress: String = ""
     @Published var error: String?
     
     private let scriptBridge = CaptureOneScriptBridge()
     private var exportMonitor: FolderMonitor?
-    private var detectedFiles: Set<String> = [] // Files we've seen
-    private var uploadedFiles: Set<String> = [] // Files successfully uploaded
+    private var detectedFiles: Set<String> = [] // Files we've detected in folder
     private var expectedExportFolder: URL?
+    private var expectedFileCount: Int = 0 // Count from Capture One
     private var lastFileDetectedTime: Date = Date()
     private var completionCheckTask: Task<Void, Never>?
-    private let uploadQueue = UploadQueue(maxConcurrent: 3) // Upload 3 files at a time
-    
-    // MARK: - Computed Properties for UI
-    
-    /// Upload state for the generic progress view
-    var uploadState: UploadState {
-        if let error = error, !error.isEmpty {
-            return .failed
-        } else if !isExporting && !exportProgress.isEmpty && exportProgress.contains("complete") {
-            return .completed
-        } else if isExporting {
-            return .uploading
-        } else {
-            return .idle
-        }
-    }
-    
-    /// Status description for the generic progress view
-    var statusDescription: String {
-        // Show error if present
-        if let error = error, !error.isEmpty {
-            return error
-        }
-        
-        // Show progress message
-        if !exportProgress.isEmpty {
-            return exportProgress
-        }
-        
-        return "Processing..."
-    }
     
     // MARK: - Upload Workflows
     
@@ -78,9 +46,10 @@ class CaptureOneUploadManager: ObservableObject {
             }
             
             print("📸 Uploading \(filePaths.count) original files")
-            exportProgress = "Uploading \(filePaths.count) original files..."
+            exportProgress = ""
             
             // Queue files for upload using the standard uploader
+            // This gives us full progress tracking (speed, time remaining, etc.)
             uploader.queueFiles(filePaths)
             
             // Wait for uploads to complete
@@ -88,24 +57,7 @@ class CaptureOneUploadManager: ObservableObject {
                 try await Task.sleep(nanoseconds: 500_000_000) // Check every 0.5s
             }
             
-            // Check final state
-            if uploader.uploadState == .completed {
-                exportProgress = "Upload complete!"
-                print("✅ All original files uploaded successfully")
-            } else if uploader.uploadState == .failed {
-                error = "Some uploads failed"
-                print("❌ Some original file uploads failed")
-            }
-            
             isExporting = false
-            
-            // Clear progress message after delay
-            Task {
-                try? await Task.sleep(nanoseconds: 3_000_000_000)
-                if !isExporting {
-                    exportProgress = ""
-                }
-            }
             
         } catch {
             let errorMessage = error.localizedDescription
@@ -133,7 +85,7 @@ class CaptureOneUploadManager: ObservableObject {
         exportProgress = "Preparing export..."
         error = nil
         detectedFiles.removeAll()
-        uploadedFiles.removeAll()
+        expectedFileCount = 0
         lastFileDetectedTime = Date()
         completionCheckTask?.cancel()
         
@@ -155,19 +107,22 @@ class CaptureOneUploadManager: ObservableObject {
             print("🎬 Starting export...")
             
             // Trigger export with timeout (recipe will be created automatically if needed)
+            let exportResult: (folder: URL, count: Int)
             do {
-                try await withTimeout(seconds: 30) {
-                    _ = try await self.scriptBridge.exportSelectedVariants(recipeName: "Picflow Upload", outputFolder: exportFolder)
+                exportResult = try await withTimeout(seconds: 30) {
+                    try await self.scriptBridge.exportSelectedVariants(recipeName: "Picflow Upload", outputFolder: exportFolder)
                 }
             } catch is TimeoutError {
                 throw CaptureOneScriptBridge.CaptureOneError.scriptExecutionFailed("Export timed out after 30 seconds. Please check Capture One.")
             }
             
-            exportProgress = "Waiting for files..."
-            print("✅ Export command completed, monitoring for files...")
+            // Store expected count for completion detection
+            expectedFileCount = exportResult.count
+            print("✅ Export command completed, expecting \(expectedFileCount) files...")
+            exportProgress = ""
             
             // Start auto-completion checker
-            startCompletionChecker()
+            startCompletionChecker(uploader: uploader)
             
             // Wait a bit to see if files appear
             try await Task.sleep(nanoseconds: 10_000_000_000)
@@ -302,39 +257,24 @@ class CaptureOneUploadManager: ObservableObject {
         detectedFiles.insert(fileName)
         lastFileDetectedTime = Date() // Update last detection time
         
-        // Queue upload (runs concurrently)
-        await uploadQueue.addUpload { [weak self] in
-            guard let self = self else { return }
-            
-            await self.uploadFile(path: path, fileName: fileName, uploader: uploader)
-        }
-    }
-    
-    /// Upload a single file
-    private func uploadFile(path: URL, fileName: String, uploader: Uploader) async {
-        // Update progress
-        let uploaded = uploadedFiles.count
-        let detected = detectedFiles.count
-        exportProgress = "Uploading \(uploaded + 1) of \(detected)..."
+        // Queue the file through the standard uploader
+        // This gives us full progress tracking (speed, time remaining, progress bar)
+        uploader.queueFiles([path])
         
-        // Upload the file
-        do {
-            try await uploader.upload(fileURL: path)
-            print("✅ Uploaded: \(fileName)")
+        // Delete the file after it's been queued
+        // (the uploader reads it into memory/streams it, so we can delete the temp export)
+        Task {
+            // Wait a bit to ensure file is fully written
+            try? await Task.sleep(nanoseconds: 500_000_000)
             
-            // Delete the file after successful upload
-            try FileManager.default.removeItem(at: path)
+            // Delete after upload completes (check periodically)
+            while uploader.uploadQueue.contains(path) {
+                try? await Task.sleep(nanoseconds: 500_000_000)
+            }
+            
+            // File is uploaded, delete it
+            try? FileManager.default.removeItem(at: path)
             print("🗑️ Deleted: \(fileName)")
-            
-            // Mark as uploaded
-            uploadedFiles.insert(fileName)
-            
-        } catch {
-            self.error = "Upload failed for \(fileName): \(error.localizedDescription)"
-            print("❌ Upload failed: \(fileName) - \(error)")
-            
-            // Show error alert to user
-            ErrorAlertManager.shared.showUploadError(fileName: fileName, error: error)
         }
     }
     
@@ -371,8 +311,8 @@ class CaptureOneUploadManager: ObservableObject {
     }
     
     /// Start background task that checks for completion
-    /// Marks export complete when: (no new files for 5s) AND (all detected files uploaded)
-    private func startCompletionChecker() {
+    /// Marks export complete when: all expected files have been detected AND uploaded
+    private func startCompletionChecker(uploader: Uploader) {
         completionCheckTask?.cancel()
         
         completionCheckTask = Task { @MainActor in
@@ -380,80 +320,27 @@ class CaptureOneUploadManager: ObservableObject {
                 try? await Task.sleep(nanoseconds: 1_000_000_000) // Check every 1 second
                 
                 let detected = detectedFiles.count
-                let uploaded = uploadedFiles.count
                 let timeSinceLastDetection = Date().timeIntervalSince(lastFileDetectedTime)
                 
                 // Completion conditions:
-                // 1. At least one file detected
-                // 2. No new files detected for 5 seconds
-                // 3. All detected files have been uploaded
-                if detected > 0 && timeSinceLastDetection >= 5.0 && uploaded == detected {
-                    print("✅ Export complete!")
-                    print("📊 Detected: \(detected), Uploaded: \(uploaded)")
+                // 1. All expected files have been detected (or 5s timeout)
+                // 2. Uploader has finished uploading everything
+                let allFilesDetected = detected >= expectedFileCount || (detected > 0 && timeSinceLastDetection >= 5.0)
+                let uploadsComplete = !uploader.isUploading
+                
+                if allFilesDetected && uploadsComplete && detected > 0 {
+                    print("✅ Export and upload complete!")
+                    print("📊 Expected: \(expectedFileCount), Detected: \(detected)")
                     
                     isExporting = false
-                    exportProgress = "Upload complete!"
-                    
-                    // Clear progress message after a delay
-                    Task {
-                        try? await Task.sleep(nanoseconds: 3_000_000_000)
-                        if !isExporting {
-                            exportProgress = ""
-                        }
-                    }
+                    exportProgress = ""
                     
                     // Stop monitoring
                     exportMonitor?.stopMonitoring()
                     exportMonitor = nil
                     
                     break
-                } else if detected > 0 {
-                    // Still working - log progress
-                    print("📊 Progress: \(uploaded)/\(detected) uploaded, waiting for completion...")
                 }
-            }
-        }
-    }
-}
-
-// MARK: - Upload Queue
-
-/// Manages concurrent uploads with a limit
-actor UploadQueue {
-    private let maxConcurrent: Int
-    private var activeTasks: Int = 0
-    private var waitingTasks: [() async -> Void] = []
-    
-    init(maxConcurrent: Int) {
-        self.maxConcurrent = maxConcurrent
-    }
-    
-    /// Add an upload to the queue
-    func addUpload(_ task: @escaping () async -> Void) async {
-        // If we have capacity, run immediately
-        if activeTasks < maxConcurrent {
-            activeTasks += 1
-            await runTask(task)
-        } else {
-            // Otherwise queue it
-            waitingTasks.append(task)
-        }
-    }
-    
-    /// Run a task and process next in queue
-    private func runTask(_ task: @escaping () async -> Void) async {
-        await task()
-        
-        activeTasks -= 1
-        
-        // Process next task if available
-        if !waitingTasks.isEmpty {
-            let nextTask = waitingTasks.removeFirst()
-            activeTasks += 1
-            
-            // Run next task without awaiting (fire and forget)
-            Task {
-                await self.runTask(nextTask)
             }
         }
     }

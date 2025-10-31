@@ -57,7 +57,7 @@ struct CaptureOneStatusView: View {
     
     @ViewBuilder
     private var statusContent: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             // App Icon
             Image("Capture-One-Logo")
                 .resizable()
@@ -142,6 +142,8 @@ struct CaptureOneStatusView: View {
                 .disabled(uploadManager.isExporting)
             }
         }
+        .padding(12)
+        .frame(height: 60)
     }
     
     // MARK: - Upload Actions
@@ -172,5 +174,39 @@ struct CaptureOneStatusView: View {
         } else {
             uploadManager.error = "No variants selected. Please select variants in Capture One."
         }
+    }
+}
+
+// MARK: - Capture One Export Status
+
+/// Status display shown during Capture One export preparation phase
+/// Shows "Waiting for export..." with Capture One branding
+/// Once files start uploading, the main upload view switches to ManualUploadStatus
+struct CaptureOneExportingStatus: View {
+    var body: some View {
+        HStack(spacing: 8) {
+            // Left side: Capture One Logo
+            Image("Capture-One-Logo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 32, height: 32)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            
+            // Middle: Title and Status
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Capture One")
+                    .font(.callout)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.primary)
+                
+                Text("Waiting for export...")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+            
+            Spacer()
+        }
+        .padding(12)
+        .frame(height: 60)
     }
 }

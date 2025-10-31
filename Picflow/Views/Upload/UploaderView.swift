@@ -124,31 +124,26 @@ struct UploaderView: View {
     
     /// Check if any upload is active from any source
     private var isAnyUploadActive: Bool {
-        // Manual upload active
-        let manualActive = (uploader.isUploading && !uploader.uploadQueue.isEmpty) || uploader.uploadState == .completed
+        // Manual or Capture One upload active (both now use the same Uploader)
+        let uploaderActive = (uploader.isUploading && !uploader.uploadQueue.isEmpty) || uploader.uploadState == .completed
         
-        // Capture One upload active
-        let captureOneActive = captureOneUploadManager.isExporting || 
-                               captureOneUploadManager.uploadState == .uploading ||
-                               captureOneUploadManager.uploadState == .completed
+        // Capture One exporting (preparing files, not yet uploading)
+        let captureOneExporting = captureOneUploadManager.isExporting && !uploader.isUploading
         
         // Live folder upload active
         let liveFolderActive = folderMonitoringManager.isUploading
         
-        return manualActive || captureOneActive || liveFolderActive
+        return uploaderActive || captureOneExporting || liveFolderActive
     }
     
     /// Unified upload status view that adapts based on upload source
     @ViewBuilder
     private var uploadStatusView: some View {
-        // Prioritize Capture One if it's uploading
-        if captureOneUploadManager.isExporting || captureOneUploadManager.uploadState == .uploading {
-            CaptureOneUploadStatus(
-                state: captureOneUploadManager.uploadState,
-                description: captureOneUploadManager.statusDescription
-            )
+        // Show Capture One exporting status (before files start uploading)
+        if captureOneUploadManager.isExporting && !uploader.isUploading {
+            CaptureOneExportingStatus()
         }
-        // Then show manual upload
+        // Show upload progress (used by both manual and Capture One uploads)
         else if uploader.isUploading || uploader.uploadState == .completed {
             ManualUploadStatus(uploader: uploader)
         }
