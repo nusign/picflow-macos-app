@@ -81,7 +81,7 @@ class CaptureOneScriptBridge {
         return (bundleId, appName)
     }
     
-    /// Get the current selection from Capture One
+    /// Get the current selection and document name from Capture One
     func getSelection() async throws -> CaptureOneSelection {
         // Detect which Capture One is running
         guard let appInfo = detectCaptureOneApp() else {
@@ -104,20 +104,45 @@ class CaptureOneScriptBridge {
         
         // Ready to access Capture One
         
-        // AppleScript to get selection count from the active catalog window
+        // AppleScript to get selection count and document name from the active catalog window
+        // Use 'current document' to get the currently frontmost document
         let script = """
-        tell application "\(appInfo.appName)" to tell front document to return (count of (variants whose selected is true))
+        tell application "\(appInfo.appName)"
+            try
+                tell current document
+                    set selCount to count of (variants whose selected is true)
+                    set docName to name
+                    return (selCount as text) & "|" & docName
+                end tell
+            on error errMsg number errNum
+                return "ERROR:" & errMsg & " (code: " & errNum & ")"
+            end try
+        end tell
         """
         
         let result = try await executeAppleScript(script)
         
-        // Parse result - should be just a number
-        if let count = Int(result) {
-            return CaptureOneSelection(count: count, variants: [])
+        // Check for errors
+        if result.hasPrefix("ERROR:") {
+            // Error -1728 means "Can't get current document" - no document is open
+            if result.contains("(code: -1728)") {
+                throw CaptureOneError.noDocument
+            }
+            throw CaptureOneError.scriptExecutionFailed(result)
         }
         
-        // If not a number, it's an error or unexpected
-        throw CaptureOneError.scriptExecutionFailed(result)
+        // Parse result - format is "count|documentName"
+        let parts = result.split(separator: "|", maxSplits: 1)
+        guard parts.count == 2,
+              let count = Int(parts[0]) else {
+            throw CaptureOneError.scriptExecutionFailed("Invalid response format: \(result)")
+        }
+        
+        // Remove file extension from document name
+        let fullName = String(parts[1])
+        let documentName = (fullName as NSString).deletingPathExtension
+        
+        return CaptureOneSelection(count: count, variants: [], documentName: documentName)
     }
     
     /// Execute AppleScript and return result using osascript subprocess

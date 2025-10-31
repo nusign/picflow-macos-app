@@ -82,6 +82,39 @@ class ErrorAlertManager: ObservableObject {
         alert.runModal()
     }
     
+    /// Show a native NSAlert with custom action buttons
+    /// - Parameters:
+    ///   - title: Alert title
+    ///   - message: Alert message
+    ///   - primaryButton: Title for primary button
+    ///   - secondaryButton: Title for secondary button (optional)
+    ///   - style: Alert style
+    ///   - primaryAction: Action to execute when primary button is tapped
+    func showAlertWithAction(
+        title: String,
+        message: String,
+        primaryButton: String,
+        secondaryButton: String = "Cancel",
+        style: NSAlert.Style = .warning,
+        primaryAction: @escaping () async -> Void
+    ) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.alertStyle = style
+        alert.addButton(withTitle: primaryButton)
+        alert.addButton(withTitle: secondaryButton)
+        
+        let response = alert.runModal()
+        
+        // Primary button returns .alertFirstButtonReturn
+        if response == .alertFirstButtonReturn {
+            Task { @MainActor in
+                await primaryAction()
+            }
+        }
+    }
+    
     /// Dismiss current error
     func dismissError() {
         currentError = nil

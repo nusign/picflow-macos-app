@@ -14,7 +14,6 @@ class CaptureOneUploadManager: ObservableObject {
     @Published var isUploading: Bool = false
     @Published var exportProgress: String = ""
     @Published var error: String?
-    @Published var showRecipePathError: Bool = false // Show "Recreate Recipe" prompt
     
     private let scriptBridge = CaptureOneScriptBridge()
     private var exportMonitor: FolderMonitor?
@@ -67,7 +66,6 @@ class CaptureOneUploadManager: ObservableObject {
         isExporting = true
         exportProgress = "Getting file paths..."
         error = nil
-        showRecipePathError = false
         
         do {
             // Get file paths of selected variants
@@ -134,7 +132,6 @@ class CaptureOneUploadManager: ObservableObject {
         isExporting = true
         exportProgress = "Preparing export..."
         error = nil
-        showRecipePathError = false
         detectedFiles.removeAll()
         uploadedFiles.removeAll()
         lastFileDetectedTime = Date()
@@ -179,25 +176,30 @@ class CaptureOneUploadManager: ObservableObject {
                 print("⚠️ No files appeared in expected folder after 10 seconds")
                 print("📁 Expected folder: \(exportFolder.path)")
                 
-                // Show user-facing error
+                // Reset to idle state BEFORE showing alert (since alert blocks)
+                isExporting = false
+                exportProgress = ""
+                self.error = nil
+                completionCheckTask?.cancel()
+                exportMonitor?.stopMonitoring()
+                exportMonitor = nil
+                
+                // Show alert with action buttons
                 let errorMsg = """
-                Export command succeeded, but no files appeared in the export folder. \
-                This usually means the recipe's output location is incorrect.
+                Your exports did not appear in the expected folder. This usually means the location is wrong.
                 
-                Expected location: \(exportFolder.path)
-                
-                Click "Recreate Recipe" below to fix this, or check the recipe manually in Capture One.
+                Click "Recreate Recipe", or check manually in Capture One.
                 """
                 
-                ErrorAlertManager.shared.showCaptureOneError(
+                ErrorAlertManager.shared.showAlertWithAction(
+                    title: "No Files Detected",
                     message: errorMsg,
-                    error: nil
-                )
+                    primaryButton: "Recreate Recipe",
+                    secondaryButton: "Cancel"
+                ) { [weak self] in
+                    await self?.recreateRecipe()
+                }
                 
-                isExporting = false
-                showRecipePathError = true
-                self.error = "No files appeared in export folder"
-                completionCheckTask?.cancel()
                 return
             }
             
@@ -343,7 +345,6 @@ class CaptureOneUploadManager: ObservableObject {
             return
         }
         
-        showRecipePathError = false
         error = nil
         exportProgress = "Recreating recipe..."
         

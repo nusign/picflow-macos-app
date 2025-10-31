@@ -31,6 +31,7 @@ struct CaptureOneVariant: Identifiable {
 struct CaptureOneSelection {
     let count: Int
     let variants: [CaptureOneVariant]
+    let documentName: String?
     
     var isEmpty: Bool {
         count == 0

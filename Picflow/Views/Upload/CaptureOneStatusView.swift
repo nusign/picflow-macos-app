@@ -23,11 +23,19 @@ struct CaptureOneStatusView: View {
                 .onAppear {
                     // Show "Running" for 2 seconds when view appears
                     showRunningStatusTemporarily()
+                    // Immediately fetch selection count (don't wait for poll)
+                    Task {
+                        await monitor.refresh()
+                    }
                 }
                 .onChange(of: monitor.isRunning) { _, isRunning in
                     if isRunning {
                         // Show "Running" for 2 seconds when C1 starts
                         showRunningStatusTemporarily()
+                        // Immediately fetch selection count (don't wait for poll)
+                        Task {
+                            await monitor.refresh()
+                        }
                     }
                 }
         }
@@ -59,46 +67,57 @@ struct CaptureOneStatusView: View {
             
             // Title and Status (crossfades between "Running" and selection count)
             VStack(alignment: .leading, spacing: 0) {
-                Text("Capture One")
+                Text(monitor.selection.documentName ?? "Capture One")
                     .font(.callout)
                     .fontWeight(.semibold)
                     .foregroundColor(.primary)
                 
                 HStack(spacing: 4) {
                     Circle()
-                        .fill(Color.green)
+                        .fill(monitor.needsPermission ? Color.orange : Color.green)
                         .frame(width: 8, height: 8)
                     
-                    if showRunningStatus {
-                        Text("Running")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    } else {
-                        if monitor.selection.count > 0 {
-                            Text("\(monitor.selection.count) variant\(monitor.selection.count == 1 ? "" : "s") selected")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
+                    Group {
+                        if monitor.needsPermission {
+                            // Show permission status
+                            Text("Privacy & Security → Automation")
+                        } else if showRunningStatus || monitor.selection.documentName == nil {
+                            // Show "Running" if timer is active OR if we don't have document name yet
+                            Text("Running")
                         } else {
-                            Text("No variants selected")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
+                            if monitor.selection.count > 0 {
+                                Text("\(monitor.selection.count) variant\(monitor.selection.count == 1 ? "" : "s") selected")
+                            } else {
+                                Text("No variants selected")
+                            }
                         }
                     }
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .animation(.easeInOut(duration: 0.3), value: showRunningStatus)
                 }
-                .animation(.easeInOut(duration: 0.3), value: showRunningStatus)
             }
             
             Spacer()
             
-            // Right side: Upload button (independent of text transition)
+            // Right side: Upload button (no animation)
             if monitor.needsPermission {
-                Button("Allow Access") {
-                    monitor.requestPermission()
+                if monitor.hasAttemptedPermission {
+                    // User has tried before and denied - need to use System Settings
+                    Button("Open System Settings") {
+                        monitor.openAutomationSettings()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                } else {
+                    // First time - show permission prompt
+                    Button("Allow Access") {
+                        monitor.requestPermission()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
             } else if monitor.selection.count > 0 {
-                // Upload button with menu (appears when variants selected, independent of "Running" text)
                 Menu {
                     Button("Picflow Recipe") {
                         Task {
@@ -123,38 +142,6 @@ struct CaptureOneStatusView: View {
                 .disabled(uploadManager.isExporting)
             }
         }
-        
-        // Show recipe path error prompt (separate from main status)
-        if uploadManager.showRecipePathError {
-            recipePathErrorPrompt
-        }
-    }
-    
-    @ViewBuilder
-    private var recipePathErrorPrompt: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Export location in Recipe might be wrong")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.primary)
-                
-                Text("The exported files didn't appear in the expected folder")
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            Button("Recreate Recipe") {
-                Task {
-                    await uploadManager.recreateRecipe()
-                }
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
     }
     
     // MARK: - Upload Actions

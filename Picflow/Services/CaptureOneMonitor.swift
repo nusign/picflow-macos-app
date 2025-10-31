@@ -13,10 +13,11 @@ import Sentry
 /// Monitors whether Capture One is currently running and reads selection data
 class CaptureOneMonitor: ObservableObject {
     @Published var isRunning: Bool = false
-    @Published var selection: CaptureOneSelection = CaptureOneSelection(count: 0, variants: [])
+    @Published var selection: CaptureOneSelection = CaptureOneSelection(count: 0, variants: [], documentName: nil)
     @Published var isLoadingSelection: Bool = false
     @Published var selectionError: String?
     @Published var needsPermission: Bool = false
+    @Published var hasAttemptedPermission: Bool = false // Track if we've tried asking before
     
     private var timer: Timer?
     private var workspaceObserver: NSObjectProtocol?
@@ -40,6 +41,16 @@ class CaptureOneMonitor: ObservableObject {
     ]
     
     init() {
+        // Check if we've previously attempted permission
+        hasAttemptedPermission = UserDefaults.standard.bool(forKey: "CaptureOnePermissionAttempted")
+        
+        // If we haven't attempted permission yet, assume we need it
+        // This blocks all AppleScript calls until user explicitly clicks "Allow Access"
+        if !hasAttemptedPermission {
+            needsPermission = true
+            print("⚠️ First launch - blocking AppleScript until permission granted")
+        }
+        
         checkCaptureOneStatus()
         setupObservers()
     }
@@ -66,7 +77,16 @@ class CaptureOneMonitor: ObservableObject {
             self?.checkCaptureOneStatus()
         }
         
-        // Poll every 2 seconds for status and selection (with logging to debug updates)
+        // Listen for when our app becomes active (user might have granted permission in System Settings)
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.recheckPermissionsIfNeeded()
+        }
+        
+        // Poll every 2 seconds for status and selection
         timer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
             self?.checkCaptureOneStatus()
             self?.updateSelection()
@@ -102,10 +122,8 @@ class CaptureOneMonitor: ObservableObject {
         
         // Only update if status changed
         if newStatus != isRunning {
-            DispatchQueue.main.async {
-                self.isRunning = newStatus
-                print("Capture One status changed: \(newStatus ? "Running" : "Not Running")")
-            }
+            self.isRunning = newStatus
+            print("Capture One status changed: \(newStatus ? "Running" : "Not Running")")
         }
     }
     
@@ -113,8 +131,8 @@ class CaptureOneMonitor: ObservableObject {
     func refresh() async {
         checkCaptureOneStatus()
         
-        // Force immediate selection update (bypass loading check)
-        guard isRunning else { return }
+        // Don't trigger permission prompt on automatic refresh
+        guard isRunning && !needsPermission else { return }
         
         do {
             let newSelection = try await scriptBridge.getSelection()
@@ -122,7 +140,7 @@ class CaptureOneMonitor: ObservableObject {
                 self.selection = newSelection
                 self.selectionError = nil
                 self.needsPermission = false
-                print("🔄 Selection refreshed: \(newSelection.count) variants")
+                print("🔄 Manual refresh: '\(newSelection.documentName ?? "Unknown")' with \(newSelection.count) variant\(newSelection.count == 1 ? "" : "s")")
             }
         } catch {
             print("⚠️ Refresh failed: \(error)")
@@ -133,16 +151,97 @@ class CaptureOneMonitor: ObservableObject {
     func requestPermission() {
         Task {
             do {
-                _ = try await scriptBridge.getSelection()
+                let newSelection = try await scriptBridge.getSelection()
+                // Success! Permission granted and got selection
+                await MainActor.run {
+                    self.selection = newSelection
+                    self.selectionError = nil
+                    self.needsPermission = false
+                    self.hasAttemptedPermission = true
+                    UserDefaults.standard.set(true, forKey: "CaptureOnePermissionAttempted")
+                    print("✅ Permission granted!")
+                }
+            } catch CaptureOneScriptBridge.CaptureOneError.noDocument {
+                // Permission was granted, but no document is open - this is OK!
+                await MainActor.run {
+                    self.selection = CaptureOneSelection(count: 0, variants: [], documentName: nil)
+                    self.selectionError = "No document open"
+                    self.needsPermission = false
+                    self.hasAttemptedPermission = true
+                    UserDefaults.standard.set(true, forKey: "CaptureOnePermissionAttempted")
+                    print("✅ Permission granted! (no documents open)")
+                }
+            } catch CaptureOneScriptBridge.CaptureOneError.permissionDenied {
+                // User explicitly denied permission
+                await MainActor.run {
+                    self.needsPermission = true
+                    self.hasAttemptedPermission = true
+                    UserDefaults.standard.set(true, forKey: "CaptureOnePermissionAttempted")
+                    print("❌ Permission denied by user")
+                }
             } catch {
-                // Permission prompt will have appeared
-                print("Permission request result: \(error)")
+                // Other error - assume permission issue
+                await MainActor.run {
+                    self.needsPermission = true
+                    self.hasAttemptedPermission = true
+                    UserDefaults.standard.set(true, forKey: "CaptureOnePermissionAttempted")
+                    print("❌ Permission error: \(error)")
+                }
+            }
+        }
+    }
+    
+    /// Open System Settings to the Privacy & Security → Automation page
+    func openAutomationSettings() {
+        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")!
+        NSWorkspace.shared.open(url)
+    }
+    
+    /// Re-check permissions when app becomes active (user might have granted permission in System Settings)
+    private func recheckPermissionsIfNeeded() {
+        // Only check if we currently need permission
+        guard needsPermission else { return }
+        
+        // Only check if Capture One is running
+        guard isRunning else { return }
+        
+        print("🔄 Re-checking permissions (app became active)...")
+        
+        Task {
+            do {
+                let newSelection = try await scriptBridge.getSelection()
+                // Success! Permission was granted externally
+                await MainActor.run {
+                    self.selection = newSelection
+                    self.selectionError = nil
+                    self.needsPermission = false
+                    print("✅ Permission detected (granted externally)")
+                }
+            } catch CaptureOneScriptBridge.CaptureOneError.noDocument {
+                // Permission was granted, but no document is open
+                await MainActor.run {
+                    self.selection = CaptureOneSelection(count: 0, variants: [], documentName: nil)
+                    self.selectionError = "No document open"
+                    self.needsPermission = false
+                    print("✅ Permission detected (no documents open)")
+                }
+            } catch CaptureOneScriptBridge.CaptureOneError.permissionDenied {
+                // Still denied
+                print("⚠️ Permission still denied")
+            } catch {
+                // Other error - keep showing permission UI
+                print("⚠️ Error checking permission: \(error)")
             }
         }
     }
     
     /// Update selection data from Capture One
     private func updateSelection() {
+        // Skip polling if we need permission - only request when user clicks the button
+        guard !needsPermission else {
+            return
+        }
+        
         // Double-check if running right before making the call
         // This prevents a race condition where the app quits between timer ticks
         let runningApps = NSWorkspace.shared.runningApplications
@@ -154,7 +253,7 @@ class CaptureOneMonitor: ObservableObject {
         guard isCaptureOneActuallyRunning && isRunning else {
             // Clear selection if not running
             DispatchQueue.main.async {
-                self.selection = CaptureOneSelection(count: 0, variants: [])
+                self.selection = CaptureOneSelection(count: 0, variants: [], documentName: nil)
                 self.selectionError = nil
             }
             return
@@ -173,27 +272,37 @@ class CaptureOneMonitor: ObservableObject {
             do {
                 let newSelection = try await scriptBridge.getSelection()
                 
-                // Only update if count changed to avoid unnecessary UI updates
-                if newSelection.count != self.selection.count {
-                    print("🔄 Selection changed: \(self.selection.count) → \(newSelection.count) variants")
+                // Log changes in selection count or document name
+                let countChanged = newSelection.count != self.selection.count
+                let documentChanged = newSelection.documentName != self.selection.documentName
+                
+                if countChanged || documentChanged {
+                    if countChanged && documentChanged {
+                        print("🔄 Switched to '\(newSelection.documentName ?? "Unknown")': \(newSelection.count) variant\(newSelection.count == 1 ? "" : "s") selected")
+                    } else if countChanged {
+                        print("🔄 Selection changed: \(self.selection.count) → \(newSelection.count) variants")
+                    } else if documentChanged {
+                        print("🔄 Document switched: '\(self.selection.documentName ?? "Unknown")' → '\(newSelection.documentName ?? "Unknown")'")
+                    }
                 }
                 
+                // Always update selection (triggers @Published update)
                 self.selection = newSelection
                 self.selectionError = nil
                 self.needsPermission = false
             } catch CaptureOneScriptBridge.CaptureOneError.noDocument {
                 print("⚠️ No document open in Capture One")
-                self.selection = CaptureOneSelection(count: 0, variants: [])
+                self.selection = CaptureOneSelection(count: 0, variants: [], documentName: nil)
                 self.selectionError = "No document open"
                 self.needsPermission = false
             } catch CaptureOneScriptBridge.CaptureOneError.permissionDenied {
                 print("⚠️ Permission denied for Capture One")
-                self.selection = CaptureOneSelection(count: 0, variants: [])
+                self.selection = CaptureOneSelection(count: 0, variants: [], documentName: nil)
                 self.selectionError = nil
                 self.needsPermission = true
             } catch CaptureOneScriptBridge.CaptureOneError.notRunning {
                 print("⚠️ Capture One is not running")
-                self.selection = CaptureOneSelection(count: 0, variants: [])
+                self.selection = CaptureOneSelection(count: 0, variants: [], documentName: nil)
                 self.selectionError = nil
                 self.needsPermission = false
                 // Clear the running state since app is not actually running
