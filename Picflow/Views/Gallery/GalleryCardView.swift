@@ -13,6 +13,10 @@ struct GalleryCardView: View {
     @State private var isHovered = false
     @State private var isPressed = false
     
+    private var hasImage: Bool {
+        gallery.previewImageUrl != nil
+    }
+    
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .bottomLeading) {
@@ -39,11 +43,16 @@ struct GalleryCardView: View {
                 }
                 
                 // Gradient overlay for text readability
+                // Lighter gradient when no image, stronger when image present
                 LinearGradient(
-                    colors: [
+                    colors: hasImage ? [
                         Color.black.opacity(0),
                         Color.black.opacity(0.3),
                         Color.black.opacity(0.6)
+                    ] : [
+                        Color.black.opacity(0),
+                        Color.black.opacity(0.1),
+                        Color.black.opacity(0.2)
                     ],
                     startPoint: .top,
                     endPoint: .bottom
@@ -54,13 +63,13 @@ struct GalleryCardView: View {
                     Text(gallery.displayName)
                         .font(.title3)
                         .fontWeight(.semibold)
-                        .foregroundColor(.primary)
+                        .foregroundColor(.white)
                         .lineLimit(1)
                     
                     let count = gallery.assetCount
                     Text(count > 0 ? "\(count) \(count == 1 ? "asset" : "assets")" : "No assets")
                         .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(.white.opacity(0.6))
                 }
                 .padding(.horizontal, 12)
                 .padding(.bottom, 12)
@@ -76,10 +85,10 @@ struct GalleryCardView: View {
             )
             .shadow(
                 color: Color.black.opacity(isPressed ? 0.3 : (isHovered ? 0.2 : 0.1)),
-                radius: isPressed ? 8 : (isHovered ? 6 : 4),
+                radius: isPressed ? 32 : (isHovered ? 16 : 8),
                 y: isPressed ? 4 : (isHovered ? 3 : 2)
             )
-            .scaleEffect(isPressed ? 0.98 : 1.0)
+            .scaleEffect(isPressed ? 0.95 : 1.0)
             .animation(.easeInOut(duration: 0.15), value: isHovered)
             .animation(.easeInOut(duration: 0.1), value: isPressed)
         }
@@ -103,17 +112,18 @@ struct GalleryCardView: View {
     private var fallbackBackground: some View {
         ZStack {
             // Gradient background when no image
+            // .secondary automatically adapts to light/dark mode
             LinearGradient(
                 colors: [
-                    Color.accentColor.opacity(0.3),
-                    Color.accentColor.opacity(0.5)
+                    Color.secondary.opacity(0.3),
+                    Color.secondary.opacity(0.5)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             
             // Fallback icon
-            Image(systemName: "photo.stack")
+            Image(systemName: "photo")
                 .font(.system(size: 40))
                 .foregroundColor(.primary.opacity(0.3))
         }
