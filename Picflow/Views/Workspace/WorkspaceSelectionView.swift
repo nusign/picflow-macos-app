@@ -63,7 +63,7 @@ struct WorkspaceSelectionView: View {
             Button("Try Again") {
                 fetchTenants()
             }
-            .buttonStyle(.borderedProminent)
+            .applyButtonStyle()
         }
         .padding()
         .frame(maxHeight: .infinity)
@@ -166,7 +166,7 @@ struct WorkspaceSelectionView: View {
         } label: {
             Text("Create Workspace")
         }
-        .buttonStyle(.borderedProminent)
+        .applyButtonStyle()
         .controlSize(.large)
         .padding(.top, 8)
     }

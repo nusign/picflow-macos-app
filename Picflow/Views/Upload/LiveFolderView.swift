@@ -43,7 +43,7 @@ struct LiveFolderView: View {
                 } label: {
                     Label(buttonTitle, systemImage: buttonIcon)
                 }
-                .buttonStyle(.bordered)
+                .applySecondaryButtonStyle()
                 .controlSize(.large)
             }
             

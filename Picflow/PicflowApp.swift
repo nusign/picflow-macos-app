@@ -186,7 +186,7 @@ struct PicflowApp: App {
     }
     
     var body: some Scene {
-        Window("Picflow", id: "main") {
+        WindowGroup {
             ContentView(
                 uploader: appDelegate.uploader,
                 authenticator: appDelegate.authenticator
@@ -195,18 +195,9 @@ struct PicflowApp: App {
             .onNSWindow { window in
                 // Allow dragging the window by clicking and dragging in background areas
                 window.isMovableByWindowBackground = true
-
-                // Keep transparent titlebar and full size content
-                window.titlebarAppearsTransparent = true
-                window.styleMask.insert(.fullSizeContentView)
-
-                // Clear window background to allow SwiftUI material effects
-                window.isOpaque = false
-                window.backgroundColor = .clear
             }
         }
-        .windowToolbarStyle(.unified)
-        .defaultSize(width: 480, height: 400)
+        .defaultSize(width: 560, height: 400)
         .windowResizability(.contentSize)
         .commands {
             // Add Settings menu command

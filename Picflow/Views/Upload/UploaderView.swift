@@ -80,7 +80,7 @@ struct UploaderView: View {
             }
 
         }
-        .padding(.top, 56)
+        .padding(.top, 0)
         .padding(.horizontal, 24)
         .padding(.bottom, 12)
         .animation(.easeInOut(duration: 0.3), value: shouldShowStatusArea)
@@ -92,7 +92,9 @@ struct UploaderView: View {
                 .help("Back to Gallery Selection")
             }
 
-            ToolbarItem(placement: .principal) {Spacer()} // Spacer to push the picker to the right
+            ToolbarItem(placement: .principal) {
+                Spacer()
+            }
 
             ToolbarItem(placement: .automatic) {
                 Picker("", selection: $selectedTab) {

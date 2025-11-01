@@ -42,7 +42,7 @@ struct DropAreaView: View {
                 Button("Choose Files") {
                     selectFiles()
                 }
-                .buttonStyle(.bordered)
+                .applySecondaryButtonStyle()
                 .controlSize(.large)
             }
             

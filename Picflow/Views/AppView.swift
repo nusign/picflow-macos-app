@@ -82,7 +82,7 @@ struct AppView: View {
             }
         }
         .navigationTitle(navigationTitle)
-        .navigationSubtitle(navigationSubtitle)
+        .applyNavigationSubtitle(navigationSubtitle)
         .errorAlert() // Show error alerts from ErrorAlertManager
         .onAppear {
             setupNotificationObservers()

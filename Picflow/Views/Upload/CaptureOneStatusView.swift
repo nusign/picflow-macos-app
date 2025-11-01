@@ -104,17 +104,17 @@ struct CaptureOneStatusView: View {
             if monitor.needsPermission {
                 if monitor.hasAttemptedPermission {
                     // User has tried before and denied - need to use System Settings
-                    Button("Open System Settings") {
+                    Button("Open Settings") {
                         monitor.openAutomationSettings()
                     }
-                    .buttonStyle(.borderedProminent)
+                    .applyButtonStyle()
                     .controlSize(.large)
                 } else {
                     // First time - show permission prompt
                     Button("Allow Access") {
                         monitor.requestPermission()
                     }
-                    .buttonStyle(.borderedProminent)
+                    .applyButtonStyle()
                     .controlSize(.large)
                 }
             } else if monitor.selection.count > 0 {
@@ -137,7 +137,7 @@ struct CaptureOneStatusView: View {
                         await handleExportAndUpload()
                     }
                 }
-                .buttonStyle(.borderedProminent)
+                .applyMenuGlassEffect()
                 .controlSize(.large)
                 .disabled(uploadManager.isExporting)
             }

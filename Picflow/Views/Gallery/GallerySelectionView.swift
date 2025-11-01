@@ -69,7 +69,7 @@ struct GallerySelectionView: View {
                             
                             // Title and Create Button
                             HStack {
-                                Text("Choose Gallery")
+                                Text("Galleries")
                                     .font(.largeTitle)
                                     .fontWeight(.bold)
                                 
@@ -80,7 +80,7 @@ struct GallerySelectionView: View {
                                 }) {
                                     Text("Create Gallery")
                                 }
-                                .buttonStyle(.borderedProminent)
+                                .applyButtonStyle()
                                 .controlSize(.extraLarge)
                                 .clipShape(Capsule())
                             }
@@ -115,8 +115,9 @@ struct GallerySelectionView: View {
         }
         .toolbar {
             ToolbarItem(placement: .automatic) {
-                Spacer() // Needed to avoid empty toolbar and show rounded corners
+                Spacer()
             }
+            
             ToolbarItem(placement: .automatic) {
                 AvatarToolbarButton(authenticator: authenticator)
             }
@@ -234,7 +235,7 @@ struct CreateGallerySheet: View {
                         .frame(maxWidth: .infinity)
                 }
             }
-            .buttonStyle(.borderedProminent)
+            .applyButtonStyle()
             .controlSize(.large)
             .disabled(galleryTitle.isEmpty || isCreating)
         }
