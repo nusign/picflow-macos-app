@@ -37,6 +37,8 @@ struct GallerySelectionView: View {
                     }
                 }
                 Spacer()
+            } else if galleries.isEmpty {
+                emptyStateView
             } else {
                 ScrollView {
                     VStack(spacing: 24) {
@@ -131,6 +133,20 @@ struct GallerySelectionView: View {
                 .foregroundColor(.secondary)
         }
         .frame(maxHeight: .infinity)
+    }
+    
+    private var emptyStateView: some View {
+        VStack(spacing: 8) {
+            Text("No Galleries")
+                .font(.title2)
+                .fontWeight(.semibold)
+            
+            Text("Create a gallery to get started.")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: 200, maxHeight: .infinity)
     }
     
     private func loadGalleries() async {
