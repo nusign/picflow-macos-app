@@ -47,6 +47,12 @@ class FolderMonitoringManager: ObservableObject {
         // Stop any existing monitoring first
         stopMonitoringInternal()
         
+        // Reset tracking state when switching folders
+        // This ensures files from the new folder aren't skipped due to same-named files from previous folder
+        uploadedFiles.removeAll()
+        processingFiles.removeAll()
+        retryAttempts.removeAll()
+        
         // Set new folder and start watching
         selectedFolder = url
         startMonitoring(url)
@@ -61,7 +67,7 @@ class FolderMonitoringManager: ObservableObject {
         print("👁️ Starting to watch: \(url.path)")
         selectedFolder = url
         
-        monitor = FolderMonitor(folderURL: url) { [weak self] fileURL, eventType in
+        monitor = FolderMonitor(folderURL: url, callback: { [weak self] fileURL, eventType in
             guard let self = self else { return }
             
             // Only handle NEW files (added events)
@@ -73,7 +79,7 @@ class FolderMonitoringManager: ObservableObject {
             
             // Handle the new file
             self.handleNewFile(fileURL)
-        }
+        }, startFromNow: true)
         monitor?.startMonitoring()
         isWatching = true
         uploadState = .idle

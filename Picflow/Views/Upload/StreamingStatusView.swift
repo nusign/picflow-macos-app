@@ -10,6 +10,14 @@ import SwiftUI
 // MARK: - Public entry
 struct StreamCounterView: View {
     let count: Int
+    let folderName: String?
+    let onFolderSelect: (() -> Void)?
+    
+    init(count: Int, folderName: String? = nil, onFolderSelect: (() -> Void)? = nil) {
+        self.count = count
+        self.folderName = folderName
+        self.onFolderSelect = onFolderSelect
+    }
     
     // Style knobs you can tune
     private let cornerRadius: CGFloat = 36        // large corner radius for rounded corners
@@ -24,12 +32,7 @@ struct StreamCounterView: View {
     
     var body: some View {
         ZStack {
-            // Count in center
-            Text(formattedCount)
-                .font(.system(size: 96, weight: .regular, design: .monospaced))
-                .monospacedDigit()
-            
-            // 4 corners with gaps
+            // Corners as background decoration
             VStack(spacing: 0) {
                 // Top corners
                 HStack(spacing: 0) {
@@ -41,6 +44,7 @@ struct StreamCounterView: View {
                 .frame(height: topBottomInset + cornerRadius)
                 
                 Spacer()
+                    .frame(minHeight: 96) // Minimum height to accommodate the text
                 
                 // Bottom corners
                 HStack(spacing: 0) {
@@ -51,8 +55,26 @@ struct StreamCounterView: View {
                 }
                 .frame(height: topBottomInset + cornerRadius)
             }
+            .padding(8)
+            
+            // Count and button in VStack
+            VStack(spacing: 24) {
+                Text(formattedCount)
+                    .font(.system(size: 96, weight: .regular, design: .monospaced))
+                    .monospacedDigit()
+                
+                // Folder selection button
+                if let folderName = folderName, let onFolderSelect = onFolderSelect {
+                    Button {
+                        onFolderSelect()
+                    } label: {
+                        Label(folderName, systemImage: "folder")
+                    }
+                    .applySecondaryButtonStyle()
+                    .controlSize(.large)
+                }
+            }
         }
-        .padding(8)
         .animation(.easeInOut(duration: 0.25), value: count)
     }
     
@@ -135,7 +157,7 @@ private struct CornerView: View {
 
 
 #Preview {
-    StreamCounterView(count: 104)
+    StreamCounterView(count: 104, folderName: "My Folder", onFolderSelect: {})
         .frame(width: 600, height: 300)
         .padding()
         .background(Color.white)

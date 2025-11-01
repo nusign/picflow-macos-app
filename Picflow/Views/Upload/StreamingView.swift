@@ -69,7 +69,18 @@ struct StreamingView: View {
     // MARK: - Streaming Status View
     
     private var streamingStatusView: some View {
-        StreamCounterView(count: folderManager.totalUploaded)
+        VStack {
+            Spacer()
+            
+            StreamCounterView(
+                count: folderManager.totalUploaded,
+                folderName: folderManager.folderName,
+                onFolderSelect: selectFolder
+            )
+            
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     // MARK: - Helper Methods
@@ -79,7 +90,7 @@ struct StreamingView: View {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
-        panel.prompt = "Start Streaming"
+        panel.prompt = folderManager.selectedFolder != nil ? "Change Folder" : "Start Streaming"
         
         if panel.runModal() == .OK, let url = panel.url {
             folderManager.selectFolder(url)

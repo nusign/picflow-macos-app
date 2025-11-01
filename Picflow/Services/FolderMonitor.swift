@@ -35,14 +35,18 @@ class FolderMonitor {
         "FolderMonitor.LastEventId.\(url.path.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "unknown")"
     }
     
-    init(folderURL: URL, callback: @escaping (URL, FileEvent) -> Void) {
+    init(folderURL: URL, callback: @escaping (URL, FileEvent) -> Void, startFromNow: Bool = false) {
         self.url = folderURL
         self.callback = callback
         
-        // Restore last event ID for catch-up
-        if let savedId = UserDefaults.standard.object(forKey: lastEventIdKey) as? UInt64 {
+        // Restore last event ID for catch-up (only if not starting from now)
+        if !startFromNow, let savedId = UserDefaults.standard.object(forKey: lastEventIdKey) as? UInt64 {
             lastEventId = FSEventStreamEventId(savedId)
             print("📌 Restored FSEventStreamEventId: \(savedId)")
+        } else {
+            // Start from now - only detect new files from this point forward
+            lastEventId = FSEventStreamEventId(kFSEventStreamEventIdSinceNow)
+            print("📌 Starting from now (eventId: SinceNow)")
         }
     }
     
