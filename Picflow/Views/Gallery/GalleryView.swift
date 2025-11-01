@@ -94,7 +94,7 @@ struct GalleryView: View {
                 }
                 .help("Back to Gallery Selection")
             }
-
+            
             ToolbarItem(placement: .principal) {
                 Spacer()
             }

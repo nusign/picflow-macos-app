@@ -50,24 +50,25 @@ struct GalleryCardView: View {
                 )
                 
                 // Text overlay (title and count)
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 0) {
                     Text(gallery.displayName)
-                        .font(.headline)
-                        .foregroundColor(.white)
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
                         .lineLimit(1)
                     
                     let count = gallery.assetCount
                     Text(count > 0 ? "\(count) \(count == 1 ? "asset" : "assets")" : "No assets")
                         .font(.subheadline)
-                        .foregroundColor(.white.opacity(0.9))
+                        .foregroundColor(.secondary)
                 }
                 .padding(.horizontal, 12)
                 .padding(.bottom, 12)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: 16)
                     .strokeBorder(
                         Color.white.opacity(isHovered ? 0.3 : 0),
                         lineWidth: 2

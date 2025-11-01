@@ -38,7 +38,7 @@ struct WorkspaceCardView: View {
                 )
                 
                 // Tenant info
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 0) {
                     HStack(spacing: 8) {
                         Text(tenant.name)
                             .font(.title3)
