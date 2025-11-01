@@ -36,75 +36,50 @@ struct GallerySelectionView: View {
                 Spacer()
             } else {
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 10) {
-                            // Header inside ScrollView
-                            // VStack(spacing: 4) {
-                            //     // Workspace Indicator
-                            //     if let tenant = authenticator.tenant {
-                            //         HStack(spacing: 8) {
-                            //             // Workspace favicon or initial
-                            //             if let faviconUrl = tenant.faviconUrl, let url = URL(string: faviconUrl) {
-                            //                 AsyncImage(url: url) { image in
-                            //                     image
-                            //                         .resizable()
-                            //                         .aspectRatio(contentMode: .fill)
-                            //                 } placeholder: {
-                            //                     workspacePlaceholder(for: tenant)
-                            //                 }
-                            //                 .frame(width: 20, height: 20)
-                            //                 .background(Color.white)
-                            //                 .clipShape(RoundedRectangle(cornerRadius: 4))
-                            //             } else {
-                            //                 workspacePlaceholder(for: tenant)
-                            //             }
-                            //             
-                            //             Text(tenant.name)
-                            //                 .font(.system(size: 12, weight: .medium))
-                            //                 .foregroundColor(.secondary)
-                            //         }
-                            //     }
-                            // }
-                            //.padding()
-                            //.frame(maxWidth: .infinity)
+                    VStack(spacing: 24) {
+                        // Header: Title and Create Button
+                        HStack {
+                            Text("Galleries")
+                                .font(.largeTitle)
+                                .fontWeight(.bold)
                             
-                            // Title and Create Button
-                            HStack {
-                                Text("Galleries")
-                                    .font(.largeTitle)
-                                    .fontWeight(.bold)
-                                
-                                Spacer()
-                                
-                                Button(action: {
-                                    showCreateGallerySheet = true
-                                }) {
-                                    Text("Create Gallery")
-                                }
-                                .applyButtonStyle()
-                                .controlSize(.extraLarge)
-                                .clipShape(Capsule())
+                            Spacer()
+                            
+                            Button(action: {
+                                showCreateGallerySheet = true
+                            }) {
+                                Text("Create Gallery")
                             }
-                            .padding(.horizontal)
-                            .padding(.bottom, 8)
-                            
-                            // Gallery list
-                            VStack(spacing: 4) {
-                                ForEach(galleries, id: \.id) { gallery in
-                                    GalleryCardView(gallery: gallery) {
-                                        uploader.selectGallery(gallery)
-                                        // Track gallery selection
-                                        AnalyticsManager.shared.trackGallerySelected(gallery: gallery)
-                                        onGallerySelected()
-                                    }
+                            .applyButtonStyle()
+                            .controlSize(.large)
+                            .clipShape(Capsule())
+                        }
+                        .padding(.horizontal, 24)
+                        
+                        // Responsive Grid Layout
+                        // Uses adaptive GridItem to automatically create 2-4 columns
+                        // based on card min/max width constraints
+                        let spacing: CGFloat = 16
+                        
+                        LazyVGrid(
+                            columns: [
+                                GridItem(.adaptive(minimum: 240, maximum: 360), spacing: spacing)
+                            ],
+                            alignment: .leading,
+                            spacing: spacing
+                        ) {
+                            ForEach(galleries, id: \.id) { gallery in
+                                GalleryCardView(gallery: gallery) {
+                                    uploader.selectGallery(gallery)
+                                    // Track gallery selection
+                                    AnalyticsManager.shared.trackGallerySelected(gallery: gallery)
+                                    onGallerySelected()
                                 }
                             }
-                            .padding(16)
-                            .background(.thickMaterial, in: RoundedRectangle(cornerRadius: 32))
+                        }
+                        .padding(.horizontal, 24)
                     }
-                    .frame(maxWidth: 480)
-                    .padding(.vertical, 48)
-                    .padding(.horizontal, 24)
-                    .frame(maxWidth: .infinity) // Center the container
+                    .padding(.vertical, 24)
                 }
                 .scrollIndicators(.automatic)
             }
@@ -168,20 +143,6 @@ struct GallerySelectionView: View {
         }
         
         isLoading = false
-    }
-    
-    @ViewBuilder
-    private func workspacePlaceholder(for tenant: Tenant) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 4)
-                .fill(Color.accentColor.opacity(0.2))
-            
-            // Show initial letter of workspace name
-            Text(String(tenant.name.prefix(1)).uppercased())
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundColor(.accentColor)
-        }
-        .frame(width: 20, height: 20)
     }
 }
 
@@ -272,3 +233,4 @@ struct CreateGallerySheet: View {
         }
     }
 }
+

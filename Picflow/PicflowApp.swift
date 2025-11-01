@@ -191,7 +191,7 @@ struct PicflowApp: App {
                 uploader: appDelegate.uploader,
                 authenticator: appDelegate.authenticator
             )
-            .frame(minWidth: 560, maxWidth: 960, minHeight: 400, maxHeight: 960)
+            .frame(minWidth: 560, maxWidth: 1280, minHeight: 400, maxHeight: 960)
             .onNSWindow { window in
                 // Allow dragging the window by clicking and dragging in background areas
                 window.isMovableByWindowBackground = true

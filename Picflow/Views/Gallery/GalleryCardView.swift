@@ -1,3 +1,10 @@
+//
+//  GalleryCardView.swift
+//  Picflow
+//
+//  Square gallery card with image background, title and asset count overlay
+//
+
 import SwiftUI
 
 struct GalleryCardView: View {
@@ -7,56 +14,75 @@ struct GalleryCardView: View {
     @State private var isPressed = false
     
     var body: some View {
-        HStack(spacing: 8) {
-            // Preview Image or Fallback
-            if let imageUrl = gallery.previewImageUrl {
-                AsyncImage(url: imageUrl) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: 96, height: 64)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                } placeholder: {
-                    Rectangle()
-                        .fill(Color(nsColor: .separatorColor))
-                        .frame(width: 96, height: 64)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+        GeometryReader { geometry in
+            ZStack(alignment: .bottomLeading) {
+                // Background Image
+                Group {
+                    if let imageUrl = gallery.previewImageUrl {
+                        AsyncImage(url: imageUrl) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(width: geometry.size.width, height: geometry.size.height)
+                                    .clipped()
+                            case .failure, .empty:
+                                fallbackBackground
+                            @unknown default:
+                                fallbackBackground
+                            }
+                        }
+                    } else {
+                        fallbackBackground
+                    }
                 }
-            } else {
-                Rectangle()
-                    .fill(Color(nsColor: .separatorColor))
-                    .frame(width: 96, height: 64)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-            }
-            
-            VStack(alignment: .leading, spacing: 0) {
-                // Gallery name
-                Text(gallery.displayName)
-                    .font(.title3)
-                    .fontWeight(.semibold)
                 
-                // Show asset count
-                let count = gallery.assetCount
-                Text(count > 0 ? "\(count) \(count == 1 ? "asset" : "assets")" : "No assets")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                // Gradient overlay for text readability
+                LinearGradient(
+                    colors: [
+                        Color.black.opacity(0),
+                        Color.black.opacity(0.3),
+                        Color.black.opacity(0.6)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                
+                // Text overlay (title and count)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(gallery.displayName)
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                    
+                    let count = gallery.assetCount
+                    Text(count > 0 ? "\(count) \(count == 1 ? "asset" : "assets")" : "No assets")
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.9))
+                }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            
-            Spacer()
-            
-            // Chevron right icon (no background)
-            Image(systemName: "chevron.right")
-                .foregroundColor(.secondary)
-                .font(.system(size: 16, weight: .semibold))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(
+                        Color.white.opacity(isHovered ? 0.3 : 0),
+                        lineWidth: 2
+                    )
+            )
+            .shadow(
+                color: Color.black.opacity(isPressed ? 0.3 : (isHovered ? 0.2 : 0.1)),
+                radius: isPressed ? 8 : (isHovered ? 6 : 4),
+                y: isPressed ? 4 : (isHovered ? 3 : 2)
+            )
+            .scaleEffect(isPressed ? 0.98 : 1.0)
+            .animation(.easeInOut(duration: 0.15), value: isHovered)
+            .animation(.easeInOut(duration: 0.1), value: isPressed)
         }
-        .padding(.vertical, 8)
-        .padding(.leading, 8)
-        .padding(.trailing, 16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.primary)
-                .opacity(isPressed ? 0.1 : (isHovered ? 0.05 : 0))
-        )
+        .aspectRatio(4/3, contentMode: .fit) // 4:3 aspect ratio
         .contentShape(Rectangle())
         .onHover { hovering in
             isHovered = hovering
@@ -71,5 +97,24 @@ struct GalleryCardView: View {
                     onSelect()
                 }
         )
+    }
+    
+    private var fallbackBackground: some View {
+        ZStack {
+            // Gradient background when no image
+            LinearGradient(
+                colors: [
+                    Color.accentColor.opacity(0.3),
+                    Color.accentColor.opacity(0.5)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            
+            // Fallback icon
+            Image(systemName: "photo.stack")
+                .font(.system(size: 40))
+                .foregroundColor(.primary.opacity(0.3))
+        }
     }
 }
