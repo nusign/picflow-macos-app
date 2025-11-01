@@ -271,7 +271,7 @@ struct LiveFolderUploadStatus: View {
                 
                 Spacer()
                 
-                // Right side: Upload counter or progress percentage
+                // Right side: Cancel button or progress percentage
                 if folderManager.uploadState == .uploading && folderManager.uploadProgress > 0 {
                     // Show progress percentage while uploading
                     Text("\(Int(folderManager.uploadProgress * 100))%")
@@ -279,17 +279,21 @@ struct LiveFolderUploadStatus: View {
                         .foregroundColor(.secondary)
                         .monospacedDigit()
                 } else {
-                    // Show upload counter when idle/completed
-                    HStack(spacing: 4) {
-                        Text("Uploaded")
-                            .font(.system(size: 11))
-                            .foregroundColor(.secondary)
-
-                        Text("\(folderManager.totalUploaded)")
-                            .font(.system(size: 20, weight: .bold))
+                    // Cancel button - same style as ManualUploadStatus
+                    Button {
+                        folderManager.stopMonitoring()
+                    } label: {
+                        Text("Cancel")
+                            .font(.system(size: 13, weight: .medium))
                             .foregroundColor(.primary)
-                            .monospacedDigit()
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                Capsule()
+                                    .fill(Color.primary.opacity(0.1))
+                            )
                     }
+                    .buttonStyle(.plain)
                     .padding(.trailing, 8)
                 }
             }
@@ -305,7 +309,7 @@ struct LiveFolderUploadStatus: View {
     private var statusTitle: String {
         switch folderManager.uploadState {
         case .idle:
-            return "Live Mode Active"
+            return "Streaming Folder"
         case .uploading:
             return "Uploading"
         case .completed:

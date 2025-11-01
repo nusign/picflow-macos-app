@@ -13,7 +13,7 @@ struct StreamTabView: View {
     
     var body: some View {
         // Folder selection interface
-        LiveFolderView(folderManager: folderManager)
+        StreamingView(folderManager: folderManager)
     }
 }
 

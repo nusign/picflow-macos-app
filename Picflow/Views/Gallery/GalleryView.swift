@@ -54,7 +54,6 @@ struct GalleryView: View {
                     .frame(maxHeight: .infinity)
                 case .stream:
                     StreamTabView(folderManager: folderMonitoringManager)
-                        .frame(maxHeight: .infinity)
                 }
             }
             .padding(.bottom, 12)
