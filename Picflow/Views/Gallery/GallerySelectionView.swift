@@ -190,7 +190,7 @@ struct GalleryOptionsSheet: View {
             .padding(.top, 8)
             .padding(.bottom, 4)
             
-            // Sorting Options
+            // Sorting Options - Flat List
             GalleryMenuItem(icon: selectedSorting == .lastModified ? "checkmark" : "", title: "Last Modified") {
                 selectedSorting = .lastModified
             }
@@ -216,30 +216,16 @@ struct CreateGallerySheet: View {
     let onGalleryCreated: (GalleryDetails) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var galleryTitle = ""
-    @State private var selectedPreset: GalleryPreset = .review
     @State private var isCreating = false
     @State private var error: Error?
     @FocusState private var isFocused: Bool
     
     var body: some View {
         VStack(spacing: 24) {
-            // Header with title and close button
-            HStack {
-                Text("Create Gallery")
-                    .font(.title)
-                    .fontWeight(.bold)
-                
-                Spacer()
-                
-                Button(action: {
-                    dismiss()
-                }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-                .help("Close")
-            }
+            // Title
+            Text("Create Gallery")
+                .font(.title)
+                .fontWeight(.bold)
             
             // Input Field
             TextField("Gallery Title", text: $galleryTitle)
@@ -252,21 +238,6 @@ struct CreateGallerySheet: View {
                     }
                 }
             
-            // Preset Selection
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Preset")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                
-                Picker("Preset", selection: $selectedPreset) {
-                    ForEach(GalleryPreset.allCases, id: \.self) { preset in
-                        Text(preset.displayName).tag(preset)
-                    }
-                }
-                .pickerStyle(.menu)
-                .disabled(isCreating)
-            }
-            
             // Error Message
             if let error = error {
                 Text(error.localizedDescription)
@@ -274,27 +245,32 @@ struct CreateGallerySheet: View {
                     .foregroundColor(.red)
             }
             
-            // Create Button
-            Button(action: {
-                Task {
-                    await createGallery()
+            // Buttons Row
+            HStack(spacing: 12) {
+                Button("Cancel") {
+                    dismiss()
                 }
-            }) {
-                if isCreating {
-                    ProgressView()
-                        .controlSize(.small)
-                        .frame(maxWidth: .infinity)
-                } else {
-                    Text("Create")
-                        .frame(maxWidth: .infinity)
+                .controlSize(.large)
+                
+                Button(action: {
+                    Task {
+                        await createGallery()
+                    }
+                }) {
+                    if isCreating {
+                        ProgressView()
+                            .controlSize(.large)
+                    } else {
+                        Text("Create")
+                    }
                 }
+                .applyButtonStyle()
+                .controlSize(.large)
+                .disabled(galleryTitle.isEmpty || isCreating)
             }
-            .applyButtonStyle()
-            .controlSize(.large)
-            .disabled(galleryTitle.isEmpty || isCreating)
         }
         .padding(32)
-        .frame(width: 400)
+        .frame(width: 320)
         .onAppear {
             isFocused = true
         }
@@ -307,7 +283,7 @@ struct CreateGallerySheet: View {
         error = nil
         
         do {
-            let request = CreateGalleryRequest(title: galleryTitle, preset: selectedPreset.rawValue)
+            let request = CreateGalleryRequest(title: galleryTitle, preset: "review")
             let gallery: GalleryDetails = try await Endpoint(
                 path: "/v1/galleries",
                 httpMethod: .post,
@@ -327,25 +303,5 @@ struct CreateGallerySheet: View {
     }
 }
 
-// MARK: - Gallery Preset
-
-enum GalleryPreset: String, CaseIterable {
-    case review = "review"
-    case portfolio = "portfolio"
-    case client = "client"
-    case delivery = "delivery"
-    
-    var displayName: String {
-        switch self {
-        case .review:
-            return "Review"
-        case .portfolio:
-            return "Portfolio"
-        case .client:
-            return "Client"
-        case .delivery:
-            return "Delivery"
-        }
-    }
-}
+// MARK: - Create Gallery Sheet
 

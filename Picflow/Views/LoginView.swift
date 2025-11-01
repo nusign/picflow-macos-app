@@ -22,61 +22,62 @@ struct LoginView: View {
     }
     
     var body: some View {
-        VStack {
+        VStack(spacing: 8) {
             Spacer()
             
+            Image("Picflow-Logo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 64, height: 64)
+            
             VStack(spacing: 8) {
-                Image("Picflow-Logo")
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 64, height: 64)
-                
-                VStack(spacing: 8) {
-                    Text("Log in to Picflow")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                        .multilineTextAlignment(.center)
-                        
-                    Text("Click the button below to log in using your browser.")
-                        .font(.body)
-                        .multilineTextAlignment(.center)
-                }
-                .padding(.bottom, 8)
+                Text("Log in to Picflow")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                    .multilineTextAlignment(.center)
+                    
+                Text("Click the button below to log in using your browser.")
+                    .font(.body)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: 200)
+            .padding(.bottom, 8)
 
-                // OAuth Login Button (Production)
+            // OAuth Login Button (Production)
+            Button {
+                // Ensure we're using production environment
+                environmentManager.current = .production
+                authenticator.startLogin()
+            } label: {
+                Text("Continue")
+                    .frame(maxWidth: .infinity)
+            }
+            .applyButtonStyle()
+            .controlSize(.large)
+            .frame(maxWidth: 220)
+            
+            // Development Login Button (shown in DEBUG OR when developer mode enabled)
+            if showDevButton {
                 Button {
-                    // Ensure we're using production environment
-                    environmentManager.current = .production
+                    // Switch to development environment and login
+                    environmentManager.current = .development
                     authenticator.startLogin()
                 } label: {
-                    Text("Continue")
-                        .frame(maxWidth: .infinity)
-                }
-                .applyButtonStyle()
-                .controlSize(.large)
-                
-                // Development Login Button (shown in DEBUG OR when developer mode enabled)
-                if showDevButton {
-                    Button {
-                        // Switch to development environment and login
-                        environmentManager.current = .development
-                        authenticator.startLogin()
-                    } label: {
-                        HStack {
-                            Text("Development")
-                        }
-                        .frame(maxWidth: .infinity)
+                    HStack {
+                        Text("Development")
                     }
-                    .applySecondaryButtonStyle()
-                    .controlSize(.large)
-                    .tint(.orange)
+                    .frame(maxWidth: .infinity)
                 }
+                .applySecondaryButtonStyle()
+                .controlSize(.large)
+                .tint(.orange)
+                .frame(maxWidth: 220)
             }
-            .frame(maxWidth: 220)
-            .padding()
             
             Spacer()
         }
+        .frame(maxHeight: .infinity)
+        .padding(.bottom, 48)
         .opacity(authenticator.isCheckingSession ? 0 : 1)
         .animation(isViewReady ? .easeIn(duration: 0.3) : nil, value: authenticator.isCheckingSession)
         .onAppear {

@@ -322,10 +322,15 @@ struct GalleryMenuItem: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .frame(width: 16, height: 16)
-                    .foregroundColor(isDestructive ? .red : .primary)
-                    .opacity(icon.isEmpty ? 0 : 1)
+                if !icon.isEmpty {
+                    Image(systemName: icon)
+                        .frame(width: 16, height: 16)
+                        .foregroundColor(isDestructive ? .red : .primary)
+                } else {
+                    // Spacer to maintain layout when no icon
+                    Spacer()
+                        .frame(width: 16, height: 16)
+                }
                 
                 Text(title)
                     .font(.system(size: 13))
