@@ -63,7 +63,7 @@ struct LoginView: View {
                         authenticator.startLogin()
                     } label: {
                         HStack {
-                            Text("Log in to Dev")
+                            Text("Development")
                         }
                         .frame(maxWidth: .infinity)
                     }

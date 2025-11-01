@@ -214,17 +214,32 @@ struct GalleryOptionsSheet: View {
 struct CreateGallerySheet: View {
     @ObservedObject var uploader: Uploader
     let onGalleryCreated: (GalleryDetails) -> Void
+    @Environment(\.dismiss) private var dismiss
     @State private var galleryTitle = ""
+    @State private var selectedPreset: GalleryPreset = .review
     @State private var isCreating = false
     @State private var error: Error?
     @FocusState private var isFocused: Bool
     
     var body: some View {
         VStack(spacing: 24) {
-            // Title
-            Text("Create Gallery")
-                .font(.title)
-                .fontWeight(.bold)
+            // Header with title and close button
+            HStack {
+                Text("Create Gallery")
+                    .font(.title)
+                    .fontWeight(.bold)
+                
+                Spacer()
+                
+                Button(action: {
+                    dismiss()
+                }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Close")
+            }
             
             // Input Field
             TextField("Gallery Title", text: $galleryTitle)
@@ -236,6 +251,21 @@ struct CreateGallerySheet: View {
                         await createGallery()
                     }
                 }
+            
+            // Preset Selection
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Preset")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                
+                Picker("Preset", selection: $selectedPreset) {
+                    ForEach(GalleryPreset.allCases, id: \.self) { preset in
+                        Text(preset.displayName).tag(preset)
+                    }
+                }
+                .pickerStyle(.menu)
+                .disabled(isCreating)
+            }
             
             // Error Message
             if let error = error {
@@ -277,7 +307,7 @@ struct CreateGallerySheet: View {
         error = nil
         
         do {
-            let request = CreateGalleryRequest(title: galleryTitle, preset: "review")
+            let request = CreateGalleryRequest(title: galleryTitle, preset: selectedPreset.rawValue)
             let gallery: GalleryDetails = try await Endpoint(
                 path: "/v1/galleries",
                 httpMethod: .post,
@@ -293,6 +323,28 @@ struct CreateGallerySheet: View {
                 self.error = error
                 self.isCreating = false
             }
+        }
+    }
+}
+
+// MARK: - Gallery Preset
+
+enum GalleryPreset: String, CaseIterable {
+    case review = "review"
+    case portfolio = "portfolio"
+    case client = "client"
+    case delivery = "delivery"
+    
+    var displayName: String {
+        switch self {
+        case .review:
+            return "Review"
+        case .portfolio:
+            return "Portfolio"
+        case .client:
+            return "Client"
+        case .delivery:
+            return "Delivery"
         }
     }
 }

@@ -83,6 +83,7 @@ struct AppView: View {
         }
         .navigationTitle(navigationTitle)
         .applyNavigationSubtitle(navigationSubtitle)
+        .toolbarBackground(.hidden, for: .windowToolbar)
         .errorAlert() // Show error alerts from ErrorAlertManager
         .onAppear {
             setupNotificationObservers()

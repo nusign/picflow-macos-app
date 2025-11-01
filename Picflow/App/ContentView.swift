@@ -20,6 +20,7 @@ struct ContentView: View {
                     // Login Screen - wrap in ScrollView for transparent title bar
                     ScrollView {
                         LoginView(authenticator: authenticator)
+                            .frame(maxWidth: .infinity)
                     }
                 } else {
                     // Authenticated App - fills available space, no ScrollView needed
@@ -33,6 +34,7 @@ struct ContentView: View {
             .animation(.easeInOut(duration: 0.3), value: authenticator.isAuthenticated)
             .focusable(false) // Globally disable focus for entire content view hierarchy
             .navigationTitle("") // Use to avoid the default "Picflow" title
+            .toolbarBackground(.hidden, for: .windowToolbar)
             .toolbar {
                 ToolbarItem(placement: .automatic) {
                     Spacer()

@@ -83,7 +83,7 @@ struct GalleryView: View {
             }
 
         }
-        .padding(.top, 0)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.horizontal, 24)
         .padding(.bottom, 12)
         .animation(.easeInOut(duration: 0.3), value: shouldShowStatusArea)
