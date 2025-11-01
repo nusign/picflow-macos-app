@@ -250,6 +250,7 @@ struct CreateGallerySheet: View {
                 Button("Cancel") {
                     dismiss()
                 }
+                .applySecondaryButtonStyle()
                 .controlSize(.large)
                 
                 Button(action: {

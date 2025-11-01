@@ -73,16 +73,10 @@ struct ManualUploadStatus: View {
                         uploader.cancelAllUploads()
                     } label: {
                         Text("Cancel")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(.primary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(
-                                Capsule()
-                                    .fill(Color.primary.opacity(0.1))
-                            )
+                            .frame(minWidth: 60)
                     }
-                    .buttonStyle(.plain)
+                    .applySecondaryButtonStyle()
+                    .controlSize(.large)
                     .padding(.trailing, 8)
 
                 } else if uploader.uploadState == .uploading {
@@ -284,16 +278,10 @@ struct LiveFolderUploadStatus: View {
                         folderManager.stopMonitoring()
                     } label: {
                         Text("Cancel")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(.primary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(
-                                Capsule()
-                                    .fill(Color.primary.opacity(0.1))
-                            )
+                            .frame(minWidth: 60)
                     }
-                    .buttonStyle(.plain)
+                    .applySecondaryButtonStyle()
+                    .controlSize(.large)
                     .padding(.trailing, 8)
                 }
             }

@@ -44,7 +44,7 @@ struct StreamCounterView: View {
                 .frame(height: topBottomInset + cornerRadius)
                 
                 Spacer()
-                    .frame(minHeight: 96) // Minimum height to accommodate the text
+                    .frame(minHeight: 48) // Minimum height to accommodate the text
                 
                 // Bottom corners
                 HStack(spacing: 0) {
@@ -57,7 +57,7 @@ struct StreamCounterView: View {
             }
             .padding(8)
             
-            // Count and button in VStack
+            // Count and Folder button
             VStack(spacing: 24) {
                 Text(formattedCount)
                     .font(.system(size: 96, weight: .regular, design: .monospaced))
