@@ -15,6 +15,9 @@ struct GallerySelectionView: View {
     @State private var isLoading = false
     @State private var error: Error?
     @State private var showCreateGallerySheet = false
+    @State private var showGalleryOptionsSheet = false
+    @State private var selectedSorting: SortingOption = .lastModified
+    @State private var selectedPreset: PresetOption = .presetA
     
     var body: some View {
         VStack(spacing: 0) {
@@ -37,25 +40,6 @@ struct GallerySelectionView: View {
             } else {
                 ScrollView {
                     VStack(spacing: 24) {
-                        // Header: Title and Create Button
-                        HStack {
-                            Text("Galleries")
-                                .font(.largeTitle)
-                                .fontWeight(.bold)
-                            
-                            Spacer()
-                            
-                            Button(action: {
-                                showCreateGallerySheet = true
-                            }) {
-                                Text("Create Gallery")
-                            }
-                            .applyButtonStyle()
-                            .controlSize(.large)
-                            .clipShape(Capsule())
-                        }
-                        .padding(.horizontal, 24)
-                        
                         // Responsive Grid Layout
                         // Uses adaptive GridItem to automatically create 2-4 columns
                         // based on card min/max width constraints
@@ -93,6 +77,32 @@ struct GallerySelectionView: View {
                 Spacer()
             }
             
+            ToolbarItem(placement: .automatic) {
+                Button(action: {
+                    showGalleryOptionsSheet.toggle()
+                }) {
+                    Image(systemName: "ellipsis")
+                }
+                .help("More Options")
+                .popover(isPresented: $showGalleryOptionsSheet, arrowEdge: .bottom) {
+                    GalleryOptionsSheet(
+                        selectedSorting: $selectedSorting,
+                        selectedPreset: $selectedPreset
+                    )
+                }
+            }
+            
+            ToolbarItem(placement: .automatic) {
+                Button(action: {
+                    showCreateGallerySheet = true
+                }) {
+                    Text("Create Gallery")
+                }
+                .applyButtonStyle()
+            }
+
+
+
             ToolbarItem(placement: .automatic) {
                 AvatarToolbarButton(authenticator: authenticator)
             }
@@ -143,6 +153,59 @@ struct GallerySelectionView: View {
         }
         
         isLoading = false
+    }
+}
+
+// MARK: - Sorting and Preset Options
+
+enum SortingOption: String, CaseIterable {
+    case lastModified = "Last Modified"
+    case dateCreated = "Date Created"
+    case alphabetical = "Alphabetical"
+}
+
+enum PresetOption: String, CaseIterable {
+    case presetA = "Preset A"
+    case presetB = "Preset B"
+    case presetC = "Preset C"
+}
+
+// MARK: - Gallery Options Sheet
+
+struct GalleryOptionsSheet: View {
+    @Binding var selectedSorting: SortingOption
+    @Binding var selectedPreset: PresetOption
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Sorting Section Title
+            HStack {
+                Text("Sorting")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .textCase(.uppercase)
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 4)
+            
+            // Sorting Options
+            GalleryMenuItem(icon: selectedSorting == .lastModified ? "checkmark" : "", title: "Last Modified") {
+                selectedSorting = .lastModified
+            }
+            
+            GalleryMenuItem(icon: selectedSorting == .dateCreated ? "checkmark" : "", title: "Date Created") {
+                selectedSorting = .dateCreated
+            }
+            
+            GalleryMenuItem(icon: selectedSorting == .alphabetical ? "checkmark" : "", title: "Alphabetical") {
+                selectedSorting = .alphabetical
+            }
+        }
+        .padding(.vertical, 4)
+        .frame(width: 200)
+        .focusable(false)
     }
 }
 

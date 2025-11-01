@@ -325,6 +325,7 @@ struct GalleryMenuItem: View {
                 Image(systemName: icon)
                     .frame(width: 16, height: 16)
                     .foregroundColor(isDestructive ? .red : .primary)
+                    .opacity(icon.isEmpty ? 0 : 1)
                 
                 Text(title)
                     .font(.system(size: 13))
