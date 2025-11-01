@@ -18,6 +18,7 @@ class AnalyticsManager: ObservableObject {
     private var apiKey: String = ""
     private var baseURL: String = ""
     private var currentUserId: String?
+    private var anonymousId: String = UUID().uuidString
     
     private init() {}
     
@@ -59,35 +60,27 @@ class AnalyticsManager: ObservableObject {
     // MARK: - User Identification
     
     /// Identify user when they log in
+    /// Matches web app format: userId in traits, userType, and minimal required fields
     func identifyUser(profile: Profile, tenant: Tenant?) {
         guard isInitialized else {
             print("⚠️ Analytics not initialized, cannot identify user")
             return
         }
         
-        var traits: [String: Any] = [
-            "id": profile.id,
-            "email": profile.email,
+        // Match web app format: only include required traits
+        let traits: [String: Any] = [
+            "userType": "customer",
+            "userId": profile.id,
             "first_name": profile.firstName,
             "last_name": profile.lastName,
-            "name": profile.fullName,
+            "email": profile.email
         ]
         
-        if let avatarUrl = profile.avatarUrl {
-            traits["avatar_url"] = avatarUrl
-        }
+        // Use profile.id as userId (not email) to match web app
+        sendIdentify(userId: profile.id, traits: traits)
+        storeUserId(profile.id)
         
-        if let tenant = tenant {
-            traits["tenant_id"] = tenant.id
-            traits["tenant_name"] = tenant.name
-            traits["tenant_path"] = tenant.path
-        }
-        
-        // Use email as the unique identifier
-        sendIdentify(userId: profile.email, traits: traits)
-        storeUserId(profile.email)
-        
-        print("✅ Analytics: User identified - \(profile.email)")
+        print("✅ Analytics: User identified - \(profile.email) (ID: \(profile.id))")
     }
     
     /// Clear user identification when they log out
@@ -188,11 +181,34 @@ class AnalyticsManager: ObservableObject {
     private func sendIdentify(userId: String, traits: [String: Any]) {
         guard isInitialized else { return }
         
-        let endpoint = "\(baseURL)/identify"
+        // Customer.io CDP uses /v1/i endpoint for identify
+        let endpoint = "\(baseURL)/i"
+        
+        // Customer.io CDP expects Segment-compatible format
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let messageId = "ajs-next-\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))"
         
         let payload: [String: Any] = [
+            "type": "identify",
             "userId": userId,
-            "traits": traits
+            "traits": traits,
+            "timestamp": timestamp,
+            "integrations": [
+                "Customer.io Data Pipelines": true
+            ],
+            "anonymousId": anonymousId,
+            "context": [
+                "connection": "macos",
+                "library": [
+                    "name": "analytics.swift",
+                    "version": "custom"
+                ],
+                "userAgent": userAgent,
+                "locale": Locale.current.identifier
+            ],
+            "messageId": messageId,
+            "writeKey": apiKey,
+            "sentAt": timestamp
         ]
         
         print("📤 Sending identify for user: \(userId)")
@@ -207,22 +223,43 @@ class AnalyticsManager: ObservableObject {
         
         guard let userId = getCurrentUserId() else {
             print("⚠️ No user ID available, cannot track event: \(eventName)")
+            print("   Current userId: \(currentUserId ?? "nil")")
             return
         }
         
-        let endpoint = "\(baseURL)/track"
+        // Customer.io CDP uses /v1/t endpoint for track
+        // Match web app format exactly
+        let endpoint = "\(baseURL)/t"
+        
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let messageId = "ajs-next-\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))"
         
         let payload: [String: Any] = [
+            "timestamp": timestamp,
+            "integrations": [
+                "Customer.io Data Pipelines": true
+            ],
             "userId": userId,
-            "name": eventName,
-            "properties": properties
+            "anonymousId": anonymousId,
+            "event": eventName,  // Use "event" instead of "name"
+            "type": "track",
+            "properties": properties,
+            "context": [
+                "connection": "macos",
+                "library": [
+                    "name": "analytics.swift",
+                    "version": "custom"
+                ],
+                "userAgent": userAgent,
+                "locale": Locale.current.identifier
+            ],
+            "messageId": messageId,
+            "writeKey": apiKey,  // Include writeKey in payload
+            "sentAt": timestamp
         ]
         
-        // Track event silently unless in DEBUG mode
-        #if DEBUG
-        // Uncomment for verbose analytics logging:
-        // print("📤 Sending track event: \(eventName) for user: \(userId)")
-        #endif
+        // Always log track events for debugging
+        print("📤 Sending track event: \(eventName) for user: \(userId)")
         sendRequest(to: endpoint, payload: payload, eventName: eventName)
     }
     
@@ -237,13 +274,20 @@ class AnalyticsManager: ObservableObject {
         do {
             jsonData = try JSONSerialization.data(withJSONObject: payload, options: .prettyPrinted)
             
-            // Only log in DEBUG mode
-            #if DEBUG
-            if let jsonString = String(data: jsonData, encoding: .utf8) {
-                print("🌐 Sending \(eventName) to: \(endpoint)")
-                print("   Payload: \(jsonString)")
+            // Always log payload for track events, DEBUG only for identify
+            if eventName != "identify" {
+                if let jsonString = String(data: jsonData, encoding: .utf8) {
+                    print("🌐 Sending \(eventName) to: \(endpoint)")
+                    print("   Payload: \(jsonString)")
+                }
+            } else {
+                #if DEBUG
+                if let jsonString = String(data: jsonData, encoding: .utf8) {
+                    print("🌐 Sending \(eventName) to: \(endpoint)")
+                    print("   Payload: \(jsonString)")
+                }
+                #endif
             }
-            #endif
         } catch {
             print("❌ Failed to serialize payload for \(eventName): \(error)")
             return
@@ -291,12 +335,14 @@ class AnalyticsManager: ObservableObject {
                 }
                 
                 if httpResponse.statusCode == 200 {
-                    // Success - only log failures or retries
-                    #if DEBUG
-                    if attempt > 1 {
+                    // Log response body for debugging track events
+                    let responseBody = String(data: data, encoding: .utf8) ?? "No response body"
+                    if eventName != "identify" {
+                        print("✅ \(eventName) - HTTP 200 - Succeeded")
+                        print("   Response: \(responseBody)")
+                    } else if attempt > 1 {
                         print("✅ \(eventName) succeeded (attempt \(attempt))")
                     }
-                    #endif
                     return // Success!
                 } else if httpResponse.statusCode >= 500 {
                     // Server error - retry

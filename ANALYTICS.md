@@ -127,16 +127,14 @@ AnalyticsManager.shared.trackUploadFailed(fileName: name, error: message, galler
 
 ## User Identification
 
-Users are identified by **email address** with these traits:
-- `id` - User ID (e.g., usr_PVE7Kpt21c98J5Tx)
-- `email` - User's email (also used as userId)
+Users are identified by **user ID** (matching web app format) with these traits:
+- `userType` - Always "customer"
+- `userId` - User ID (e.g., usr_PVE7Kpt21c98J5Tx)
 - `first_name` - First name
 - `last_name` - Last name
-- `name` - Full name
-- `avatar_url` - Profile picture URL (optional)
-- `tenant_id` - Current workspace ID (optional)
-- `tenant_name` - Current workspace name (optional)
-- `tenant_path` - Current workspace path (optional)
+- `email` - User's email address
+
+**Note:** The identify payload uses `profile.id` as the `userId` field (not email), matching the web application format. Tenant-related fields (`tenant_id`, `tenant_name`, `tenant_path`) are no longer included in identify events.
 
 ## Retry Logic
 
