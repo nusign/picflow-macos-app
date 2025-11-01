@@ -12,7 +12,7 @@ import SwiftUI
 enum AppNavigationState {
     case workspaceSelection  // Workspace selection when no workspace is selected or switching
     case gallerySelection    // When workspace selected but no gallery
-    case uploader            // When gallery selected
+    case gallery             // When gallery selected
 }
 
 struct AppView: View {
@@ -27,7 +27,7 @@ struct AppView: View {
             return "Picflow"
         case .gallerySelection:
             return "Picflow"
-        case .uploader:
+        case .gallery:
             return uploader.selectedGallery?.displayName ?? "Gallery"
         }
     }
@@ -38,7 +38,7 @@ struct AppView: View {
             return "Workspaces"
         case .gallerySelection:
             return authenticator.tenant?.name ?? "Workspace"
-        case .uploader:
+        case .gallery:
             return authenticator.tenant?.name ?? "Workspace"
         }
     }
@@ -63,15 +63,15 @@ struct AppView: View {
                 GallerySelectionView(
                     uploader: uploader,
                     onGallerySelected: {
-                        navigationState = .uploader
+                        navigationState = .gallery
                     }
                 )
                 .environmentObject(authenticator)
                 .transition(.identity) // No transition animation
             }
             
-            if navigationState == .uploader {
-                UploaderView(
+            if navigationState == .gallery {
+                GalleryView(
                     uploader: uploader,
                     authenticator: authenticator,
                     onBack: {
@@ -94,9 +94,9 @@ struct AppView: View {
         }
         .onChange(of: uploader.selectedGallery) { _, newValue in
             // Sync navigation state with uploader state
-            if newValue != nil && navigationState != .uploader {
-                navigationState = .uploader
-            } else if newValue == nil && navigationState == .uploader {
+            if newValue != nil && navigationState != .gallery {
+                navigationState = .gallery
+            } else if newValue == nil && navigationState == .gallery {
                 navigationState = .gallerySelection
             }
         }

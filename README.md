@@ -112,11 +112,22 @@ SwiftUI app that uploads assets to Picflow.
 - **Networking**: API client with JWT bearer tokens and tenant headers
 - **Models**: Gallery, Asset, Tenant response structures
 
+### macOS Compatibility
+- **Deployment Target**: macOS 15.0+
+- **macOS 26 Features**: Conditionally enabled when available:
+  - Glass button styles (`.glassProminent`, `.glass`) - fallback to `.borderedProminent`/`.bordered` on macOS 15-25
+  - Navigation subtitle (`.navigationSubtitle()`) - no-op on older versions
+  - Menu glass effect (`.glassEffect()`) - fallback to `.borderedProminent` on older versions
+- **Compatibility Helpers**: Centralized in `ContentView.swift` with `applyButtonStyle()`, `applySecondaryButtonStyle()`, `applyNavigationSubtitle()`, `applyMenuGlassEffect()` extensions
+- **Transparent Title Bar**: ScrollView wrapper enables content scrolling behind title bar (macOS 26+)
+- **Window Dragging**: Manual window configuration for background dragging support
+
 ### UI Components
 - **PicflowApp**: SwiftUI app entry point with WindowGroup, window modifiers, and Settings command
 - **AppDelegate**: Lightweight lifecycle coordinator (menu bar, settings manager, authentication observers)
 - **MenuBarManager**: Extracted menu bar icon management with visibility control
 - **SettingsWindowManager**: Manages Settings window presentation as separate NSWindow
+- **ContentView**: Root SwiftUI view switcher with macOS 26 compatibility helpers
 - **AppView**: Main authenticated container with navigation state management and debug shortcuts (D/C keys)
 - **LoginView**: Modern login screen with Picflow branding, no auto-focus
 - **SettingsView**: Comprehensive settings UI with toggle switches, disabled previews (no opacity), and action buttons
@@ -340,19 +351,22 @@ Picflow uses **Sparkle 2** (industry standard) for secure automatic updates:
 - Feedback sync: Sync favorites and color labels back to photography software (Lightroom, Capture One, Photo Mechanic)
 - ~~Multipart uploads: For large files (>20MB)~~ ✅ Implemented with configurable chunk sizes
 
-## Recent Major Updates (October 2025)
+## Recent Major Updates
 
-**Release Automation & Updates**
+**November 2025 - macOS 26 Compatibility**
+- Deployment target: macOS 15.0+ with conditional macOS 26 feature detection
+- Glass button styles (`.glassProminent`, `.glass`) with fallbacks for older macOS versions
+- Navigation subtitle support when available
+- Transparent title bar with content scrolling behind toolbar
+- Compatibility helpers centralized in `ContentView.swift` for maintainability
+
+**October 2025 - Release Automation & Updates**
 - Sparkle 2 auto-updates with EdDSA signatures
 - Automated releases: `./scripts/release.sh X.Y.Z` → GitHub → S3 (~7-12 min)
 - Dual URL strategy (versioned + static) at https://picflow.com/download/macos/
-
-**Settings & Preferences**
 - Comprehensive settings window with organized sections
 - Launch at startup, menu bar visibility, auto-updates
 - Logs management with 7-day retention
-
-**UI/UX & Architecture**
 - Regular dock app + menu bar icon (was menu bar-only)
 - Pure SwiftUI WindowGroup with modern window management
 - Profile dropdown, workspace selection, Live mode toggle

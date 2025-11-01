@@ -1,5 +1,5 @@
 //
-//  UploaderView.swift
+//  GalleryView.swift
 //  Picflow
 //
 //  Created by AI Assistant
@@ -8,17 +8,17 @@
 import SwiftUI
 import AppKit
 
-enum UploaderTab: String, CaseIterable {
+enum GalleryTab: String, CaseIterable {
     case upload = "Upload"
     case stream = "Stream"
 }
 
-struct UploaderView: View {
+struct GalleryView: View {
     @ObservedObject var uploader: Uploader
     @ObservedObject var authenticator: Authenticator
     let onBack: () -> Void
     @State private var isDragging = false
-    @State private var selectedTab: UploaderTab = .upload
+    @State private var selectedTab: GalleryTab = .upload
     @State private var showGalleryMenu = false
     @State private var showDeleteAlert = false
     @State private var isDeleting = false
@@ -47,10 +47,13 @@ struct UploaderView: View {
             Group {
                 switch selectedTab {
                 case .upload:
-                    DropAreaView(isDragging: $isDragging, onFilesSelected: handleFilesSelected)
-                        .frame(maxHeight: .infinity)
+                    UploadTabView(
+                        isDragging: $isDragging,
+                        onFilesSelected: handleFilesSelected
+                    )
+                    .frame(maxHeight: .infinity)
                 case .stream:
-                    LiveFolderView(folderManager: folderMonitoringManager)
+                    StreamTabView(folderManager: folderMonitoringManager)
                         .frame(maxHeight: .infinity)
                 }
             }
@@ -98,7 +101,7 @@ struct UploaderView: View {
 
             ToolbarItem(placement: .automatic) {
                 Picker("", selection: $selectedTab) {
-                    ForEach(UploaderTab.allCases, id: \.self) { tab in
+                    ForEach(GalleryTab.allCases, id: \.self) { tab in
                         Text(tab.rawValue).tag(tab)
                     }
                 }
@@ -202,7 +205,7 @@ struct UploaderView: View {
     
     // MARK: - Tab Handling
     
-    private func handleTabChange(_ newTab: UploaderTab) {
+    private func handleTabChange(_ newTab: GalleryTab) {
         if newTab == .upload {
             // Stop watching and reset when switching away from stream tab
             folderMonitoringManager.stopMonitoring()
